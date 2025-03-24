@@ -1,0 +1,72 @@
+{
+	"$schema": "node_modules/@biomejs/biome/configuration_schema.json",
+	"organizeImports": {
+		"enabled": true
+	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": true,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineWidth": 140
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"jsxQuoteStyle": "single"
+		},
+		"globals": ["__DEV__"]
+	},
+	"files": {
+		"ignore": ["dist/*", "android/*", "ios/*"]
+	},
+	"linter": {
+		"enabled": true,
+		"ignore": ["node_modules"],
+		"rules": {
+			"all": true,
+			"complexity": {
+				"noUselessFragments": "off",
+				"noExcessiveCognitiveComplexity": "off"
+			},
+			"style": {
+				"noParameterAssign": "off",
+				"noNonNullAssertion": "off",
+				"useNamingConvention": "off",
+				"useFilenamingConvention": "off",
+				"noNamespaceImport": "off",
+				"useBlockStatements": "off",
+				"noDefaultExport": "off",
+				"noImplicitBoolean": "off",
+				"useExplicitLengthCheck": "off",
+				"noNamespace": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noArrayIndexKey": "off",
+				"noEmptyBlockStatements": "off",
+				"noConsoleLog": "off",
+				"useAwait": "off",
+				"noConsole": "off"
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "off",
+				"useImportExtensions": "off",
+				"noUndeclaredDependencies": "off",
+				"noNodejsModules": "off"
+			},
+			"performance": {
+				"noReExportAll": "off",
+				"noAccumulatingSpread": "off",
+				"noBarrelFile": "off",
+				"useTopLevelRegex": "off"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "off"
+			},
+			"nursery": {
+				"all": false
+			}
+		}
+	}
+}
