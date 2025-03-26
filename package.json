@@ -8,7 +8,10 @@
 		"ios": "expo start --ios",
 		"web": "expo start --web",
 		"test": "jest --watchAll",
-		"lint": "expo lint"
+		"check:tsc": "tsc --project tsconfig.json --noEmit",
+		"check:biome": "biome check --formatter-enabled=true --organize-imports-enabled=true --linter-enabled=true --vcs-enabled=true --write --unsafe .",
+		"check:eslint": "eslint ./",
+		"check:all": "bun check:go && bun check:tsc && bun check:biome && bun check:eslint"
 	},
 	"jest": {
 		"preset": "jest-expo"
@@ -21,6 +24,7 @@
 		"expo-av": "^15.0.2",
 		"expo-blur": "^14.0.3",
 		"expo-constants": "~17.0.8",
+		"expo-device": "^7.0.2",
 		"expo-font": "~13.0.4",
 		"expo-haptics": "^14.0.1",
 		"expo-linear-gradient": "^14.0.2",
