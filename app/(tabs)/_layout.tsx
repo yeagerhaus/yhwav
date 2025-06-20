@@ -1,8 +1,8 @@
-import { TabBarIcon } from '@/cmps/navigation/TabBarIcon';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
+import { TabBarIcon } from '@/cmps/navigation/TabBarIcon';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Helper component for cross-platform icons
 function TabIcon({ sfSymbol, ionIcon, color }: { sfSymbol: string; ionIcon: string; color: string }) {

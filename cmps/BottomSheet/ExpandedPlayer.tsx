@@ -1,10 +1,12 @@
-import { ThemedText } from '@/cmps/ThemedText';
-import { useAudio } from '@/ctx/AudioContext';
 import { Ionicons } from '@expo/vector-icons';
 // import { ThemedView } from '@/components/ThemedView';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Dimensions, Image, Pressable, ScrollView, StyleSheet, View as ThemedView } from 'react-native';
+import { ThemedText } from '@/cmps/ThemedText';
+import { useAudio } from '@/ctx/AudioContext';
+
 const { width } = Dimensions.get('window');
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function shadeColor(color: string, percent: number): string {

@@ -1,12 +1,12 @@
-import { ThemedText } from '@/cmps/ThemedText';
-import { ThemedView } from '@/cmps/ThemedView';
-import { useAudio } from '@/ctx/AudioContext';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import type { Audio } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ThemedText } from '@/cmps/ThemedText';
+import { ThemedView } from '@/cmps/ThemedView';
+import { useAudio } from '@/ctx/AudioContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayerProps) {
 	const insets = useSafeAreaInsets();
@@ -35,15 +35,7 @@ export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayer
 }
 
 // Extract the content into a separate component for reusability
-function MiniPlayerContent({
-	song,
-	isPlaying,
-	onPlayPause,
-}: {
-	song: any;
-	isPlaying: boolean;
-	onPlayPause: () => void;
-}) {
+function MiniPlayerContent({ song, isPlaying, onPlayPause }: { song: any; isPlaying: boolean; onPlayPause: () => void }) {
 	const colorScheme = useColorScheme();
 	const { playNextSong } = useAudio();
 

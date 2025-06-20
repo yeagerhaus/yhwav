@@ -1,50 +1,70 @@
-# Welcome to your Expo app 👋
+# 🎧 YH Player
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A custom music player built with Expo + React Native, optimized for iOS with native media control and local file access.
 
-## Get started
+---
 
-1. Install dependencies
+## 🛠️ Tech Stack
 
-   ```bash
-   npm install
-   ```
+- **Framework**: [Expo](https://expo.dev), [React Native](https://reactnative.dev)
+- **Routing**: [expo-router](https://expo.github.io/router/)
+- **Native Modules**:
+  - [`react-native-track-player`](https://github.com/doubleencore/react-native-track-player) for native audio playback
+  - [`react-native-get-music-files`](https://github.com/cinder92/react-native-get-music-files) for local song metadata
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Dev Tools**: Bun, TSX, Biome, Jest
 
-2. Start the app
+---
 
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 🚀 Getting Started
 
 ```bash
-npm run reset-project
-```
+bun i             # Install deps, run pod install, prebuild iOS
+bun start         # Starts Metro & launches iOS simulator
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+    First time? You may need to install the custom Expo dev client via Xcode or TestFlight.
 
-## Learn more
+📦 Dev Scripts
+Command	Description
+bun start	Starts Metro + runs iOS simulator
+bun ios	Run app in iOS simulator directly
+bun i	Install deps, pod install, prebuild (iOS)
+bun b	Build dev client via EAS (iOS only)
+bun check:all	Run TS + Biome + ESLint checks
+bun test	Run Jest test suite
+🧪 Features
 
-To learn more about developing your project with Expo, look at the following resources:
+    ✅ Load audio files from local iOS file system
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+    ✅ Play audio with native lock screen & control center integration
 
-## Join the community
+    ✅ Read song metadata from audio files
 
-Join our community of developers creating universal apps.
+    ✅ Designed to support album art, waveform visualizer, and shuffle/play features
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+📁 Directory Structure
+
+/assets        → Icons, splash, images  
+/cmps          → Custom components (Visualizer, etc.)  
+/ctx           → Zustand stores and context  
+/tools/run.ts  → Custom Bun-powered dev entry point  
+
+📋 Roadmap
+
+Add waveform visualization
+
+Enable background audio playback
+
+Support playlists and favorites
+
+    iCloud Drive import support
+
+📱 Supported Platforms
+
+    ✅ iOS (custom dev client)
+
+    ⛔ Android (planned for future)
+
+🤘 Author
+
+Made with ✨ & 🔊 by Cole Yeager

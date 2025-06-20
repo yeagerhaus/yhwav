@@ -1,14 +1,14 @@
-import { ExpandedPlayer } from '@/cmps/BottomSheet/ExpandedPlayer';
-import { ThemedView } from '@/cmps/ThemedView';
-import { useRootScale } from '@/ctx/RootScaleContext';
-import { songs } from '@/data/songs.json';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { ExpandedPlayer } from '@/cmps/BottomSheet/ExpandedPlayer';
+import { ThemedView } from '@/cmps/ThemedView';
+import { useRootScale } from '@/ctx/RootScaleContext';
+import { songs } from '@/data/songs.json';
 
 const SCALE_FACTOR = 0.83;
 const DRAG_THRESHOLD = Math.min(Dimensions.get('window').height * 0.2, 150);

@@ -1,17 +1,14 @@
-import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
-import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
-import { AudioProvider } from '@/ctx/AudioContext';
-import { useAudio } from '@/ctx/AudioContext';
-import { RootScaleProvider } from '@/ctx/RootScaleContext';
-import { useRootScale } from '@/ctx/RootScaleContext';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
+import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
+import { AudioProvider, useAudio } from '@/ctx/AudioContext';
+import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 
 function AnimatedStack() {
 	const { scale } = useRootScale();

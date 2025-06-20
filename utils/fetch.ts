@@ -1,5 +1,5 @@
-import { apiURL, appVersion } from '@/constants';
 import { type FetchRequestInit, fetch } from 'expo/fetch';
+import { apiURL, appVersion } from '@/constants';
 
 export type HttpMethods = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD';
 export type FetchOptions = {

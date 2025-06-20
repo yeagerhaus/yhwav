@@ -1,5 +1,4 @@
-import { Stack } from 'expo-router';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 
 export default function SearchStack() {
 	return (

@@ -1,6 +1,6 @@
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { CategoryCard } from '@/cmps/CategoryCard';
 import { ThemedText } from '@/cmps/ThemedText';
-import { ScrollView, StyleSheet, View } from 'react-native';
 
 const categories = [
 	{
