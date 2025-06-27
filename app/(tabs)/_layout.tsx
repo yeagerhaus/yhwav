@@ -56,7 +56,7 @@ export default function TabLayout() {
 					tabBarIcon: ({ color }) => <TabIcon sfSymbol='music.note.house' ionIcon='home-sharp' color={color} />,
 				}}
 			/>
-			<Tabs.Screen
+			{/* <Tabs.Screen
 				name='new'
 				options={{
 					title: 'New',
@@ -83,7 +83,7 @@ export default function TabLayout() {
 					title: 'Search',
 					tabBarIcon: ({ color }) => <TabIcon sfSymbol='magnifyingglass' ionIcon='search' color={color} />,
 				}}
-			/>
+			/> */}
 		</Tabs>
 	);
 }

@@ -3,6 +3,7 @@
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": true,
+		"organizeImports": true,
 		"indentStyle": "tab",
 		"indentWidth": 4,
 		"lineWidth": 140
