@@ -1,10 +1,11 @@
 import * as FileSystem from 'expo-file-system';
 import * as DocumentPicker from 'expo-document-picker';
-import { parseBuffer } from 'music-metadata-browser';
 import { Song } from '@/types/song';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_QUEUE_KEY, STORAGE_SONG_KEY, STORAGE_POSITION_KEY } from '@/ctx/AudioContext';
 import { NativeModules } from 'react-native';
+import { clearCachedTracks } from './cache';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 const { MetadataModule } = NativeModules;
 
@@ -12,13 +13,15 @@ export async function getMetadataFromNative(uri: string) {
   try {
     const meta = await MetadataModule.getMetadata(uri.replace('file://', ''));
 
-    return {
-      title: meta.title || '',
-      artist: meta.artist || '',
-      album: meta.albumName || '',
-      duration: meta.duration || 0,
-      artwork: meta.artwork || '', // optional: handle binary art later
-    };
+	return {
+	  title: meta.title || '',
+	  artist: meta.artist || '',
+	  album: meta.albumName || '',
+	  duration: meta.duration || 0,
+	  artwork: meta.artwork || '', // optional: handle binary art later
+	  trackNumber: meta.trackNumber || 0,
+	  discNumber: meta.discNumber || 1, // default to 1 if not provided
+	};
   } catch (err) {
     console.warn('Failed to read metadata:', err);
     return {};
@@ -33,66 +36,45 @@ function uint8ToBase64(uint8: Uint8Array): string {
 	return btoa(binary);
 }
 
-export const getMetadataFromUri = async (uri: string): Promise<Partial<Song>> => {
-	try {
-		const fileInfo = await FileSystem.readAsStringAsync(uri, {
-		encoding: FileSystem.EncodingType.Base64,
-		});
+export const loadTracksFromDirectory = async (): Promise<Song[]> => {
+  try {
+    const dirUri = `${FileSystem.documentDirectory}songs/`;
+    await FileSystem.makeDirectoryAsync(dirUri, { intermediates: true });
 
-		const binary = Uint8Array.from(atob(fileInfo), (c) => c.charCodeAt(0));
-		const metadata = await parseBuffer(binary, uri.split('.').pop() || '', { duration: true });
+    const files = await FileSystem.readDirectoryAsync(dirUri);
+    const audioFiles = files.filter((f) => f.endsWith('.m4a') || f.endsWith('.mp3'));
 
-		const { common, format } = metadata;
+    const songs: Song[] = await Promise.all(
+      audioFiles.map(async (filename, index) => {
+        const fullUri = dirUri + filename;
 
-		let artworkUri: string | undefined;
-		if (common.picture?.[0]) {
-		const base64Image = uint8ToBase64(common.picture[0].data);
-		artworkUri = `data:${common.picture[0].format};base64,${base64Image}`;
-		}
+        const metadata = await getMetadataFromNative(fullUri);
 
-		return {
-		title: common.title ?? '',
-		artist: common.artist ?? '',
-		album: common.album ?? '',
-		artwork: artworkUri,
-		duration: format.duration,
-		};
-	} catch (err) {
-		console.warn('Failed to read metadata from', uri, err);
-		return {};
-	}
-};
+        const artworkPath = `${FileSystem.documentDirectory}artwork/${filename}.png`;
+        const artworkExists = await FileSystem.getInfoAsync(artworkPath);
+        const artworkUri = artworkExists.exists
+          ? artworkPath
+          : 'path/to/your/local/fallback.png'; // Replace with a bundled fallback asset if needed
 
-export const loadTracksFromDirectory = async () => {
-	try {
-	const dirUri = `${FileSystem.documentDirectory}songs/`;
-	await FileSystem.makeDirectoryAsync(dirUri, { intermediates: true });
+        return {
+          id: filename, // Or hash or uuid if you prefer
+          title: metadata.title,
+          artist: metadata.artist,
+          album: metadata.album,
+          artwork: artworkUri,
+          uri: fullUri,
+          duration: metadata.duration,
+		  trackNumber: metadata.trackNumber || index + 1, // Use index as fallback track number
+		  discNumber: metadata.discNumber || 1, // Default to 1 if not provided
+        };
+      })
+    );
 
-	const files = await FileSystem.readDirectoryAsync(dirUri);
-	const audioFiles = files.filter((f) => f.endsWith('.m4a') || f.endsWith('.mp3'));
-
-	const localSongs: Song[] = await Promise.all(
-		audioFiles.map(async (filename, index) => {
-		const artworkPath = `${FileSystem.documentDirectory}artwork/${filename}.png`;
-		const artworkExists = await FileSystem.getInfoAsync(artworkPath);
-		const artworkUri = artworkExists.exists
-			? artworkPath
-			: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Speaker_Icon.svg';
-
-		return {
-			id: filename,
-			title: filename.replace(/\.[^/.]+$/, ''),
-			artist: 'Unknown Artist',
-			artwork: artworkUri,
-			uri: dirUri + filename,
-		};
-		})
-	);
-
-	return localSongs;
-	} catch (err) {
-	console.error('Error loading songs from local directory:', err);
-	}
+    return songs;
+  } catch (err) {
+    console.error('Error loading songs from local directory:', err);
+    return [];
+  }
 };
 
 export const pickAndImportSongs = async (): Promise<Song[]> => {
@@ -129,8 +111,12 @@ export const pickAndImportSongs = async (): Promise<Song[]> => {
 			id: (Date.now() + index).toString(),
 			title: metadata.title || filename.replace(/\.[^/.]+$/, ''),
 			artist: metadata.artist || 'Unknown Artist',
+			album: metadata.album || 'Unknown Album',
 			artwork: artworkUri,
 			uri: destination,
+			duration: metadata.duration || 0,
+			trackNumber: metadata.trackNumber || index + 1, // Use index as fallback track number
+			discNumber: metadata.discNumber || 1,
 		});
 		}
 
@@ -144,26 +130,33 @@ export const pickAndImportSongs = async (): Promise<Song[]> => {
 	}
 };
 
-
 export const deleteAllSongs = async () => {
 	try {
-	const dirUri = `${FileSystem.documentDirectory}songs/`;
-	const files = await FileSystem.readDirectoryAsync(dirUri);
+		const dirUri = `${FileSystem.documentDirectory}songs/`;
+		const files = await FileSystem.readDirectoryAsync(dirUri);
 
-	for (const file of files) {
+		for (const file of files) {
 		await FileSystem.deleteAsync(dirUri + file, { idempotent: true });
-	}
+		}
 
-	await FileSystem.deleteAsync(`${FileSystem.documentDirectory}artwork/`, { idempotent: true });
-	await AsyncStorage.multiRemove([
-		STORAGE_QUEUE_KEY,
-		STORAGE_SONG_KEY,
-		STORAGE_POSITION_KEY,
-	]);
+		await FileSystem.deleteAsync(`${FileSystem.documentDirectory}artwork/`, { idempotent: true });
 
-	console.log('All local songs deleted.');
-	return
+		// Clear audio playback state
+		await AsyncStorage.multiRemove([
+			STORAGE_QUEUE_KEY,
+			STORAGE_SONG_KEY,
+			STORAGE_POSITION_KEY,
+			'ARTIST_INFO_CACHE',
+		]);
+
+		// Clear track cache
+		await clearCachedTracks();
+
+		// Optional: if you're inside a component, clear Zustand store too:
+		useLibraryStore.getState().setTracks([]);
+
+		console.log('All local songs deleted.');
 	} catch (err) {
-	console.error('Failed to delete songs:', err);
+		console.error('Failed to delete songs:', err);
 	}
 };

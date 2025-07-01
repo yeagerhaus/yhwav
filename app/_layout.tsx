@@ -9,6 +9,8 @@ import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
 import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
 import { AudioProvider, useAudio } from '@/ctx/AudioContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { loadCachedOrScanSongs } from '@/utils';
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -61,9 +63,17 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
+	const { setTracks } = useLibraryStore();
 
 	useEffect(() => {
 		SplashScreen.hideAsync();
+		
+		const init = async () => {
+			const tracks = await loadCachedOrScanSongs();
+			setTracks(tracks);
+		};
+
+		init();
 	}, []);
 
 	return (
