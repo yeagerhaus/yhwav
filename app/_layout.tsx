@@ -10,7 +10,7 @@ import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
 import { AudioProvider, useAudio } from '@/ctx/AudioContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { loadCachedOrScanSongs } from '@/utils';
+import { fetchAllTracks, loadCachedOrScanSongs } from '@/utils';
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -69,6 +69,7 @@ export default function RootLayout() {
 		SplashScreen.hideAsync();
 		
 		const init = async () => {
+			await fetchAllTracks();
 			const tracks = await loadCachedOrScanSongs();
 			setTracks(tracks);
 		};

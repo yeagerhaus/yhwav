@@ -9,9 +9,6 @@ return (
 			name='(artists)'
 			options={{
 				title: 'Artists',
-				headerBackTitle: 'Back',
-				headerTintColor: '#FA2D48',
-				headerTitleStyle: { color: '#FFFFFF' },
 				header: () => <InternalHeader title='Artists' />,
 			}}
 		/>
@@ -19,9 +16,6 @@ return (
 			name='(albums)'
 			options={{
 				title: 'Albums',
-				headerBackTitle: 'Back',
-				headerTintColor: '#FA2D48',
-				headerTitleStyle: { color: '#FFFFFF' },
 				header: () => <InternalHeader title='Albums' />,
 			}}
 		/>
@@ -29,9 +23,6 @@ return (
 			name='songs'
 			options={{
 				title: 'Songs',
-				headerBackTitle: 'Back',
-				headerTintColor: '#FA2D48',
-				headerTitleStyle: { color: '#FFFFFF' },
 				header: () => <InternalHeader title='Songs' />,
 			}}
 		/>
@@ -39,9 +30,6 @@ return (
 			name='(playlists)'
 			options={{
 				title: 'Playlists',
-				headerBackTitle: 'Back',
-				headerTintColor: '#FA2D48',
-				headerTitleStyle: { color: '#FFFFFF' },
 				header: () => <InternalHeader title='Playlists' />,
 			}}
 		/>

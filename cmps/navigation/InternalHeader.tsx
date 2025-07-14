@@ -1,6 +1,7 @@
 import { SafeAreaView, StyleSheet, useColorScheme, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { BlurView } from 'expo-blur';
+import { ThemedText } from '../ThemedText';
 
 export interface InternalHeaderProps {
 	title: string;
@@ -40,34 +41,44 @@ export function InternalHeader({ title }: InternalHeaderProps) {
 	const colorScheme = useColorScheme();
 
 	return (
-		<SafeAreaView
+		<View
 			style={{
+				position: 'absolute',
+				top: 0,
 				alignItems: 'center',
 				backgroundColor: 'transparent',
+				width: '100%',
 			}}
 		>
 			<BlurView
 				tint={colorScheme === 'dark' ? 'systemThickMaterialDark' : 'systemThickMaterialLight'}
-				intensity={80}
-				style={StyleSheet.absoluteFill}
+				intensity={40}
+				style={{
+					width: '100%',
+					height: 90,
+					paddingVertical: 12,
+					paddingHorizontal: 16,
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'flex-end',
+				}}
 			>
 				<View
 					style={{
-						height: 60,
-					paddingVertical: 12,
-					paddingHorizontal: 16,
-
+					// paddingVertical: 12,
+					// paddingHorizontal: 16,
 					alignItems: 'center',
+					justifyContent: 'center',
 					width: '100%',
-						flexDirection: 'row',
+					flexDirection: 'row',
 					}}
 				>
-					<Text style={{ textAlign: 'center',	fontSize: 16, fontWeight: '700', lineHeight: 24, letterSpacing: 0.4 }}>
+					<ThemedText style={{ textAlign: 'center',	fontSize: 16, fontWeight: '700', lineHeight: 24, letterSpacing: 0.4 }}>
 						{title}
-					</Text>
+					</ThemedText>
 				</View>
 
 			</BlurView>
-		</SafeAreaView>
+		</View>
 	);
 }

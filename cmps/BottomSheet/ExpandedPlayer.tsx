@@ -70,7 +70,7 @@ return (
 		start={{ x: 0, y: 0 }}
 		end={{ x: 1, y: 0 }}
 	>
-		{/* <BlurView intensity={100} style={[styles.rootContainer, { paddingTop: insets.top }]} tint="dark"> */}
+		{/* <BlurView intensity={20} style={{ flex: 1 }} tint="dark"> */}
 			<ThemedView style={styles.dragHandleContainer}>
 				<ThemedView style={styles.dragHandle} />
 			</ThemedView>

@@ -4,22 +4,28 @@ import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native
 import ParallaxScrollView from '@/cmps/ParallaxScrollView';
 import { ThemedView } from '@/cmps/ThemedView';
 import { deleteAllSongs, pickAndImportSongs } from '@/utils';
-import { Song } from '@/types/song';
 import { useRouter } from 'expo-router';
 import { DynamicItem } from '@/cmps';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 const SECTIONS = [
-	// { title: 'Playlists', route: '(library)/(playlists)' },
-	{ title: 'Artists', route: '(library)/(artists)' },
-	{ title: 'Albums', route: '(library)/(albums)' },
-	{ title: 'Songs', route: '(library)/songs' },
+	{ title: 'Playlists', route: '/(tabs)/(library)/(playlists)' },
+	{ title: 'Artists', route: '/(tabs)/(library)/(artists)' },
+	{ title: 'Albums', route: '/(tabs)/(library)/(albums)' },
+	{ title: 'Songs', route: '/(tabs)/(library)/songs' },
 ];
 
 export default function LibraryScreen() {
 	const router = useRouter();
 
 	const handleImport = async () => {
-		await pickAndImportSongs();
+		const importedSongs = await pickAndImportSongs();
+
+		if (importedSongs.length > 0) {
+			const currentTracks = useLibraryStore.getState().tracks;
+			const updated = [...currentTracks, ...importedSongs];
+			useLibraryStore.getState().setTracks(updated);
+		}
 	};
 
 	return (

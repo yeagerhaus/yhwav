@@ -35,38 +35,40 @@ export default function ArtistDetailScreen() {
 	}, [artistId, tracks]);
 
 
-  return (
-    <ThemedView style={{ flex: 1}}>
-        {/* <ParallaxScrollView
-          album
-          headerBackgroundColor={{ light: bgColor, dark: bgColor }}
-          // @ts-ignore
-          headerImage={
-          artwork ? (
-            <Image
-            source={{ uri: artwork }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-            />
-          ) : undefined
-          }
-        > */}
-      <ThemedText style={styles.header}>{decodeURIComponent(artistId)}</ThemedText>
+return (
+	<ThemedView style={{ flex: 1}}>
+		{/* <ParallaxScrollView
+		album
+		headerBackgroundColor={{ light: bgColor, dark: bgColor }}
+		// @ts-ignore
+		headerImage={
+		artwork ? (
+			<Image
+			source={{ uri: artwork }}
+			style={{ width: '100%', height: '100%' }}
+			resizeMode="cover"
+			/>
+		) : undefined
+		}
+		> */}
+	<ThemedText style={styles.header}>{decodeURIComponent(artistId)}</ThemedText>
 
-      <FlatList
-			data={albums}
-			keyExtractor={(item) => item.album}
-			renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
-			contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-      />
-    {/* </ParallaxScrollView> */}
-    </ThemedView>
-  );
+	<FlatList
+		data={albums}
+		keyExtractor={(item) => item.album}
+		numColumns={2}
+		contentContainerStyle={{ paddingBottom: 80 }}
+		columnWrapperStyle={{ justifyContent: 'space-between' }}
+		renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
+	/>
+	{/* </ParallaxScrollView> */}
+	</ThemedView>
+);
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, marginHorizontal: 16 },
-  albumSection: { marginBottom: 24 },
-  albumTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
+	container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, marginHorizontal: 16 },
+	albumSection: { marginBottom: 24 },
+	albumTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
 });

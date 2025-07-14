@@ -9,6 +9,15 @@ import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 const { MetadataModule } = NativeModules;
 
+function normalizeArtist(str: string) {
+  return str?.split(';')[0].trim().toLowerCase() || 'unknown artist';
+}
+
+function extractTrackNumberFromFilename(filename: string): number | null {
+	const match = filename.match(/^(\d{1,2})[\s._-]/); // e.g. 01 - Song.mp3 or 01_Song.mp3
+	return match ? parseInt(match[1], 10) : null;
+}
+
 export async function getMetadataFromNative(uri: string) {
   try {
     const meta = await MetadataModule.getMetadata(uri.replace('file://', ''));
@@ -36,6 +45,8 @@ function uint8ToBase64(uint8: Uint8Array): string {
 	return btoa(binary);
 }
 
+// ⚠️ This should only be called during app boot (RootLayout).
+// All other screens should access tracks via Zustand: useLibraryStore().tracks
 export const loadTracksFromDirectory = async (): Promise<Song[]> => {
   try {
     const dirUri = `${FileSystem.documentDirectory}songs/`;
@@ -49,6 +60,7 @@ export const loadTracksFromDirectory = async (): Promise<Song[]> => {
         const fullUri = dirUri + filename;
 
         const metadata = await getMetadataFromNative(fullUri);
+		const parsedTrackNum = extractTrackNumberFromFilename(filename);
 
         const artworkPath = `${FileSystem.documentDirectory}artwork/${filename}.png`;
         const artworkExists = await FileSystem.getInfoAsync(artworkPath);
@@ -57,15 +69,16 @@ export const loadTracksFromDirectory = async (): Promise<Song[]> => {
           : 'path/to/your/local/fallback.png'; // Replace with a bundled fallback asset if needed
 
         return {
-          id: filename, // Or hash or uuid if you prefer
-          title: metadata.title,
-          artist: metadata.artist,
-          album: metadata.album,
-          artwork: artworkUri,
-          uri: fullUri,
-          duration: metadata.duration,
-		  trackNumber: metadata.trackNumber || index + 1, // Use index as fallback track number
-		  discNumber: metadata.discNumber || 1, // Default to 1 if not provided
+			id: filename, // Or hash or uuid if you prefer
+			title: metadata.title,
+			artist: metadata.artist,
+			artistKey: normalizeArtist(metadata.artist),
+			album: metadata.album,
+			artwork: artworkUri,
+			uri: fullUri,
+			duration: metadata.duration,
+			trackNumber: parsedTrackNum ?? metadata.trackNumber ?? index + 1, // Use index as fallback track number
+			discNumber: metadata.discNumber ?? 1, // Default to 1 if not provided
         };
       })
     );
@@ -97,6 +110,7 @@ export const pickAndImportSongs = async (): Promise<Song[]> => {
 
 		await FileSystem.copyAsync({ from: file.uri, to: destination });
 		const metadata = await getMetadataFromNative(destination);
+		const parsedTrackNum = extractTrackNumberFromFilename(filename);
 
 		let artworkUri = 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Speaker_Icon.svg';
 		if (metadata.artwork) {
@@ -111,12 +125,13 @@ export const pickAndImportSongs = async (): Promise<Song[]> => {
 			id: (Date.now() + index).toString(),
 			title: metadata.title || filename.replace(/\.[^/.]+$/, ''),
 			artist: metadata.artist || 'Unknown Artist',
+			artistKey: normalizeArtist(metadata.artist),
 			album: metadata.album || 'Unknown Album',
 			artwork: artworkUri,
 			uri: destination,
-			duration: metadata.duration || 0,
-			trackNumber: metadata.trackNumber || index + 1, // Use index as fallback track number
-			discNumber: metadata.discNumber || 1,
+			duration: metadata.duration ?? 0,
+			trackNumber: parsedTrackNum ?? metadata.trackNumber ?? index + 1, // Use index as fallback track number
+			discNumber: metadata.discNumber ?? 1,
 		});
 		}
 
