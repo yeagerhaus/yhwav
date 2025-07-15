@@ -14,7 +14,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 	const randomScales = useRef(new Array(BAR_COUNT).fill(0).map(() => 0.3 + Math.random() * 0.4)).current;
 
 	useEffect(() => {
-		let prominentInterval: NodeJS.Timeout;
+		let prominentInterval: ReturnType<typeof setInterval>;
 
 		if (isPlaying) {
 			prominentInterval = setInterval(() => {

@@ -4,18 +4,8 @@ import { Platform, StyleSheet } from 'react-native';
 import { TabBarIcon } from '@/cmps/navigation/TabBarIcon';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-// Helper component for cross-platform icons
 function TabIcon({ sfSymbol, ionIcon, color }: { sfSymbol: string; ionIcon: string; color: string }) {
-	// if (Platform.OS === 'ios') {
-	//   return (
-	//     <SymbolView
-	//       name={sfSymbol}
-	//       size={24}
-	//       tintColor={color}
-	//       fallback={<TabBarIcon name={ionIcon} color={color} />}
-	//     />
-	//   );
-	// }
+	// @ts-ignore
 	return <TabBarIcon name={ionIcon} color={color} />;
 }
 
@@ -35,7 +25,7 @@ export default function TabLayout() {
 					}),
 					borderTopWidth: 0,
 					elevation: 0,
-					height: 94,
+					height: 80,
 					paddingTop: 0,
 					paddingBottom: 40,
 				},
@@ -50,35 +40,14 @@ export default function TabLayout() {
 			}}
 		>
 			<Tabs.Screen
-				name='index'
-				options={{
-					title: 'Home',
-					tabBarIcon: ({ color }) => <TabIcon sfSymbol='music.note.house' ionIcon='home-sharp' color={color} />,
-				}}
-			/>
-			<Tabs.Screen
-				name='new'
-				options={{
-					title: 'New',
-					tabBarIcon: ({ color }) => <TabIcon sfSymbol='square.grid.2x2.fill' ionIcon='apps-sharp' color={color} />,
-				}}
-			/>
-			<Tabs.Screen
-				name='radio'
-				options={{
-					title: 'Radio',
-					tabBarIcon: ({ color }) => <TabIcon sfSymbol='dot.radiowaves.left.and.right' ionIcon='radio-outline' color={color} />,
-				}}
-			/>
-			<Tabs.Screen
-				name='library'
+				name='(library)'
 				options={{
 					title: 'Library',
 					tabBarIcon: ({ color }) => <TabIcon sfSymbol='music.note.list' ionIcon='musical-notes' color={color} />,
 				}}
 			/>
 			<Tabs.Screen
-				name='search'
+				name='(search)'
 				options={{
 					title: 'Search',
 					tabBarIcon: ({ color }) => <TabIcon sfSymbol='magnifyingglass' ionIcon='search' color={color} />,

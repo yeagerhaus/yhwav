@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { Audio } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Image, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,7 +123,6 @@ const styles = StyleSheet.create({
 interface MiniPlayerProps {
 	onPress: () => void;
 	song: any;
-	sound?: Audio.Sound | null;
 	isPlaying: boolean;
 	onPlayPause: () => void;
 }

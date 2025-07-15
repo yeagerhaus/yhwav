@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import AVFAudio
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -13,6 +14,13 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+      try AVAudioSession.sharedInstance().setActive(true)
+    } catch {
+      print("Failed to set audio session category: \(error)")
+    }
+    
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()

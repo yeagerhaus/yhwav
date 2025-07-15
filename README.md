@@ -26,12 +26,12 @@ bun start         # Starts Metro & launches iOS simulator
 
 📦 Dev Scripts
 Command	Description
-bun start	Starts Metro + runs iOS simulator
-bun ios	Run app in iOS simulator directly
-bun i	Install deps, pod install, prebuild (iOS)
-bun b	Build dev client via EAS (iOS only)
-bun check:all	Run TS + Biome + ESLint checks
-bun test	Run Jest test suite
+bun start	    Starts Metro + runs iOS simulator
+bun ios	        Run app in iOS simulator directly
+bun prep        Install deps, pod install, prebuild (iOS)
+bun b	        Build dev client via EAS (iOS only)
+bun check:all   Run TS + Biome + ESLint checks
+bun test	    Run Jest test suite
 🧪 Features
 
     ✅ Load audio files from local iOS file system

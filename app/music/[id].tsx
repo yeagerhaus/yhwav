@@ -8,7 +8,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTi
 import { ExpandedPlayer } from '@/cmps/BottomSheet/ExpandedPlayer';
 import { ThemedView } from '@/cmps/ThemedView';
 import { useRootScale } from '@/ctx/RootScaleContext';
-import { songs } from '@/data/songs.json';
+import { useAudio } from '@/ctx/AudioContext';
 
 const SCALE_FACTOR = 0.83;
 const DRAG_THRESHOLD = Math.min(Dimensions.get('window').height * 0.2, 150);
@@ -17,6 +17,7 @@ const DIRECTION_LOCK_ANGLE = 45; // Angle in degrees to determine horizontal vs 
 const ENABLE_HORIZONTAL_DRAG_CLOSE = false;
 
 export default function MusicScreen() {
+	const { position, duration, seekTo } = useAudio();
 	const { id } = useLocalSearchParams();
 	const router = useRouter();
 	const { setScale } = useRootScale();
@@ -32,7 +33,7 @@ export default function MusicScreen() {
 	const isScrolling = useSharedValue(false);
 
 	const numericId = typeof id === 'string' ? Number.parseInt(id, 10) : Array.isArray(id) ? Number.parseInt(id[0], 10) : 0;
-	const _song = songs.find((s) => s.id === numericId) || songs[0];
+	// const _song = songs.find((s) => s.id === numericId) || songs[0];
 
 	const handleHapticFeedback = useCallback(() => {
 		try {
@@ -252,22 +253,11 @@ export default function MusicScreen() {
 	}, []);
 
 	return (
-		<ThemedView style={styles.container}>
+		<ThemedView style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<StatusBar animated={true} style={statusBarStyle.value} />
-			<Animated.View style={[styles.modalContent, animatedStyle]}>
+			<Animated.View style={[{ flex: 1, backgroundColor: 'transparent' }, animatedStyle]}>
 				<ExpandedPlayer scrollComponent={ScrollComponent} />
 			</Animated.View>
 		</ThemedView>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: 'transparent',
-	},
-	modalContent: {
-		flex: 1,
-		backgroundColor: 'transparent',
-	},
-});

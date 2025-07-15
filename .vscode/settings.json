@@ -36,24 +36,98 @@
 		Used to identify the VS Code window by color (for when multiple windows are open) 
 		Feel free to change colors if you want, but please don't remove it altogether
 	*/
-	"peacock.remoteColor": "#3E3EBC",
+	"peacock.remoteColor": "#FA2D48",
 	"workbench.colorCustomizations": {
-		"activityBar.activeBackground": "#6262F5",
-		"activityBar.background": "#4E4EDE",
+		// Activity Bar
+		"activityBar.activeBackground": "#FA2D48",
+		"activityBar.background": "#B0172E",
 		"activityBar.foreground": "#FFFFFF",
 		"activityBar.inactiveForeground": "#FFFFFF99",
-		"activityBarBadge.background": "#2E2E96",
+		"activityBarBadge.background": "#FF4A63",
 		"activityBarBadge.foreground": "#FFFFFF",
-		"commandCenter.border": "#FFFFFF99",
-		"sash.hoverBorder": "#6262F5",
-		"statusBar.background": "#3E3EBC",
-		"statusBar.foreground": "#FFFFFF",
-		"statusBarItem.hoverBackground": "#6262F5",
-		"statusBarItem.remoteBackground": "#3E3EBC",
-		"statusBarItem.remoteForeground": "#FFFFFF",
-		"titleBar.activeBackground": "#3E3EBC",
+
+		// Title Bar
+		"titleBar.activeBackground": "#1B0C0F",
 		"titleBar.activeForeground": "#FFFFFF",
-		"titleBar.inactiveBackground": "#3E3EBC99",
-		"titleBar.inactiveForeground": "#FFFFFF99"
-	}
+		"titleBar.inactiveBackground": "#1B0C0F99",
+		"titleBar.inactiveForeground": "#FFFFFF99",
+
+		// Status Bar
+		"statusBar.background": "#2A1116",
+		"statusBar.foreground": "#FFFFFF",
+		"statusBarItem.hoverBackground": "#FA2D48",
+		"statusBarItem.remoteBackground": "#2A1116",
+		"statusBarItem.remoteForeground": "#FFFFFF",
+
+		// Editor
+		"editor.background": "#1B0C0F",
+		"editor.foreground": "#FFFFFF",
+		"editor.lineHighlightBackground": "#FA2D4811",
+		"editorCursor.foreground": "#FA2D48",
+		"editor.selectionBackground": "#FA2D4822",
+		"editor.inactiveSelectionBackground": "#FA2D4811",
+		"editorIndentGuide.activeBackground": "#FA2D4844",
+		"editorIndentGuide.background": "#FA2D4811",
+
+		// Sidebar
+		"sideBar.background": "#2A1116",
+		"sideBar.foreground": "#FFFFFF",
+		"sideBar.border": "#FA2D4811",
+		"sideBarSectionHeader.background": "#1B0C0F",
+		"sideBarSectionHeader.foreground": "#FFFFFF",
+
+		// Panels (e.g. Terminal, Output, Problems)
+		"panel.background": "#2A1116",
+		"panel.border": "#FA2D4811",
+		"panelTitle.activeBorder": "#FA2D48",
+		"panelTitle.activeForeground": "#FFFFFF",
+		"panelTitle.inactiveForeground": "#FFFFFF99",
+
+		// Tabs
+		"tab.activeBackground": "#2A1116",
+		"tab.inactiveBackground": "#1B0C0F",
+		"tab.activeForeground": "#FFFFFF",
+		"tab.inactiveForeground": "#FFFFFF99",
+		"tab.hoverBackground": "#FA2D48",
+		"tab.border": "#1B0C0F",
+
+		// Scrollbar
+		"scrollbarSlider.background": "#FA2D4822",
+		"scrollbarSlider.hoverBackground": "#FA2D4433",
+		"scrollbarSlider.activeBackground": "#FA2D4466",
+
+		// Dropdowns, Inputs
+		"dropdown.background": "#1B0C0F",
+		"dropdown.foreground": "#FFFFFF",
+		"input.background": "#1B0C0F",
+		"input.foreground": "#FFFFFF",
+		"input.border": "#FA2D48",
+		"input.placeholderForeground": "#FFFFFF66",
+
+		// Lists
+		"list.hoverBackground": "#FA2D4822",
+		"list.activeSelectionBackground": "#FA2D4822",
+		"list.inactiveSelectionBackground": "#FA2D4811",
+		"list.focusBackground": "#FA2D4822",
+
+		// Terminal
+		"terminal.background": "#1B0C0F",
+		"terminal.foreground": "#FFFFFF",
+		"terminal.ansiBlack": "#1B0C0F",
+		"terminal.ansiRed": "#FA2D48",
+		"terminal.ansiGreen": "#2EFFA0",
+		"terminal.ansiYellow": "#FFFA70",
+		"terminal.ansiBlue": "#6EBEFF",
+		"terminal.ansiMagenta": "#FF70E5",
+		"terminal.ansiCyan": "#70FFFF",
+		"terminal.ansiWhite": "#FFFFFF",
+		"terminal.ansiBrightBlack": "#666666",
+		"terminal.ansiBrightRed": "#FF4A63",
+		"terminal.ansiBrightGreen": "#70FFC1",
+		"terminal.ansiBrightYellow": "#FFFFB0",
+		"terminal.ansiBrightBlue": "#A1D2FF",
+		"terminal.ansiBrightMagenta": "#FFA3F1",
+		"terminal.ansiBrightCyan": "#A3FFFF",
+		"terminal.ansiBrightWhite": "#FFFFFF"
+		}
 }

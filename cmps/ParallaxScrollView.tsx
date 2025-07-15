@@ -9,34 +9,44 @@ const HEADER_HEIGHT = 300;
 type Props = PropsWithChildren<{
 	headerImage: ReactElement;
 	headerBackgroundColor: { dark: string; light: string };
+	album?: boolean;
 }>;
 
-export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor }: Props) {
+export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor, album }: Props) {
 	const colorScheme = useColorScheme() ?? 'light';
 	const scrollRef = useAnimatedRef<Animated.ScrollView>();
 	const scrollOffset = useScrollViewOffset(scrollRef);
 
 	const headerAnimatedStyle = useAnimatedStyle(() => {
 		return {
-			transform: [
-				{
-					translateY: interpolate(
-						scrollOffset.value,
-						[-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-						[-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
-					),
-				},
-				{
-					scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
-				},
-			],
+		transform: [
+			{
+			translateY: interpolate(
+				scrollOffset.value,
+				[-HEADER_HEIGHT, 0, HEADER_HEIGHT],
+				[-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
+			),
+			},
+			{
+			scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
+			},
+		],
 		};
 	});
+
+	const headerHeight = album ? 400 : HEADER_HEIGHT;
 
 	return (
 		<ThemedView style={styles.container}>
 			<Animated.ScrollView ref={scrollRef} scrollEventThrottle={16}>
-				<Animated.View style={[styles.header, { backgroundColor: headerBackgroundColor[colorScheme] }, headerAnimatedStyle]}>
+				<Animated.View style={[
+					{
+						height: headerHeight,
+						overflow: 'hidden',
+						backgroundColor: headerBackgroundColor[colorScheme],
+					},
+					headerAnimatedStyle,
+				]}>
 					{headerImage}
 				</Animated.View>
 				<ThemedView style={styles.content}>{children}</ThemedView>
