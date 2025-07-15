@@ -9,6 +9,7 @@ interface GridItemProps {
     album: string;
     artwork: string;
     count: number;
+    artist: string;
   };
 }
 
@@ -26,6 +27,7 @@ export default function GridItem({ item }: GridItemProps) {
     >
       <Image source={{ uri: item.artwork }} style={styles.artwork} />
       <Text style={styles.name} numberOfLines={1}>{item.album}</Text>
+      <Text style={styles.artist} numberOfLines={1}>{item.artist}</Text>
       <Text style={styles.count}>{item.count} songs</Text>
     </Pressable>
   );
@@ -51,8 +53,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: itemSize,
   },
+  artist: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: itemSize,
+  },
   count: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#666',
     textAlign: 'center',
   },

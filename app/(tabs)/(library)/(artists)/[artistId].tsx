@@ -1,74 +1,54 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
-import { groupBy, map } from 'lodash';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { ThemedText, DynamicItem, ThemedView } from '@/cmps';
-import ParallaxScrollView from '@/cmps/ParallaxScrollView';
 
 export default function ArtistDetailScreen() {
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
-	const tracks = useLibraryStore((s) => s.tracks); 
-	const [albums, setAlbums] = useState<
-		{ album: string; songs: typeof tracks }[]
-	>([]);
+	const artistKey = decodeURIComponent(artistId ?? '');
 
-	useEffect(() => {
-		if (!artistId || !tracks.length) return;
+	const artist = useLibraryStore((s) => s.artistsByName[artistKey]);
+	const albumsById = useLibraryStore((s) => s.albumsById);
 
-		const decodedArtist = decodeURIComponent(artistId);
-		const filtered = tracks.filter((t) => t.artist?.split(';')[0].trim() === decodedArtist);
+	if (!artist) {
+		return (
+			<ThemedView style={styles.container}>
+				<ThemedText style={styles.header}>Artist not found</ThemedText>
+			</ThemedView>
+		);
+	}
 
-		const grouped = groupBy(filtered, 'album');
-		const structured = map(grouped, (songs, album) => ({
-			album,
-			count: songs.length,
-			artwork: songs[0]?.artwork, // Add artwork like in AlbumsScreen
-			songs: songs.sort((a, b) => {
-				const discDiff = (a.discNumber ?? 0) - (b.discNumber ?? 0);
-				if (discDiff !== 0) return discDiff;
-				return (a.trackNumber ?? 0) - (b.trackNumber ?? 0);
-			}),
+	console.log('Artist Detail', artist);
+
+
+	const albums = artist.albumIds
+		.map((id) => albumsById[id])
+		.filter(Boolean)
+		.sort((a, b) => a.title.localeCompare(b.title))
+		.map((album) => ({
+			id: album.id,
+			album: album.title,
+			artwork: album.artwork,
+			count: album.songIds.length,
 		}));
 
-		setAlbums(structured);
-	}, [artistId, tracks]);
+	return (
+		<ThemedView style={styles.container}>
+			<ThemedText style={styles.header}>{artist.name}</ThemedText>
 
-
-return (
-	<ThemedView style={{ flex: 1}}>
-		{/* <ParallaxScrollView
-		album
-		headerBackgroundColor={{ light: bgColor, dark: bgColor }}
-		// @ts-ignore
-		headerImage={
-		artwork ? (
-			<Image
-			source={{ uri: artwork }}
-			style={{ width: '100%', height: '100%' }}
-			resizeMode="cover"
+			<FlatList
+				data={albums}
+				keyExtractor={(item) => item.id}
+				numColumns={2}
+				contentContainerStyle={{ paddingBottom: 80 }}
+				columnWrapperStyle={{ justifyContent: 'space-between' }}
+				renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
 			/>
-		) : undefined
-		}
-		> */}
-	<ThemedText style={styles.header}>{decodeURIComponent(artistId)}</ThemedText>
-
-	<FlatList
-		data={albums}
-		keyExtractor={(item) => item.album}
-		numColumns={2}
-		contentContainerStyle={{ paddingBottom: 80 }}
-		columnWrapperStyle={{ justifyContent: 'space-between' }}
-		renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
-	/>
-	{/* </ParallaxScrollView> */}
-	</ThemedView>
-);
+		</ThemedView>
+	);
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, marginHorizontal: 16 },
-	albumSection: { marginBottom: 24 },
-	albumTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
+	container: { flex: 1, padding: 16, marginTop: 100 },
+	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
 });

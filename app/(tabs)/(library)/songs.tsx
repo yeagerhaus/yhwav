@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, View,} from 'react-native';
-import { loadTracksFromDirectory } from '@/utils';
 import { Song } from '@/types/song';
 import { DynamicItem } from '@/cmps';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { Main } from '@/cmps/Main';
 
 export default function SongsScreen() {
-	const unsortedSongs = useLibraryStore((s) => s.tracks);
+	const tracks = useLibraryStore((s) => s.tracks);
+	console.log('🎵 Tracks in Zustand:', tracks.length);
 
 	const songs = useMemo(() => {
-		return [...unsortedSongs].sort((a, b) =>
+		return [...tracks].sort((a, b) =>
 			a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
 		);
-	}, [unsortedSongs]);
+	}, [tracks]);
 
 	return (
 		<Main>

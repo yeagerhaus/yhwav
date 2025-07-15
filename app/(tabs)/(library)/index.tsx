@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import ParallaxScrollView from '@/cmps/ParallaxScrollView';
 import { ThemedView } from '@/cmps/ThemedView';
-import { deleteAllSongs, pickAndImportSongs } from '@/utils';
+import { deleteAllSongs } from '@/utils';
 import { useRouter } from 'expo-router';
-import { DynamicItem } from '@/cmps';
+import { DynamicItem, LibrarySkeleton, ThemedText } from '@/cmps';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 const SECTIONS = [
@@ -17,16 +17,19 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
+	const { isLibraryLoading, tracks } = useLibraryStore();
 
-	const handleImport = async () => {
-		const importedSongs = await pickAndImportSongs();
+	console.log('isLibraryLoading:', isLibraryLoading);
 
-		if (importedSongs.length > 0) {
-			const currentTracks = useLibraryStore.getState().tracks;
-			const updated = [...currentTracks, ...importedSongs];
-			useLibraryStore.getState().setTracks(updated);
-		}
-	};
+	// const handleImport = async () => {
+	// 	const importedSongs = await pickAndImportSongs();
+
+	// 	if (importedSongs.length > 0) {
+	// 		const currentTracks = useLibraryStore.getState().tracks;
+	// 		const updated = [...currentTracks, ...importedSongs];
+	// 		useLibraryStore.getState().setTracks(updated);
+	// 	}
+	// };
 
 	return (
 		<ThemedView style={styles.container}>
@@ -44,10 +47,10 @@ export default function LibraryScreen() {
 							Built with Expo
 						</Text>
 						<View style={styles.headerButtons}>
-							<Pressable style={styles.headerButton} onPress={handleImport}>
+							{/* <Pressable style={styles.headerButton} onPress={handleImport}>
 								<Ionicons name='folder-open' size={24} color='#fff' />
 								<Text style={styles.headerButtonText}>Import</Text>
-							</Pressable>
+							</Pressable> */}
 							<Pressable style={styles.headerButton} onPress={deleteAllSongs}>
 								<Ionicons name='trash-bin' size={24} color='#fff' />
 								<Text style={styles.headerButtonText}>Reset</Text>
@@ -59,11 +62,20 @@ export default function LibraryScreen() {
 				contentContainerStyle={styles.scrollView as any}
 			>
 			<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
-				<FlatList
-					data={SECTIONS}
-					keyExtractor={(item) => item.title}
-					renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
-				/>
+				{isLibraryLoading ? (
+					<ActivityIndicator />
+				) : (
+					<>
+					<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
+						{tracks.length} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
+					</ThemedText>
+					<FlatList
+						data={SECTIONS}
+						keyExtractor={(item) => item.title}
+						renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
+					/>
+					</>
+				)}
 			</View>
 		</ParallaxScrollView>
 		</ThemedView>

@@ -29,10 +29,10 @@ export default function AlbumDetailScreen() {
 
 		setSongs(sorted);
 
-		if (sorted[0]?.artwork) {
+		if (sorted[0]?.artworkUrl) {
 			setArtist(sorted[0].artist);
-			setArtwork(sorted[0].artwork);
-			ImageColors.getColors(sorted[0].artwork, {
+			setArtwork(sorted[0].artworkUrl);
+			ImageColors.getColors(sorted[0].artworkUrl, {
 				fallback: '#FA2D48',
 				cache: true,
 				key: sorted[0].id,

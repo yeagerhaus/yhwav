@@ -10,7 +10,7 @@ import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
 import { AudioProvider, useAudio } from '@/ctx/AudioContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { fetchAllTracks, loadCachedOrScanSongs } from '@/utils';
+import { fetchAllTracks, rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -63,15 +63,23 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks } = useLibraryStore();
+	const { setTracks, setLibraryLoading } = useLibraryStore();
 
 	useEffect(() => {
-		SplashScreen.hideAsync();
-		
 		const init = async () => {
-			await fetchAllTracks();
-			const tracks = await loadCachedOrScanSongs();
-			setTracks(tracks);
+			setLibraryLoading(true);
+
+			const hydrated = await rehydrateLibraryStore();
+			if (!hydrated) {
+				const fetchedTracks = await fetchAllTracks();
+				console.log('Fetched sample track:', fetchedTracks[0]);
+				console.log('Setting tracks in Zustand store...');
+				await setTracks(fetchedTracks);
+				await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
+				await saveLibraryToCache();
+			}
+
+			setLibraryLoading(false);
 		};
 
 		init();

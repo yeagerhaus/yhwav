@@ -2,13 +2,15 @@ export interface Song {
   id: string;
   title: string;
   artist: string;
-  artistKey: string; 
+  artistKey: string;
   album: string;
   artwork: string;
   uri: string;
-  streamUrl?: string; // Optional for streaming tracks
-  artworkUrl?: string; // Optional for Plex tracks
+  streamUrl?: string;
+  artworkUrl?: string;
   duration: number;
   trackNumber: number;
   discNumber: number;
+  localUri?: string;
+  isDownloaded?: boolean;
 }

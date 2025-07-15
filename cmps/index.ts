@@ -2,6 +2,7 @@ export * from './BottomSheet/ExpandedPlayer';
 export * from './BottomSheet/MiniPlayer';
 export * from './CategoryCard';
 export * from './DynamicItem';
+export * from './LibrarySkeleton';
 export * from './MusicVisualizer';
 export * from './Overlay/OverlayContext';
 export * from './Overlay/OverlayProvider';

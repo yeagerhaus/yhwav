@@ -4,12 +4,12 @@ import { Song } from '@/types/song';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_QUEUE_KEY, STORAGE_SONG_KEY, STORAGE_POSITION_KEY } from '@/ctx/AudioContext';
 import { NativeModules } from 'react-native';
-import { clearCachedTracks } from './cache';
+import { clearLibraryCache } from './cache';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 const { MetadataModule } = NativeModules;
 
-function normalizeArtist(str: string) {
+export function normalizeArtist(str: string) {
   return str?.split(';')[0].trim().toLowerCase() || 'unknown artist';
 }
 
@@ -45,6 +45,7 @@ function uint8ToBase64(uint8: Uint8Array): string {
 	return btoa(binary);
 }
 
+// DEPRECATED
 // ⚠️ This should only be called during app boot (RootLayout).
 // All other screens should access tracks via Zustand: useLibraryStore().tracks
 export const loadTracksFromDirectory = async (): Promise<Song[]> => {
@@ -90,6 +91,7 @@ export const loadTracksFromDirectory = async (): Promise<Song[]> => {
   }
 };
 
+// DEPRECATED
 export const pickAndImportSongs = async (): Promise<Song[]> => {
 	try {
 	const result = await DocumentPicker.getDocumentAsync({
@@ -165,7 +167,7 @@ export const deleteAllSongs = async () => {
 		]);
 
 		// Clear track cache
-		await clearCachedTracks();
+		await clearLibraryCache();
 
 		// Optional: if you're inside a component, clear Zustand store too:
 		useLibraryStore.getState().setTracks([]);

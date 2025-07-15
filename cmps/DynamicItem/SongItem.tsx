@@ -24,14 +24,14 @@ const playSong = async (song: Song) => {
 		id: Number(song.id),
 		title: song.title || 'Unknown Title',
 		artist: song.artist || 'Unknown Artist',
-		artwork: song.artwork || '',
+		artwork: song.artworkUrl || '',
 	});
 };
 
 return (
 	<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 		<View style={styles.artworkContainer}>
-			<Image source={{ uri: item.artwork }} style={styles.songArtwork} />
+			<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} />
 			{item.title === String(currentSong?.title) && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 		</View>
 		<ThemedView
