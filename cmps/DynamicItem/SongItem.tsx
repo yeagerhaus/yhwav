@@ -1,5 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import TrackPlayer, { usePlaybackState, State } from 'react-native-track-player';
 
@@ -11,12 +11,22 @@ import { ThemedView } from '@/cmps/ThemedView';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Song } from '@/types/song';
 
-export default function ListItem({ item, queue }: { item: Song; queue?: Song[] }) {
+export default function SongItem({ item, queue }: { item: Song; queue?: Song[] }) {
 const colorScheme = useColorScheme();
 const [songs, setSongs] = useState<Song[]>([]);
 const playbackState = usePlaybackState();
 const { playSound, currentSong } = useAudio();
-const isCurrentSong = item.title === String(currentSong?.title) && item.id === String(currentSong?.id)
+const isCurrentSong = useMemo(() => {
+	const isCurrent = item.id === String(currentSong?.id);
+	console.log('🎵 SongItem isCurrentSong check:', {
+		itemId: item.id,
+		currentSongId: currentSong?.id,
+		isCurrent: isCurrent,
+		itemTitle: item.title,
+		currentTitle: currentSong?.title
+	});
+	return isCurrent;
+}, [item.id, currentSong?.id, item.title, currentSong?.title]);
 
 const playSong = async (song: Song) => {
 	console.log('🎵 Playing song from SongItem:', {

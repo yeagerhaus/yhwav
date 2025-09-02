@@ -73,6 +73,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 				Capability.SkipToPrevious,
 				Capability.SeekTo,
 		],
+		// Enable gapless playback
+		progressUpdateEventInterval: 1,
 		});
 
 
@@ -135,8 +137,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       Event.RemoteNext,
       Event.RemotePrevious,
       Event.RemoteSeek,
+      Event.PlaybackState,
+      Event.PlaybackTrackChanged,
+      Event.PlaybackError,
     ],
     async (event) => {
+      console.log('🎵 TrackPlayer Event:', event.type, event);
+      
       if (event.type === Event.PlaybackProgressUpdated) {
         setPosition(event.position);
         setDuration(event.duration);
@@ -145,6 +152,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       if (event.type === Event.PlaybackQueueEnded && event.position > 0) {
         await playNextSong();
+      }
+
+      if (event.type === Event.PlaybackState) {
+        console.log('🎵 Playback state changed:', event.state);
+      }
+
+      if (event.type === Event.PlaybackTrackChanged) {
+        console.log('🎵 Track changed:', event.track);
+        // Update current song when TrackPlayer automatically advances
+        if (event.track !== null && queue.length > 0) {
+          const newCurrentSong = queue[event.track];
+          if (newCurrentSong && newCurrentSong.id !== currentSong?.id) {
+            console.log('🎵 Auto-advancing to:', newCurrentSong.title);
+            setCurrentSong(newCurrentSong);
+            await AsyncStorage.setItem(STORAGE_SONG_KEY, JSON.stringify(newCurrentSong));
+          }
+        }
+      }
+
+      if (event.type === Event.PlaybackError) {
+        console.error('🎵 Playback error:', event);
       }
 
       if (event.type === Event.RemotePlay) TrackPlayer.play();
@@ -167,37 +195,58 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       console.log('🎵 Queue length:', list?.length || 0);
       console.log('🎵 Song URI check:', song.uri ? 'URI present' : 'URI missing!');
       
-      await TrackPlayer.reset();
-      console.log('🎵 TrackPlayer reset complete');
+      // Only reset if we're changing to a completely different queue
+      const currentQueue = await TrackPlayer.getQueue();
+      const isNewQueue = !list || currentQueue.length === 0 || 
+        (list.length !== currentQueue.length) ||
+        (list.length > 0 && currentQueue.length > 0 && list[0].id !== currentQueue[0].id);
+      
+      if (isNewQueue) {
+        await TrackPlayer.reset();
+        console.log('🎵 TrackPlayer reset complete (new queue)');
+      } else {
+        console.log('🎵 Keeping existing queue for gapless playback');
+      }
 
       if (list?.length) {
-        console.log('🎵 Adding queue with', list.length, 'tracks');
-        const tracks = list.map((s) => ({
-          id: s.id.toString(),
-          url: s.uri,
-          title: s.title,
-          artist: s.artist,
-          artwork: s.artwork,
-        }));
-        
-        console.log('🎵 Track data being added:', tracks.map(t => ({ id: t.id, url: t.url, title: t.title })));
-        await TrackPlayer.add(tracks);
-        console.log('🎵 Tracks added to queue');
-        
-        // Verify tracks were added
-        const queueAfterAdd = await TrackPlayer.getQueue();
-        console.log('🎵 Queue after adding tracks:', queueAfterAdd.length);
-        
-        // Find the index of the current song in the queue
-        const trackIndex = tracks.findIndex(t => t.id === song.id.toString());
-        console.log('🎵 Found track index:', trackIndex, 'for song ID:', song.id);
-        
-        if (trackIndex !== -1) {
-          await TrackPlayer.skip(trackIndex);
-          console.log('🎵 Skipped to track index:', trackIndex);
+        if (isNewQueue) {
+          console.log('🎵 Adding new queue with', list.length, 'tracks');
+          const tracks = list.map((s) => ({
+            id: s.id.toString(),
+            url: s.uri,
+            title: s.title,
+            artist: s.artist,
+            artwork: s.artwork,
+          }));
+          
+          console.log('🎵 Track data being added:', tracks.map(t => ({ id: t.id, url: t.url, title: t.title })));
+          await TrackPlayer.add(tracks);
+          console.log('🎵 Tracks added to queue');
+          
+          // Find the index of the current song in the queue
+          const trackIndex = tracks.findIndex(t => t.id === song.id.toString());
+          console.log('🎵 Found track index:', trackIndex, 'for song ID:', song.id);
+          
+          if (trackIndex !== -1) {
+            await TrackPlayer.skip(trackIndex);
+            console.log('🎵 Skipped to track index:', trackIndex);
+          } else {
+            console.warn('🎵 Song not found in queue, skipping to first track');
+            await TrackPlayer.skip(0);
+          }
         } else {
-          console.warn('🎵 Song not found in queue, skipping to first track');
-          await TrackPlayer.skip(0);
+          console.log('🎵 Using existing queue, just skipping to song');
+          // Find the index of the current song in the existing queue
+          const currentQueue = await TrackPlayer.getQueue();
+          const trackIndex = currentQueue.findIndex(t => t.id === song.id.toString());
+          console.log('🎵 Found track index in existing queue:', trackIndex, 'for song ID:', song.id);
+          
+          if (trackIndex !== -1) {
+            await TrackPlayer.skip(trackIndex);
+            console.log('🎵 Skipped to existing track index:', trackIndex);
+          } else {
+            console.warn('🎵 Song not found in existing queue');
+          }
         }
         
         // Verify we're on the right track
@@ -218,10 +267,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         console.log('🎵 Single track data:', trackData);
         await TrackPlayer.add(trackData);
         console.log('🎵 Single track added');
-        
-        // Verify single track was added
-        const queueAfterSingleAdd = await TrackPlayer.getQueue();
-        console.log('🎵 Queue after adding single track:', queueAfterSingleAdd.length);
       }
 
     setCurrentSong(song);

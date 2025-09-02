@@ -7,6 +7,7 @@ import { ThemedText } from '@/cmps/ThemedText';
 import { useAudio } from '@/ctx/AudioContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -38,22 +39,22 @@ const formatTime = (seconds: number) => {
 	return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-const lyrics = [
-	'Verse 1',
-	'First line of the song',
-	'Second line of the song',
-	'Third line goes here',
-	'',
-	'Chorus',
-	'This is the chorus',
-	'Another chorus line',
-	'Final chorus line',
-	'',
-	'Verse 2',
-	'Back to the verses',
-	'More lyrics here',
-	'And here as well',
-];
+// const lyrics = [
+// 	'Verse 1',
+// 	'First line of the song',
+// 	'Second line of the song',
+// 	'Third line goes here',
+// 	'',
+// 	'Chorus',
+// 	'This is the chorus',
+// 	'Another chorus line',
+// 	'Final chorus line',
+// 	'',
+// 	'Verse 2',
+// 	'Back to the verses',
+// 	'More lyrics here',
+// 	'And here as well',
+// ];
 
 console.log('ExpandedPlayer rendered', {
 	isPlaying,
@@ -88,7 +89,7 @@ return (
 						<ThemedText type='title' style={styles.title}>
 							{currentSong?.title}
 						</ThemedText>
-						<ThemedText style={styles.artist}>{currentSong?.artist}</ThemedText>
+						<ThemedText style={styles.artist} onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(currentSong?.artist || '')}`)}>{currentSong?.artist}</ThemedText>
 						</ThemedView>
 						<ThemedView style={styles.titleIcons}>
 						<Pressable style={styles.iconButton}>
@@ -145,13 +146,13 @@ return (
 					</ThemedView>
 				</ThemedView>
 
-				<ThemedView style={styles.lyricsContainer}>
+				{/* <ThemedView style={styles.lyricsContainer}>
 					{lyrics.map((line, index) => (
 					<ThemedText key={index} style={[styles.lyricsText, line === '' && styles.lyricsSpacing]}>
 						{line}
 					</ThemedText>
 					))}
-				</ThemedView>
+				</ThemedView> */}
 				</ThemedView>
 			</ScrollComponentToUse>
 		{/* </BlurView> */}
