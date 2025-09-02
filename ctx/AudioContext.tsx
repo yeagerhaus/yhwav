@@ -16,7 +16,7 @@ export const STORAGE_SONG_KEY = 'CURRENT_SONG';
 export const STORAGE_POSITION_KEY = 'CURRENT_POSITION';
 
 interface Song {
-  id: number;
+  id: string;
   title: string;
   artist: string;
   artwork: string;
@@ -96,7 +96,17 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			}))
 		);
 
-		await TrackPlayer.skip(currentSongData.id);
+		// Find the index of the current song in the restored queue
+		const restoredTrackIndex = queueData.findIndex(s => s.id === currentSongData.id);
+		console.log('🎵 Found restored track index:', restoredTrackIndex, 'for song ID:', currentSongData.id);
+		
+		if (restoredTrackIndex !== -1) {
+			await TrackPlayer.skip(restoredTrackIndex);
+			console.log('🎵 Skipped to restored track index:', restoredTrackIndex);
+		} else {
+			console.warn('🎵 Restored song not found in queue, skipping to first track');
+			await TrackPlayer.skip(0);
+		}
 		if (position > 0) await TrackPlayer.seekTo(position);
 
 		setCurrentSong(currentSongData);
@@ -145,30 +155,74 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   );
 
   const playSound = async (song: Song, list?: Song[]) => {
-    await TrackPlayer.reset();
-
-    if (list?.length) {
-		await TrackPlayer.add(
-			list.map((s) => ({
-			id: s.id.toString(),
-			url: s.uri,
-			title: s.title,
-			artist: s.artist,
-			artwork: s.artwork,
-			})),
-		);
-		await TrackPlayer.skip(song.id);
-		setQueue(list);
-		await AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(list));
-	} else {
-      await TrackPlayer.add({
-        id: song.id.toString(),
-        url: song.uri,
+    try {
+      console.log('🎵 ===== STARTING PLAYBACK =====');
+      console.log('🎵 Song data:', {
+        id: song.id,
         title: song.title,
         artist: song.artist,
-        artwork: song.artwork,
+        uri: song.uri,
+        artwork: song.artwork
       });
-    }
+      console.log('🎵 Queue length:', list?.length || 0);
+      console.log('🎵 Song URI check:', song.uri ? 'URI present' : 'URI missing!');
+      
+      await TrackPlayer.reset();
+      console.log('🎵 TrackPlayer reset complete');
+
+      if (list?.length) {
+        console.log('🎵 Adding queue with', list.length, 'tracks');
+        const tracks = list.map((s) => ({
+          id: s.id.toString(),
+          url: s.uri,
+          title: s.title,
+          artist: s.artist,
+          artwork: s.artwork,
+        }));
+        
+        console.log('🎵 Track data being added:', tracks.map(t => ({ id: t.id, url: t.url, title: t.title })));
+        await TrackPlayer.add(tracks);
+        console.log('🎵 Tracks added to queue');
+        
+        // Verify tracks were added
+        const queueAfterAdd = await TrackPlayer.getQueue();
+        console.log('🎵 Queue after adding tracks:', queueAfterAdd.length);
+        
+        // Find the index of the current song in the queue
+        const trackIndex = tracks.findIndex(t => t.id === song.id.toString());
+        console.log('🎵 Found track index:', trackIndex, 'for song ID:', song.id);
+        
+        if (trackIndex !== -1) {
+          await TrackPlayer.skip(trackIndex);
+          console.log('🎵 Skipped to track index:', trackIndex);
+        } else {
+          console.warn('🎵 Song not found in queue, skipping to first track');
+          await TrackPlayer.skip(0);
+        }
+        
+        // Verify we're on the right track
+        const currentTrackAfterSkip = await TrackPlayer.getCurrentTrack();
+        console.log('🎵 Current track after skip:', currentTrackAfterSkip);
+        
+        setQueue(list);
+        await AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(list));
+      } else {
+        console.log('🎵 Adding single track');
+        const trackData = {
+          id: song.id.toString(),
+          url: song.uri,
+          title: song.title,
+          artist: song.artist,
+          artwork: song.artwork,
+        };
+        console.log('🎵 Single track data:', trackData);
+        await TrackPlayer.add(trackData);
+        console.log('🎵 Single track added');
+        
+        // Verify single track was added
+        const queueAfterSingleAdd = await TrackPlayer.getQueue();
+        console.log('🎵 Queue after adding single track:', queueAfterSingleAdd.length);
+      }
 
     setCurrentSong(song);
 	try {
@@ -189,9 +243,79 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		setArtworkBgColor('#000');
 	}
 
-    await AsyncStorage.setItem(STORAGE_SONG_KEY, JSON.stringify(song));
-    await AsyncStorage.removeItem(STORAGE_POSITION_KEY);
-    await TrackPlayer.play();
+      await AsyncStorage.setItem(STORAGE_SONG_KEY, JSON.stringify(song));
+      await AsyncStorage.removeItem(STORAGE_POSITION_KEY);
+      
+      // Add a small delay to ensure track is properly loaded before playing
+      setTimeout(async () => {
+        try {
+          console.log('🎵 Attempting to start playback...');
+          
+          // Check TrackPlayer state before playing
+          const state = await TrackPlayer.getState();
+          console.log('🎵 TrackPlayer state before play:', state);
+          
+          // Get current track info
+          const currentTrack = await TrackPlayer.getCurrentTrack();
+          console.log('🎵 Current track ID:', currentTrack);
+          
+          // Get queue info
+          const queue = await TrackPlayer.getQueue();
+          console.log('🎵 Queue length:', queue.length);
+          
+          // Test if the audio URL is accessible
+          if (song.uri) {
+            console.log('🎵 Testing audio URL accessibility...');
+            try {
+              const response = await fetch(song.uri, { method: 'HEAD' });
+              console.log('🎵 Audio URL response status:', response.status);
+              if (!response.ok) {
+                console.warn('⚠️ Audio URL may not be accessible:', response.status);
+              }
+            } catch (urlError) {
+              console.warn('⚠️ Could not test audio URL:', urlError);
+            }
+          }
+          
+          await TrackPlayer.play();
+          console.log('✅ TrackPlayer.play() called successfully');
+          
+          // Check state after playing
+          setTimeout(async () => {
+            const newState = await TrackPlayer.getState();
+            console.log('🎵 TrackPlayer state after play:', newState);
+            console.log('🎵 Is actually playing?', newState === State.Playing);
+            
+            // If not playing, try alternative approaches
+            if (newState !== State.Playing) {
+              console.log('🎵 Playback failed - trying alternative approaches...');
+              const currentTrackInfo = await TrackPlayer.getCurrentTrack();
+              console.log('🎵 Current track info:', currentTrackInfo);
+              
+              // Try to pause and play again
+              try {
+                console.log('🎵 Trying pause/play cycle...');
+                await TrackPlayer.pause();
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await TrackPlayer.play();
+                
+                setTimeout(async () => {
+                  const retryState = await TrackPlayer.getState();
+                  console.log('🎵 State after retry:', retryState);
+                }, 500);
+              } catch (retryError) {
+                console.error('🎵 Retry failed:', retryError);
+              }
+            }
+          }, 500);
+          
+        } catch (playError) {
+          console.error('❌ Failed to start playback:', playError);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error in playSound:', error);
+    }
   };
 
   const pauseSound = async () => TrackPlayer.pause();
@@ -207,16 +331,35 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playNextSong = useCallback(async () => {
     if (!currentSong || queue.length === 0) return;
-    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+    console.log('🎵 playNextSong - currentSong:', currentSong.id, 'queue length:', queue.length);
+    const currentIndex = queue.findIndex((s) => String(s.id) === String(currentSong.id));
+    console.log('🎵 playNextSong - currentIndex:', currentIndex);
+    
+    if (currentIndex === -1) {
+      console.warn('🎵 Current song not found in queue');
+      return;
+    }
+    
     const nextSong = queue[(currentIndex + 1) % queue.length];
+    console.log('🎵 playNextSong - nextSong:', nextSong.title);
     await playSound(nextSong, queue);
   }, [currentSong, queue]);
 
   const playPreviousSong = useCallback(async () => {
     if (!currentSong || queue.length === 0) return;
-    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+    console.log('🎵 playPreviousSong - currentSong:', currentSong.id, 'queue length:', queue.length);
+    const currentIndex = queue.findIndex((s) => String(s.id) === String(currentSong.id));
+    console.log('🎵 playPreviousSong - currentIndex:', currentIndex);
+    
+    if (currentIndex === -1) {
+      console.warn('🎵 Current song not found in queue');
+      return;
+    }
+    
     const prevIndex = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
-    await playSound(queue[prevIndex], queue);
+    const prevSong = queue[prevIndex];
+    console.log('🎵 playPreviousSong - prevSong:', prevSong.title);
+    await playSound(prevSong, queue);
   }, [currentSong, queue]);
 
   const seekTo = async (pos: number) => {
@@ -227,16 +370,22 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const skipToNext = async () => {
     try {
+      console.log('🎵 skipToNext - attempting TrackPlayer.skipToNext()');
       await TrackPlayer.skipToNext();
-    } catch {
+      console.log('✅ TrackPlayer.skipToNext() succeeded');
+    } catch (error) {
+      console.warn('TrackPlayer.skipToNext failed, using fallback:', error);
       await playNextSong();
     }
   };
 
   const skipToPrevious = async () => {
     try {
+      console.log('🎵 skipToPrevious - attempting TrackPlayer.skipToPrevious()');
       await TrackPlayer.skipToPrevious();
-    } catch {
+      console.log('✅ TrackPlayer.skipToPrevious() succeeded');
+    } catch (error) {
+      console.warn('TrackPlayer.skipToPrevious failed, using fallback:', error);
       await playPreviousSong();
     }
   };

@@ -21,7 +21,7 @@ export default function SongsScreen() {
 				<FlatList
 					data={songs}
 					keyExtractor={(item) => item.id.toString()}
-					renderItem={({ item }) => <DynamicItem item={item} type="song" />}
+					renderItem={({ item }) => <DynamicItem item={item} type="song" queue={songs} />}
 					contentContainerStyle={{ paddingBottom: 100 }}
 				/>
 			</View>

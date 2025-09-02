@@ -70,7 +70,7 @@ export default function AlbumDetailScreen() {
 			<FlatList
 				data={songs}
 				keyExtractor={(item) => item.id}
-				renderItem={({ item }) => <DynamicItem item={item} type="song" />}
+				renderItem={({ item }) => <DynamicItem item={item} type="song" queue={songs} />}
 				contentContainerStyle={{ paddingBottom: 100 }}
 			/>
 			</View>

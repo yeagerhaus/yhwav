@@ -11,28 +11,47 @@ import { ThemedView } from '@/cmps/ThemedView';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Song } from '@/types/song';
 
-export default function ListItem({ item }: { item: Song }) {
+export default function ListItem({ item, queue }: { item: Song; queue?: Song[] }) {
 const colorScheme = useColorScheme();
 const [songs, setSongs] = useState<Song[]>([]);
 const playbackState = usePlaybackState();
 const { playSound, currentSong } = useAudio();
+const isCurrentSong = item.title === String(currentSong?.title) && item.id === String(currentSong?.id)
 
 const playSong = async (song: Song) => {
-	await TrackPlayer.reset();
-	playSound({
-		...song,
-		id: Number(song.id),
+	console.log('🎵 Playing song from SongItem:', {
+		songId: song.id,
+		songTitle: song.title,
+		queueLength: queue?.length || 0,
+		songUri: song.uri || song.streamUrl
+	});
+	
+	// Format the song data for playSound
+	const formattedSong = {
+		id: song.id,
 		title: song.title || 'Unknown Title',
 		artist: song.artist || 'Unknown Artist',
-		artwork: song.artworkUrl || '',
-	});
+		artwork: song.artworkUrl || song.artwork || '',
+		uri: song.uri || song.streamUrl || '',
+	};
+	
+	// Format the queue if available
+	const formattedQueue = queue?.map(q => ({
+		id: q.id,
+		title: q.title || 'Unknown Title',
+		artist: q.artist || 'Unknown Artist',
+		artwork: q.artworkUrl || q.artwork || '',
+		uri: q.uri || q.streamUrl || '',
+	}));
+	
+	await playSound(formattedSong, formattedQueue);
 };
 
 return (
 	<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 		<View style={styles.artworkContainer}>
 			<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} />
-			{item.title === String(currentSong?.title) && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
+			{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 		</View>
 		<ThemedView
 			style={[
