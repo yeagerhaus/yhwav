@@ -169,11 +169,30 @@ export const deleteAllSongs = async () => {
 		// Clear track cache
 		await clearLibraryCache();
 
-		// Optional: if you're inside a component, clear Zustand store too:
-		useLibraryStore.getState().setTracks([]);
-
 		console.log('All local songs deleted.');
 	} catch (err) {
 		console.error('Failed to delete songs:', err);
+	}
+};
+
+// New function to reset library data and refetch from Plex
+export const resetLibraryData = async () => {
+	try {
+		console.log('🔄 Resetting library data...');
+		
+		// Clear all cached data
+		await clearLibraryCache();
+		await deleteAllSongs();
+		
+		// Clear Zustand store
+		const { setTracks, setLibraryLoading } = useLibraryStore.getState();
+		setTracks([]);
+		setLibraryLoading(true);
+		
+		console.log('✅ Library data reset complete');
+		return true;
+	} catch (err) {
+		console.error('❌ Failed to reset library data:', err);
+		return false;
 	}
 };

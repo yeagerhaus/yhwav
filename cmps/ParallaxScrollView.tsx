@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, RefreshControl } from 'react-native';
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollViewOffset } from 'react-native-reanimated';
 
 import { ThemedView } from '@/cmps/ThemedView';
@@ -10,9 +10,10 @@ type Props = PropsWithChildren<{
 	headerImage: ReactElement;
 	headerBackgroundColor: { dark: string; light: string };
 	album?: boolean;
+	refreshControl?: React.ReactElement<RefreshControl>;
 }>;
 
-export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor, album }: Props) {
+export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor, album, refreshControl }: Props) {
 	const colorScheme = useColorScheme() ?? 'light';
 	const scrollRef = useAnimatedRef<Animated.ScrollView>();
 	const scrollOffset = useScrollViewOffset(scrollRef);
@@ -38,7 +39,7 @@ export default function ParallaxScrollView({ children, headerImage, headerBackgr
 
 	return (
 		<ThemedView style={styles.container}>
-			<Animated.ScrollView ref={scrollRef} scrollEventThrottle={16}>
+			<Animated.ScrollView ref={scrollRef} scrollEventThrottle={16} refreshControl={refreshControl}>
 				<Animated.View style={[
 					{
 						height: headerHeight,

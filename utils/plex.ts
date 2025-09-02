@@ -27,6 +27,7 @@ export const fetchAllTracks = async (): Promise<Song[]> => {
 
 	const parser = new XMLParser({
 		ignoreAttributes: false,
+		htmlEntities: true,
 		attributeNamePrefix: '', // so @title becomes just `title`
 	});
 
@@ -49,15 +50,24 @@ const formatPlexTrack = (track: any): Song => {
   const partKey = mediaPart?.key;
   const duration = parseInt(track.duration || mediaPart?.duration || '0', 10);
 
+  const streamUrl = partKey ? buildPlexURL(partKey) : '';
+  
+//   console.log('🎵 Formatting Plex track:', {
+//     ratingKey: track.ratingKey,
+//     title: track.title,
+//     partKey: partKey,
+//     streamUrl: streamUrl
+//   });
+  
   return {
-    id: `plex-${track.ratingKey}`,
+    id: track.ratingKey,
     title: track.title,
     artist: track.grandparentTitle,
     album: track.parentTitle,
     artworkUrl: track.thumb ? buildPlexURL(track.thumb) : undefined,
     artwork: '', // Optional: cache this later
-    streamUrl: partKey ? buildPlexURL(partKey) : '', // Use raw part file path
-    uri: '', // Will be filled later if downloaded
+    streamUrl: streamUrl, // Use raw part file path
+    uri: streamUrl, // Use the stream URL as the URI for playback
     duration,
     trackNumber: parseInt(track.index || '0', 10),
     discNumber: parseInt(track.parentIndex || '0', 10),

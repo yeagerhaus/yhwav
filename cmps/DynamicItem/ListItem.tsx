@@ -13,20 +13,6 @@ import { Song } from '@/types/song';
 
 export default function ListItem({ item, onPress }: { item: any, onPress: () => void }) {
 const colorScheme = useColorScheme();
-const [songs, setSongs] = useState<Song[]>([]);
-const playbackState = usePlaybackState();
-const { playSound, currentSong } = useAudio();
-
-const playSong = async (song: Song) => {
-	await TrackPlayer.reset();
-	playSound({
-		...song,
-		id: Number(song.id),
-		title: song.title || 'Unknown Title',
-		artist: song.artist || 'Unknown Artist',
-		artwork: song.artwork || '',
-	});
-};
 
 return (
 	<Pressable onPress={onPress}>

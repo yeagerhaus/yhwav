@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View, RefreshControl } from 'react-native';
 
 import ParallaxScrollView from '@/cmps/ParallaxScrollView';
 import { ThemedView } from '@/cmps/ThemedView';
-import { deleteAllSongs } from '@/utils';
+import { resetLibraryData, fetchAllTracks, saveLibraryToCache } from '@/utils';
 import { useRouter } from 'expo-router';
 import { DynamicItem, LibrarySkeleton, ThemedText } from '@/cmps';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useState } from 'react';
 
 const SECTIONS = [
 	{ title: 'Playlists', route: '/(tabs)/(library)/(playlists)' },
@@ -17,24 +18,57 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
-	const { isLibraryLoading, tracks } = useLibraryStore();
+	const { isLibraryLoading, tracks, setTracks, setLibraryLoading } = useLibraryStore();
+	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	console.log('isLibraryLoading:', isLibraryLoading);
 
-	// const handleImport = async () => {
-	// 	const importedSongs = await pickAndImportSongs();
+	const handleRefresh = async () => {
+		setIsRefreshing(true);
+		try {
+			console.log('🔄 Refreshing library data...');
+			
+			// Reset and refetch library data
+			await resetLibraryData();
+			
+			// Fetch fresh data from Plex
+			const fetchedTracks = await fetchAllTracks();
+			console.log('🎵 Fetched', fetchedTracks.length, 'tracks from Plex');
+			
+			// Update the store
+			await setTracks(fetchedTracks);
+			await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
+			await saveLibraryToCache();
+			
+			console.log('✅ Library refresh complete');
+		} catch (error) {
+			console.error('❌ Failed to refresh library:', error);
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
 
-	// 	if (importedSongs.length > 0) {
-	// 		const currentTracks = useLibraryStore.getState().tracks;
-	// 		const updated = [...currentTracks, ...importedSongs];
-	// 		useLibraryStore.getState().setTracks(updated);
-	// 	}
-	// };
+	const handleReset = async () => {
+		try {
+			await resetLibraryData();
+		} catch (error) {
+			console.error('❌ Failed to reset library:', error);
+		}
+	};
 
 	return (
 		<ThemedView style={styles.container}>
 		<ParallaxScrollView
 			headerBackgroundColor={{ light: '#f57a8a', dark: '#FA2D48' }}
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshing}
+					onRefresh={handleRefresh}
+					tintColor="#fff"
+					title="Pull to refresh library"
+					titleColor="#fff"
+				/>
+			}
 			headerImage={
 					<ThemedView style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}>
 						<Image
@@ -51,7 +85,7 @@ export default function LibraryScreen() {
 								<Ionicons name='folder-open' size={24} color='#fff' />
 								<Text style={styles.headerButtonText}>Import</Text>
 							</Pressable> */}
-							<Pressable style={styles.headerButton} onPress={deleteAllSongs}>
+							<Pressable style={styles.headerButton} onPress={handleReset}>
 								<Ionicons name='trash-bin' size={24} color='#fff' />
 								<Text style={styles.headerButtonText}>Reset</Text>
 							</Pressable>
