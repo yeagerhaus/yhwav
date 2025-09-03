@@ -1,14 +1,8 @@
-import {
-	FlatList,
-	Text,
-	View,
-	StyleSheet,
-} from 'react-native';
-import { groupBy, map } from 'lodash';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useMemo } from 'react';
+import { FlatList, View } from 'react-native';
 import { DynamicItem } from '@/cmps';
 import { Main } from '@/cmps/Main';
-import { useMemo } from 'react';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 export default function AlbumsScreen() {
 	const albumsById = useLibraryStore((s) => s.albumsById);
@@ -24,9 +18,8 @@ export default function AlbumsScreen() {
 					count: album.songIds.length,
 				}))
 				.sort((a, b) => a.album.localeCompare(b.album)),
-		[albumsById]
+		[albumsById],
 	);
-
 
 	return (
 		<Main>
@@ -37,10 +30,9 @@ export default function AlbumsScreen() {
 					numColumns={2}
 					contentContainerStyle={{ paddingBottom: 80 }}
 					columnWrapperStyle={{ justifyContent: 'space-between' }}
-					renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
+					renderItem={({ item }) => <DynamicItem item={item} type='grid' />}
 				/>
 			</View>
 		</Main>
 	);
 }
-

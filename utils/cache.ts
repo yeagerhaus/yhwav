@@ -1,25 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Song } from '@/types/song';
-import { fetchAllTracks } from './plex';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import type { Song } from '@/types/song';
 
 const STORAGE_LIBRARY_KEY = 'LIBRARY_STATE';
 
 export interface SerializedLibraryState {
-tracks: Song[];
-songsById: Record<string, Song>;
-albumsById: Record<string, any>;
-artistsByName: Record<string, any>;
+	tracks: Song[];
+	songsById: Record<string, Song>;
+	albumsById: Record<string, any>;
+	artistsByName: Record<string, any>;
 }
 
 export async function saveLibraryToCache() {
 	try {
 		const state = useLibraryStore.getState();
 		const serialized: SerializedLibraryState = {
-		tracks: state.tracks,
-		songsById: state.songsById,
-		albumsById: state.albumsById,
-		artistsByName: state.artistsByName,
+			tracks: state.tracks,
+			songsById: state.songsById,
+			albumsById: state.albumsById,
+			artistsByName: state.artistsByName,
 		};
 
 		await AsyncStorage.setItem(STORAGE_LIBRARY_KEY, JSON.stringify(serialized));
@@ -42,11 +41,8 @@ export async function rehydrateLibraryStore(): Promise<boolean> {
 	const cached = await loadLibraryFromCache();
 
 	if (!cached) {
-		console.warn('🚫 No cached library found');
 		return false;
 	}
-
-	console.log('✅ Cached library loaded. Sample track:', cached.tracks?.[0]);
 
 	useLibraryStore.setState({
 		tracks: cached.tracks,
@@ -57,7 +53,6 @@ export async function rehydrateLibraryStore(): Promise<boolean> {
 
 	return true;
 }
-
 
 export async function clearLibraryCache() {
 	try {

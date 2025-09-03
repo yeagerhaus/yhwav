@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { type RefreshControlProps, StyleSheet, useColorScheme } from 'react-native';
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollViewOffset } from 'react-native-reanimated';
 
 import { ThemedView } from '@/cmps/ThemedView';
@@ -10,27 +10,28 @@ type Props = PropsWithChildren<{
 	headerImage: ReactElement;
 	headerBackgroundColor: { dark: string; light: string };
 	album?: boolean;
+	refreshControl?: React.ReactElement<RefreshControlProps>;
 }>;
 
-export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor, album }: Props) {
+export default function ParallaxScrollView({ children, headerImage, headerBackgroundColor, album, refreshControl }: Props) {
 	const colorScheme = useColorScheme() ?? 'light';
 	const scrollRef = useAnimatedRef<Animated.ScrollView>();
 	const scrollOffset = useScrollViewOffset(scrollRef);
 
 	const headerAnimatedStyle = useAnimatedStyle(() => {
 		return {
-		transform: [
-			{
-			translateY: interpolate(
-				scrollOffset.value,
-				[-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-				[-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
-			),
-			},
-			{
-			scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
-			},
-		],
+			transform: [
+				{
+					translateY: interpolate(
+						scrollOffset.value,
+						[-HEADER_HEIGHT, 0, HEADER_HEIGHT],
+						[-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75],
+					),
+				},
+				{
+					scale: interpolate(scrollOffset.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1]),
+				},
+			],
 		};
 	});
 
@@ -38,15 +39,17 @@ export default function ParallaxScrollView({ children, headerImage, headerBackgr
 
 	return (
 		<ThemedView style={styles.container}>
-			<Animated.ScrollView ref={scrollRef} scrollEventThrottle={16}>
-				<Animated.View style={[
-					{
-						height: headerHeight,
-						overflow: 'hidden',
-						backgroundColor: headerBackgroundColor[colorScheme],
-					},
-					headerAnimatedStyle,
-				]}>
+			<Animated.ScrollView ref={scrollRef} scrollEventThrottle={16} refreshControl={refreshControl}>
+				<Animated.View
+					style={[
+						{
+							height: headerHeight,
+							overflow: 'hidden',
+							backgroundColor: headerBackgroundColor[colorScheme],
+						},
+						headerAnimatedStyle,
+					]}
+				>
 					{headerImage}
 				</Animated.View>
 				<ThemedView style={styles.content}>{children}</ThemedView>
