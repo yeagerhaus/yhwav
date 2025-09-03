@@ -22,7 +22,7 @@ export default function MusicScreen() {
 	const router = useRouter();
 	const { setScale } = useRootScale();
 	
-	console.log('🎬 MusicScreen render - id:', id);
+
 	const translateY = useSharedValue(0);
 	const isClosing = useRef(false);
 	const statusBarStyle = useSharedValue<'light' | 'dark'>('light');

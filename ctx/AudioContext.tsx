@@ -49,7 +49,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		const trackPlayerIsPlaying = playbackState?.state === State.Playing;
 		if (trackPlayerIsPlaying !== isPlaying) {
-			console.log('🎵 AudioContext - syncing isPlaying state:', trackPlayerIsPlaying);
 			setIsPlaying(trackPlayerIsPlaying);
 		}
 	}, [playbackState?.state, isPlaying, setIsPlaying]);
@@ -136,10 +135,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			Event.PlaybackError,
 		],
 		async (event) => {
-			console.log('🎵 TrackPlayer Event:', event.type, event);
-
 			if (event.type === Event.PlaybackProgressUpdated) {
-				console.log('🎵 Progress update - position:', event.position, 'duration:', event.duration);
 				setPosition(event.position);
 				setDuration(event.duration);
 				await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(event.position));
@@ -150,16 +146,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			if (event.type === Event.PlaybackState) {
-				console.log('🎵 Playback state changed:', event.state);
+				// Playback state changed
 			}
 
 			if (event.type === Event.PlaybackTrackChanged) {
-				console.log('🎵 Track changed:', event.track);
 				// Update current song when TrackPlayer automatically advances
 				if (event.track !== null && queue.length > 0) {
 					const newCurrentSong = queue[event.track];
 					if (newCurrentSong && newCurrentSong.id !== currentSong?.id) {
-						console.log('🎵 Auto-advancing to:', newCurrentSong.title);
 						setCurrentSong(newCurrentSong);
 						await AsyncStorage.setItem(STORAGE_SONG_KEY, JSON.stringify(newCurrentSong));
 					}
@@ -236,10 +230,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 			// Only update currentSong if it's actually different
 			if (!currentSong || currentSong.id !== song.id) {
-				console.log('🎵 AudioContext setCurrentSong - NEW SONG:', song.title, 'ID:', song.id);
 				setCurrentSong(song);
-			} else {
-				console.log('🎵 AudioContext setCurrentSong - SAME SONG, skipping update:', song.title, 'ID:', song.id);
 			}
 			try {
 				const result = await ImageColors.getColors(song.artwork, {

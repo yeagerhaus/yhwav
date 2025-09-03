@@ -8,8 +8,6 @@ export const PlaybackControls = React.memo(() => {
 	const { togglePlayPause, playNextSong, playPreviousSong } = useAudio();
 	const { isPlaying } = usePlayback();
 
-	console.log('🎵 PlaybackControls render - isPlaying:', isPlaying);
-
 	return (
 		<ThemedView style={styles.buttonContainer}>
 			<Pressable style={styles.button} onPress={playPreviousSong}>

@@ -21,7 +21,7 @@ export const ExpandedPlayer = React.memo(({ scrollComponent }: ExpandedPlayerPro
 	const { artworkBgColor } = useAudio();
 	const { currentSong } = useSong();
 
-	console.log('🎵 ExpandedPlayer render - currentSong:', currentSong?.title, 'ID:', currentSong?.id);
+
 
 	const insets = useSafeAreaInsets();
 	const colorToUse = artworkBgColor || '#000000';

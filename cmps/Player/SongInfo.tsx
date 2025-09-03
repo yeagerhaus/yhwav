@@ -10,22 +10,18 @@ const { width } = Dimensions.get('window');
 
 export const SongInfo = React.memo(() => {
 	const { currentSong } = useSong();
-	console.log('🎨 SongInfo render - currentSong:', currentSong?.title, 'artwork:', currentSong?.artwork?.substring(0, 50) + '...', 'ID:', currentSong?.id);
 	
 	if (!currentSong) return null;
 
 	const artwork = useMemo(() => {
-		console.log('🎨 SongInfo artwork useMemo - recalculating for:', currentSong.artwork?.substring(0, 50) + '...');
 		return currentSong.artwork;
 	}, [currentSong.artwork]);
 
 	const title = useMemo(() => {
-		console.log('🎨 SongInfo title useMemo - recalculating for:', currentSong.title);
 		return currentSong.title;
 	}, [currentSong.title]);
 
 	const artist = useMemo(() => {
-		console.log('🎨 SongInfo artist useMemo - recalculating for:', currentSong.artist);
 		return currentSong.artist;
 	}, [currentSong.artist]);
 
