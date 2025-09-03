@@ -256,26 +256,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			// Add a small delay to ensure track is properly loaded before playing
 			setTimeout(async () => {
 				try {
-					console.log('🎵 Attempting to start playback...');
 
 					// Check TrackPlayer state before playing
 					const state = await TrackPlayer.getState();
-					console.log('🎵 TrackPlayer state before play:', state);
 
 					// Get current track info
 					const currentTrack = await TrackPlayer.getCurrentTrack();
-					console.log('🎵 Current track ID:', currentTrack);
 
 					// Get queue info
 					const queue = await TrackPlayer.getQueue();
-					console.log('🎵 Queue length:', queue.length);
 
 					// Test if the audio URL is accessible
 					if (song.uri) {
-						console.log('🎵 Testing audio URL accessibility...');
 						try {
 							const response = await fetch(song.uri, { method: 'HEAD' });
-							console.log('🎵 Audio URL response status:', response.status);
 							if (!response.ok) {
 								console.warn('⚠️ Audio URL may not be accessible:', response.status);
 							}
@@ -285,30 +279,23 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 					}
 
 					await TrackPlayer.play();
-					console.log('✅ TrackPlayer.play() called successfully');
 
 					// Check state after playing
 					setTimeout(async () => {
 						const newState = await TrackPlayer.getState();
-						console.log('🎵 TrackPlayer state after play:', newState);
-						console.log('🎵 Is actually playing?', newState === State.Playing);
 
 						// If not playing, try alternative approaches
 						if (newState !== State.Playing) {
-							console.log('🎵 Playback failed - trying alternative approaches...');
 							const currentTrackInfo = await TrackPlayer.getCurrentTrack();
-							console.log('🎵 Current track info:', currentTrackInfo);
 
 							// Try to pause and play again
 							try {
-								console.log('🎵 Trying pause/play cycle...');
 								await TrackPlayer.pause();
 								await new Promise((resolve) => setTimeout(resolve, 100));
 								await TrackPlayer.play();
 
 								setTimeout(async () => {
 									const retryState = await TrackPlayer.getState();
-									console.log('🎵 State after retry:', retryState);
 								}, 500);
 							} catch (retryError) {
 								console.error('🎵 Retry failed:', retryError);
@@ -337,9 +324,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 	const playNextSong = useCallback(async () => {
 		if (!currentSong || queue.length === 0) return;
-		console.log('🎵 playNextSong - currentSong:', currentSong.id, 'queue length:', queue.length);
 		const currentIndex = queue.findIndex((s) => String(s.id) === String(currentSong.id));
-		console.log('🎵 playNextSong - currentIndex:', currentIndex);
 
 		if (currentIndex === -1) {
 			console.warn('🎵 Current song not found in queue');
@@ -347,18 +332,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 		}
 
 		const nextSong = queue[(currentIndex + 1) % queue.length];
-		console.log('🎵 playNextSong - nextSong:', nextSong.title);
 		await playSound(nextSong, queue);
 	}, [currentSong, queue]);
 
 	const playPreviousSong = useCallback(async () => {
 		if (!currentSong || queue.length === 0) return;
-		console.log('🎵 playPreviousSong - currentSong:', currentSong.id, 'queue length:', queue.length);
 
 		// restart song if position >= 3s
 		try {
-			if (position >= 3) {
-				console.log('🎵 Restarting current song (position >= 3s)');
+			const currentPosition = await TrackPlayer.getPosition();
+			if (currentPosition >= 3) {
 				await playSound(currentSong, queue);
 				return;
 			}
@@ -366,7 +349,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			console.warn('🎵 Failed to get position:', err);
 		}
 		const currentIndex = queue.findIndex((s) => String(s.id) === String(currentSong.id));
-		console.log('🎵 playPreviousSong - currentIndex:', currentIndex);
 
 		if (currentIndex === -1) {
 			console.warn('🎵 Current song not found in queue');
@@ -375,7 +357,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 		const prevIndex = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
 		const prevSong = queue[prevIndex];
-		console.log('🎵 playPreviousSong - prevSong:', prevSong.title);
 		await playSound(prevSong, queue);
 	}, [currentSong, queue]);
 
