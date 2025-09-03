@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-const DefaultTypography = StyleSheet.create({
+const _DefaultTypography = StyleSheet.create({
 	h1: {
 		fontFamily: 'Manrope',
 		fontSize: 36,

@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system';
-import { Song } from '@/types/song';
+import type { Song } from '@/types/song';
 
 export const downloadTrack = async (track: Song): Promise<string | null> => {
 	try {

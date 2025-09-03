@@ -1,3 +1,4 @@
+import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Image, Platform, Pressable, StyleSheet } from 'react-native';
@@ -34,15 +35,18 @@ export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayer
 }
 
 // Extract the content into a separate component for reusability
-function MiniPlayerContent({ song, isPlaying, onPlayPause }: { song: any; isPlaying: boolean; onPlayPause: () => void }) {
+const MiniPlayerContent = React.memo(({ song, isPlaying, onPlayPause }: { song: any; isPlaying: boolean; onPlayPause: () => void }) => {
 	const colorScheme = useColorScheme();
 	const { playNextSong } = useAudio();
 
+	const artwork = React.useMemo(() => song.artwork, [song.artwork]);
+	const title = React.useMemo(() => song.title, [song.title]);
+
 	return (
 		<ThemedView style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
-			<Image source={{ uri: song.artwork }} style={styles.artwork} />
+			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<ThemedView style={styles.textContainer}>
-				<ThemedText style={styles.title}>{song.title}</ThemedText>
+				<ThemedText style={styles.title}>{title}</ThemedText>
 			</ThemedView>
 			<ThemedView style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={onPlayPause}>
@@ -54,7 +58,14 @@ function MiniPlayerContent({ song, isPlaying, onPlayPause }: { song: any; isPlay
 			</ThemedView>
 		</ThemedView>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Custom comparison to prevent re-renders when only isPlaying changes
+	return (
+		prevProps.song.artwork === nextProps.song.artwork &&
+		prevProps.song.title === nextProps.song.title &&
+		prevProps.isPlaying === nextProps.isPlaying
+	);
+});
 
 const styles = StyleSheet.create({
 	container: {

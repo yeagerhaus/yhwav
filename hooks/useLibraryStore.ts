@@ -1,15 +1,15 @@
 import { create } from 'zustand';
-import { Album, Artist, Song } from '@/types';
+import type { Album, Artist, Song } from '@/types';
 import { normalizeArtist } from '@/utils/song';
 
 interface LibraryState {
-  isLibraryLoading: boolean;
-  tracks: Song[];
-  songsById: Record<string, Song>;
-  albumsById: Record<string, Album>;
-  artistsByName: Record<string, Artist>;
-  setTracks: (songs: Song[]) => void;
-  setLibraryLoading: (loading: boolean) => void;
+	isLibraryLoading: boolean;
+	tracks: Song[];
+	songsById: Record<string, Song>;
+	albumsById: Record<string, Album>;
+	artistsByName: Record<string, Artist>;
+	setTracks: (songs: Song[]) => void;
+	setLibraryLoading: (loading: boolean) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -21,55 +21,60 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
 	setLibraryLoading: (loading: boolean) => set({ isLibraryLoading: loading }),
 
-	setTracks: async (songs: Song[]) => {
+	setTracks: (songs: Song[]) => {
 		const songsById: Record<string, Song> = {};
 		const albumsById: Record<string, Album> = {};
 		const artistsByName: Record<string, Artist> = {};
 
-		for (let i = 0; i < songs.length; i++) {
-			const song = songs[i];
-			const artistKey = normalizeArtist(song.artist);
-			const albumId = `${artistKey}-${song.album.trim().toLowerCase()}`;
+		// Process songs in batches to avoid blocking the main thread
+		const BATCH_SIZE = 500;
+		const processBatch = (startIndex: number) => {
+			const endIndex = Math.min(startIndex + BATCH_SIZE, songs.length);
 
-			songsById[song.id] = song;
+			for (let i = startIndex; i < endIndex; i++) {
+				const song = songs[i];
+				const artistKey = normalizeArtist(song.artist);
+				const albumId = `${artistKey}-${song.album.trim().toLowerCase()}`;
 
-			// Album
-			if (!albumsById[albumId]) {
-			albumsById[albumId] = {
-				id: albumId,
-				title: song.album,
-				artist: song.artist,
-				artistKey,
-				artwork: song.artworkUrl || song.artwork || '',
-				songIds: [],
-			};
-			}
-			albumsById[albumId].songIds.push(song.id);
+				songsById[song.id] = song;
 
-			// Artist
-			if (!artistsByName[artistKey]) {
-			artistsByName[artistKey] = {
-				key: artistKey,
-				name: song.artist,
-				albumIds: [],
-			};
-			}
-			if (!artistsByName[artistKey].albumIds.includes(albumId)) {
-			artistsByName[artistKey].albumIds.push(albumId);
-			}
+				// Album
+				if (!albumsById[albumId]) {
+					albumsById[albumId] = {
+						id: albumId,
+						title: song.album,
+						artist: song.artist,
+						artistKey,
+						artwork: song.artworkUrl || song.artwork || '',
+						songIds: [],
+					};
+				}
+				albumsById[albumId].songIds.push(song.id);
 
-			// Yield to JS thread every 1000 iterations
-			if (i % 1000 === 0) {
-			await new Promise((res) => setTimeout(res, 0));
+				// Artist
+				if (!artistsByName[artistKey]) {
+					artistsByName[artistKey] = {
+						key: artistKey,
+						name: song.artist,
+						albumIds: [],
+					};
+				}
+				if (!artistsByName[artistKey].albumIds.includes(albumId)) {
+					artistsByName[artistKey].albumIds.push(albumId);
+				}
 			}
+		};
+
+		// Process all batches
+		for (let startIndex = 0; startIndex < songs.length; startIndex += BATCH_SIZE) {
+			processBatch(startIndex);
 		}
 
-		console.log('🎵 setTracks got', songs.length, 'songs, ', albumsById.length, ' albums, ', artistsByName.length, ' artists');
 		set({
 			tracks: songs,
 			songsById,
 			albumsById,
 			artistsByName,
 		});
-		},
+	},
 }));

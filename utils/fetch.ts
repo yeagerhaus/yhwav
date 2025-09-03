@@ -68,8 +68,6 @@ export async function fetchAPI<T = any>(
 		}
 	}
 
-	// console.log('fetch', url, method, req.body);
-
 	try {
 		// Perform fetch request
 		const resp = await fetch(url, req);
@@ -83,7 +81,6 @@ export async function fetchAPI<T = any>(
 
 		// Return raw text response if needed
 		if (opts.asText) return [responseBody as T, undefined];
-		// console.log('REQ', url, req, responseBody);
 		// Try to parse JSON response
 		try {
 			const json = JSON.parse(responseBody);

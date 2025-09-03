@@ -1,14 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ExpandedPlayer } from '@/cmps/BottomSheet/ExpandedPlayer';
 import { ThemedView } from '@/cmps/ThemedView';
-import { useRootScale } from '@/ctx/RootScaleContext';
 import { useAudio } from '@/ctx/AudioContext';
+import { useRootScale } from '@/ctx/RootScaleContext';
 
 const SCALE_FACTOR = 0.83;
 const DRAG_THRESHOLD = Math.min(Dimensions.get('window').height * 0.2, 150);
@@ -17,10 +17,12 @@ const DIRECTION_LOCK_ANGLE = 45; // Angle in degrees to determine horizontal vs 
 const ENABLE_HORIZONTAL_DRAG_CLOSE = false;
 
 export default function MusicScreen() {
-	const { position, duration, seekTo } = useAudio();
+	useAudio();
 	const { id } = useLocalSearchParams();
 	const router = useRouter();
 	const { setScale } = useRootScale();
+	
+	console.log('🎬 MusicScreen render - id:', id);
 	const translateY = useSharedValue(0);
 	const isClosing = useRef(false);
 	const statusBarStyle = useSharedValue<'light' | 'dark'>('light');
@@ -32,7 +34,7 @@ export default function MusicScreen() {
 	const isHorizontalGesture = useSharedValue(false);
 	const isScrolling = useSharedValue(false);
 
-	const numericId = typeof id === 'string' ? Number.parseInt(id, 10) : Array.isArray(id) ? Number.parseInt(id[0], 10) : 0;
+	const _numericId = typeof id === 'string' ? Number.parseInt(id, 10) : Array.isArray(id) ? Number.parseInt(id[0], 10) : 0;
 	// const _song = songs.find((s) => s.id === numericId) || songs[0];
 
 	const handleHapticFeedback = useCallback(() => {
@@ -228,6 +230,9 @@ export default function MusicScreen() {
 		[composedGestures],
 	);
 
+	// Memoize the ScrollComponent to prevent ExpandedPlayer re-renders
+	const MemoizedScrollComponent = React.useMemo(() => ScrollComponent, [ScrollComponent]);
+
 	const animatedStyle = useAnimatedStyle(() => ({
 		transform: [{ translateY: translateY.value }, { translateX: translateX.value }],
 		opacity: withSpring(1),
@@ -256,7 +261,7 @@ export default function MusicScreen() {
 		<ThemedView style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<StatusBar animated={true} style={statusBarStyle.value} />
 			<Animated.View style={[{ flex: 1, backgroundColor: 'transparent' }, animatedStyle]}>
-				<ExpandedPlayer scrollComponent={ScrollComponent} />
+				<ExpandedPlayer scrollComponent={MemoizedScrollComponent} />
 			</Animated.View>
 		</ThemedView>
 	);

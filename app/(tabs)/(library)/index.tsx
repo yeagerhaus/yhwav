@@ -1,13 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View, RefreshControl } from 'react-native';
-
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { DynamicItem, ThemedText } from '@/cmps';
 import ParallaxScrollView from '@/cmps/ParallaxScrollView';
 import { ThemedView } from '@/cmps/ThemedView';
-import { resetLibraryData, fetchAllTracks, saveLibraryToCache } from '@/utils';
-import { useRouter } from 'expo-router';
-import { DynamicItem, LibrarySkeleton, ThemedText } from '@/cmps';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { useState } from 'react';
+import { fetchAllTracks, saveLibraryToCache } from '@/utils';
 
 const SECTIONS = [
 	{ title: 'Playlists', route: '/(tabs)/(library)/(playlists)' },
@@ -18,7 +16,7 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
-	const { isLibraryLoading, tracks, setTracks, setLibraryLoading } = useLibraryStore();
+	const { isLibraryLoading, tracks, setTracks } = useLibraryStore();
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	console.log('isLibraryLoading:', isLibraryLoading);
@@ -26,21 +24,13 @@ export default function LibraryScreen() {
 	const handleRefresh = async () => {
 		setIsRefreshing(true);
 		try {
-			console.log('🔄 Refreshing library data...');
-			
-			// Reset and refetch library data
-			await resetLibraryData();
-			
 			// Fetch fresh data from Plex
 			const fetchedTracks = await fetchAllTracks();
-			console.log('🎵 Fetched', fetchedTracks.length, 'tracks from Plex');
-			
+
 			// Update the store
 			await setTracks(fetchedTracks);
 			await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
 			await saveLibraryToCache();
-			
-			console.log('✅ Library refresh complete');
 		} catch (error) {
 			console.error('❌ Failed to refresh library:', error);
 		} finally {
@@ -48,34 +38,26 @@ export default function LibraryScreen() {
 		}
 	};
 
-	const handleReset = async () => {
-		try {
-			await resetLibraryData();
-		} catch (error) {
-			console.error('❌ Failed to reset library:', error);
-		}
-	};
-
 	return (
 		<ThemedView style={styles.container}>
-		<ParallaxScrollView
-			headerBackgroundColor={{ light: '#f57a8a', dark: '#FA2D48' }}
-			refreshControl={
-				<RefreshControl
-					refreshing={isRefreshing}
-					onRefresh={handleRefresh}
-					tintColor="#fff"
-					title="Pull to refresh library"
-					titleColor="#fff"
-				/>
-			}
-			headerImage={
+			<ParallaxScrollView
+				headerBackgroundColor={{ light: '#f57a8a', dark: '#FA2D48' }}
+				refreshControl={
+					<RefreshControl
+						refreshing={isRefreshing}
+						onRefresh={handleRefresh}
+						tintColor='#fff'
+						title='Pull to refresh library'
+						titleColor='#fff'
+					/>
+				}
+				headerImage={
 					<ThemedView style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }}>
 						<Image
-						source={{
-							uri: 'https://9to5mac.com/wp-content/uploads/sites/6/2021/08/apple-music-logo-2021-9to5mac.jpg?quality=82&strip=all&w=1024',
-						}}
-						style={{ position: 'absolute', width: '100%', height: '100%' }}
+							source={{
+								uri: 'https://9to5mac.com/wp-content/uploads/sites/6/2021/08/apple-music-logo-2021-9to5mac.jpg?quality=82&strip=all&w=1024',
+							}}
+							style={{ position: 'absolute', width: '100%', height: '100%' }}
 						/>
 						<Text style={{ fontSize: 18, alignSelf: 'center', position: 'absolute', top: 80, color: '#fff' }}>
 							Built with Expo
@@ -85,33 +67,31 @@ export default function LibraryScreen() {
 								<Ionicons name='folder-open' size={24} color='#fff' />
 								<Text style={styles.headerButtonText}>Import</Text>
 							</Pressable> */}
-							<Pressable style={styles.headerButton} onPress={handleReset}>
-								<Ionicons name='trash-bin' size={24} color='#fff' />
-								<Text style={styles.headerButtonText}>Reset</Text>
-							</Pressable>
 						</View>
 					</ThemedView>
 				}
 				// @ts-ignore
 				contentContainerStyle={styles.scrollView as any}
 			>
-			<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
-				{isLibraryLoading ? (
-					<ActivityIndicator />
-				) : (
-					<>
-					<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
-						{tracks.length} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
-					</ThemedText>
-					<FlatList
-						data={SECTIONS}
-						keyExtractor={(item) => item.title}
-						renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
-					/>
-					</>
-				)}
-			</View>
-		</ParallaxScrollView>
+				<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
+					{isLibraryLoading ? (
+						<ActivityIndicator />
+					) : (
+						<>
+							<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
+								{tracks.length} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
+							</ThemedText>
+							<FlatList
+								data={SECTIONS}
+								keyExtractor={(item) => item.title}
+								renderItem={({ item }) => (
+									<DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />
+								)}
+							/>
+						</>
+					)}
+				</View>
+			</ParallaxScrollView>
 		</ThemedView>
 	);
 }

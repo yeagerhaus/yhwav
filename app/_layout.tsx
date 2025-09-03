@@ -1,6 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,6 +7,8 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
 import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
 import { AudioProvider, useAudio } from '@/ctx/AudioContext';
+import { SongProvider } from '@/ctx/SongContext';
+import { PlaybackProvider } from '@/ctx/PlaybackContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { fetchAllTracks, rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
@@ -89,11 +90,15 @@ export default function RootLayout() {
 		<GestureHandlerRootView style={styles.container}>
 			<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
 				<RootScaleProvider>
-					<AudioProvider>
-						<OverlayProvider>
-							<AnimatedStack />
-						</OverlayProvider>
-					</AudioProvider>
+					<SongProvider>
+						<PlaybackProvider>
+							<AudioProvider>
+								<OverlayProvider>
+									<AnimatedStack />
+								</OverlayProvider>
+							</AudioProvider>
+						</PlaybackProvider>
+					</SongProvider>
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

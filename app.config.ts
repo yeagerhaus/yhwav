@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { ExpoConfig, ConfigContext } from '@expo/config';
+import type { ConfigContext, ExpoConfig } from '@expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
-...config,
-name: 'yhplayer',
+	...config,
+	name: 'yhplayer',
 	slug: 'yhplayer',
 	version: '1.0.0',
 	orientation: 'portrait',
@@ -22,8 +22,8 @@ name: 'yhplayer',
 	},
 	android: {
 		adaptiveIcon: {
-		foregroundImage: './assets/images/adaptive-icon.png',
-		backgroundColor: '#ffffff',
+			foregroundImage: './assets/images/adaptive-icon.png',
+			backgroundColor: '#ffffff',
 		},
 		package: 'com.alpineiq.yhplayer',
 	},
@@ -35,14 +35,14 @@ name: 'yhplayer',
 	plugins: [
 		'expo-router',
 		[
-		'expo-splash-screen',
-		{
-			image: './assets/images/splash-icon.png',
-			imageWidth: 200,
-			resizeMode: 'contain',
-			backgroundColor: '#ffffff',
-			preventAutoHide: true,
-		},
+			'expo-splash-screen',
+			{
+				image: './assets/images/splash-icon.png',
+				imageWidth: 200,
+				resizeMode: 'contain',
+				backgroundColor: '#ffffff',
+				preventAutoHide: true,
+			},
 		],
 		'expo-font',
 		'expo-web-browser',

@@ -1,7 +1,6 @@
-import GridItem from "./GridItem";
-import ListItem from "./ListItem";
-import SongItem from "./SongItem";
-
+import GridItem from './GridItem';
+import ListItem from './ListItem';
+import SongItem from './SongItem';
 
 export interface DynamicItemProps {
 	type: 'list' | 'grid' | 'song';

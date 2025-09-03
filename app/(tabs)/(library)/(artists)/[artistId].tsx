@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet } from 'react-native';
+import { DynamicItem, ThemedText, ThemedView } from '@/cmps';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { ThemedText, DynamicItem, ThemedView } from '@/cmps';
 
 export default function ArtistDetailScreen() {
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
-	const artistKey = decodeURIComponent(artistId ?? '');
+	const artistKey = decodeURIComponent(artistId ?? '').toLowerCase();
 
 	const artist = useLibraryStore((s) => s.artistsByName[artistKey]);
 	const albumsById = useLibraryStore((s) => s.albumsById);
@@ -19,7 +19,6 @@ export default function ArtistDetailScreen() {
 	}
 
 	console.log('Artist Detail', artist);
-
 
 	const albums = artist.albumIds
 		.map((id) => albumsById[id])
@@ -42,7 +41,7 @@ export default function ArtistDetailScreen() {
 				numColumns={2}
 				contentContainerStyle={{ paddingBottom: 80 }}
 				columnWrapperStyle={{ justifyContent: 'space-between' }}
-				renderItem={({ item }) => <DynamicItem item={item} type="grid" />}
+				renderItem={({ item }) => <DynamicItem item={item} type='grid' />}
 			/>
 		</ThemedView>
 	);

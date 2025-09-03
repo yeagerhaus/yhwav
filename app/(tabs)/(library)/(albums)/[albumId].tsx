@@ -1,11 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, FlatList, View } from 'react-native';
+import { FlatList, Image, View } from 'react-native';
 import ImageColors from 'react-native-image-colors';
-import { ThemedText, DynamicItem, ThemedView } from '@/cmps';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { Song } from '@/types/song';
+import { DynamicItem, ThemedText, ThemedView } from '@/cmps';
 import ParallaxScrollView from '@/cmps/ParallaxScrollView';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
+import type { Song } from '@/types/song';
 
 export default function AlbumDetailScreen() {
 	const { albumId } = useLocalSearchParams<{ albumId: string }>();
@@ -22,9 +22,9 @@ export default function AlbumDetailScreen() {
 		const filtered = allTracks.filter((song) => song.album === decoded);
 
 		const sorted = filtered.sort((a, b) => {
-		const discDiff = (a.discNumber ?? 0) - (b.discNumber ?? 0);
-		if (discDiff !== 0) return discDiff;
-		return (a.trackNumber ?? 0) - (b.trackNumber ?? 0);
+			const discDiff = (a.discNumber ?? 0) - (b.discNumber ?? 0);
+			if (discDiff !== 0) return discDiff;
+			return (a.trackNumber ?? 0) - (b.trackNumber ?? 0);
 		});
 
 		setSongs(sorted);
@@ -44,37 +44,29 @@ export default function AlbumDetailScreen() {
 	}, [albumId, allTracks]);
 
 	return (
-		<ThemedView style={{ flex: 1}}>
-		<ParallaxScrollView
-			album
-			headerBackgroundColor={{ light: bgColor, dark: bgColor }}
-			// @ts-ignore
-			headerImage={
-			artwork ? (
-				<Image
-				source={{ uri: artwork }}
-				style={{ width: '100%', height: '100%' }}
-				resizeMode="cover"
-				/>
-			) : undefined
-			}
-		>
-			<ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginTop: 16, marginLeft: 16 }}>
-				{decodeURIComponent(albumId || '')}
-			</ThemedText>
-			<ThemedText style={{ fontSize: 16, marginLeft: 16, marginTop: -8, color: '#888' }}>
-				{artist}
-			</ThemedText>
+		<ThemedView style={{ flex: 1 }}>
+			<ParallaxScrollView
+				album
+				headerBackgroundColor={{ light: bgColor, dark: bgColor }}
+				// @ts-ignore
+				headerImage={
+					artwork ? <Image source={{ uri: artwork }} style={{ width: '100%', height: '100%' }} resizeMode='cover' /> : undefined
+				}
+			>
+				<ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginTop: 16, marginLeft: 16 }}>
+					{decodeURIComponent(albumId || '')}
+				</ThemedText>
+				<ThemedText style={{ fontSize: 16, marginLeft: 16, marginTop: -8, color: '#888' }}>{artist}</ThemedText>
 
-			<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
-			<FlatList
-				data={songs}
-				keyExtractor={(item) => item.id}
-				renderItem={({ item }) => <DynamicItem item={item} type="song" queue={songs} />}
-				contentContainerStyle={{ paddingBottom: 100 }}
-			/>
-			</View>
-		</ParallaxScrollView>
+				<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
+					<FlatList
+						data={songs}
+						keyExtractor={(item) => item.id}
+						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} />}
+						contentContainerStyle={{ paddingBottom: 100 }}
+					/>
+				</View>
+			</ParallaxScrollView>
 		</ThemedView>
 	);
 }
