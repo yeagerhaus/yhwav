@@ -6,9 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/cmps/ThemedText';
 import { ThemedView } from '@/cmps/ThemedView';
 import { useAudio } from '@/ctx/AudioContext';
+import { useSong } from '@/ctx/SongContext';
+import { usePlayback } from '@/ctx/PlaybackContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayerProps) {
+export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	const insets = useSafeAreaInsets();
 	const colorScheme = useColorScheme();
 
@@ -23,11 +25,11 @@ export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayer
 					intensity={80}
 					style={[styles.content, styles.blurContainer]}
 				>
-					<MiniPlayerContent song={song} isPlaying={isPlaying} onPlayPause={onPlayPause} />
+					<MiniPlayerContent />
 				</BlurView>
 			) : (
 				<ThemedView style={[styles.content, styles.androidContainer]}>
-					<MiniPlayerContent song={song} isPlaying={isPlaying} onPlayPause={onPlayPause} />
+					<MiniPlayerContent />
 				</ThemedView>
 			)}
 		</Pressable>
@@ -35,12 +37,16 @@ export function MiniPlayer({ onPress, song, isPlaying, onPlayPause }: MiniPlayer
 }
 
 // Extract the content into a separate component for reusability
-const MiniPlayerContent = React.memo(({ song, isPlaying, onPlayPause }: { song: any; isPlaying: boolean; onPlayPause: () => void }) => {
+const MiniPlayerContent = React.memo(() => {
 	const colorScheme = useColorScheme();
-	const { playNextSong } = useAudio();
+	const { playNextSong, togglePlayPause } = useAudio();
+	const { currentSong } = useSong();
+	const { isPlaying } = usePlayback();
 
-	const artwork = React.useMemo(() => song.artwork, [song.artwork]);
-	const title = React.useMemo(() => song.title, [song.title]);
+	if (!currentSong) return null;
+
+	const artwork = React.useMemo(() => currentSong.artwork, [currentSong.artwork]);
+	const title = React.useMemo(() => currentSong.title, [currentSong.title]);
 
 	return (
 		<ThemedView style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
@@ -49,7 +55,7 @@ const MiniPlayerContent = React.memo(({ song, isPlaying, onPlayPause }: { song: 
 				<ThemedText style={styles.title}>{title}</ThemedText>
 			</ThemedView>
 			<ThemedView style={styles.controls}>
-				<Pressable style={styles.controlButton} onPress={onPlayPause}>
+				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
 					<Ionicons name={isPlaying ? 'pause' : 'play'} size={24} color={colorScheme === 'light' ? '#000' : '#fff'} />
 				</Pressable>
 				<Pressable style={styles.controlButton} onPress={playNextSong}>
@@ -57,13 +63,6 @@ const MiniPlayerContent = React.memo(({ song, isPlaying, onPlayPause }: { song: 
 				</Pressable>
 			</ThemedView>
 		</ThemedView>
-	);
-}, (prevProps, nextProps) => {
-	// Custom comparison to prevent re-renders when only isPlaying changes
-	return (
-		prevProps.song.artwork === nextProps.song.artwork &&
-		prevProps.song.title === nextProps.song.title &&
-		prevProps.isPlaying === nextProps.isPlaying
 	);
 });
 
@@ -131,9 +130,4 @@ const styles = StyleSheet.create({
 	},
 });
 
-interface MiniPlayerProps {
-	onPress: () => void;
-	song: any;
-	isPlaying: boolean;
-	onPlayPause: () => void;
-}
+

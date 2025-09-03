@@ -17,7 +17,7 @@ const DIRECTION_LOCK_ANGLE = 45; // Angle in degrees to determine horizontal vs 
 const ENABLE_HORIZONTAL_DRAG_CLOSE = false;
 
 export default function MusicScreen() {
-	useAudio();
+	// Don't use useAudio() here as it causes re-renders on progress updates
 	const { id } = useLocalSearchParams();
 	const router = useRouter();
 	const { setScale } = useRootScale();

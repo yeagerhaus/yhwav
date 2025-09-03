@@ -45,6 +45,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 	const playbackState = usePlaybackState();
 	const [artworkBgColor, setArtworkBgColor] = useState<string | null>(null);
 
+	// Sync isPlaying state with TrackPlayer state
+	useEffect(() => {
+		const trackPlayerIsPlaying = playbackState?.state === State.Playing;
+		if (trackPlayerIsPlaying !== isPlaying) {
+			console.log('🎵 AudioContext - syncing isPlaying state:', trackPlayerIsPlaying);
+			setIsPlaying(trackPlayerIsPlaying);
+		}
+	}, [playbackState?.state, isPlaying, setIsPlaying]);
+
 	useEffect(() => {
 		const init = async () => {
 			await TrackPlayer.setupPlayer();
@@ -414,7 +423,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<AudioContext.Provider
 			value={{
-				isPlaying: playbackState?.state === State.Playing,
+				isPlaying,
 				currentSong,
 				position,
 				duration,

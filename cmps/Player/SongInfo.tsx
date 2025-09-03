@@ -10,7 +10,7 @@ const { width } = Dimensions.get('window');
 
 export const SongInfo = React.memo(() => {
 	const { currentSong } = useSong();
-	console.log('🎨 SongInfo render - currentSong:', currentSong?.title, 'artwork:', currentSong?.artwork?.substring(0, 50) + '...');
+	console.log('🎨 SongInfo render - currentSong:', currentSong?.title, 'artwork:', currentSong?.artwork?.substring(0, 50) + '...', 'ID:', currentSong?.id);
 	
 	if (!currentSong) return null;
 

@@ -4,6 +4,8 @@ import { StyleSheet, View as ThemedView } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudio } from '@/ctx/AudioContext';
+import { useSong } from '@/ctx/SongContext';
+import { usePlayback } from '@/ctx/PlaybackContext';
 import { SongProgressBar } from '../Player/SongProgressBar';
 import { SongInfo } from '../Player/SongInfo';
 import { TimeDisplay } from '../Player/TimeDisplay';
@@ -16,10 +18,10 @@ interface ExpandedPlayerProps {
 
 export const ExpandedPlayer = React.memo(({ scrollComponent }: ExpandedPlayerProps) => {
 	const ScrollComponentToUse = scrollComponent || ScrollView;
-	const { isPlaying, position, duration, togglePlayPause, currentSong, playNextSong, playPreviousSong, seekTo, artworkBgColor } =
-		useAudio();
+	const { artworkBgColor } = useAudio();
+	const { currentSong } = useSong();
 
-	console.log('🎵 ExpandedPlayer render - position:', position, 'duration:', duration, 'currentSong:', currentSong?.title);
+	console.log('🎵 ExpandedPlayer render - currentSong:', currentSong?.title, 'ID:', currentSong?.id);
 
 	const insets = useSafeAreaInsets();
 	const colorToUse = artworkBgColor || '#000000';
@@ -47,14 +49,9 @@ export const ExpandedPlayer = React.memo(({ scrollComponent }: ExpandedPlayerPro
 					<SongInfo />
 
 					<ThemedView style={styles.controls}>
-						<SongProgressBar position={position} duration={duration} />
-						<TimeDisplay position={position} duration={duration} />
-						<PlaybackControls 
-							isPlaying={isPlaying}
-							onTogglePlayPause={togglePlayPause}
-							onPlayPrevious={playPreviousSong}
-							onPlayNext={playNextSong}
-						/>
+						<SongProgressBar />
+						<TimeDisplay />
+						<PlaybackControls />
 						<ExtraControls />
 					</ThemedView>
 				</ThemedView>

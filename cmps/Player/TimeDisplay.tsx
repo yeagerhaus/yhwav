@@ -1,10 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-
-interface TimeDisplayProps {
-	position: number;
-	duration: number;
-}
+import { usePlayback } from '@/ctx/PlaybackContext';
 
 const formatTime = (seconds: number) => {
 	const minutes = Math.floor(seconds / 60);
@@ -12,7 +8,9 @@ const formatTime = (seconds: number) => {
 	return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-export const TimeDisplay = React.memo(({ position, duration }: TimeDisplayProps) => {
+export const TimeDisplay = React.memo(() => {
+	const { position, duration } = usePlayback();
+	
 	const currentTime = formatTime(position);
 	const remainingTime = `-${formatTime(Math.max(0, duration - position))}`;
 

@@ -1,29 +1,24 @@
 import React from 'react';
 import { Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAudio } from '@/ctx/AudioContext';
+import { usePlayback } from '@/ctx/PlaybackContext';
 
-interface PlaybackControlsProps {
-	isPlaying: boolean;
-	onTogglePlayPause: () => void;
-	onPlayPrevious: () => void;
-	onPlayNext: () => void;
-}
+export const PlaybackControls = React.memo(() => {
+	const { togglePlayPause, playNextSong, playPreviousSong } = useAudio();
+	const { isPlaying } = usePlayback();
 
-export const PlaybackControls = React.memo(({ 
-	isPlaying, 
-	onTogglePlayPause, 
-	onPlayPrevious, 
-	onPlayNext 
-}: PlaybackControlsProps) => {
+	console.log('🎵 PlaybackControls render - isPlaying:', isPlaying);
+
 	return (
 		<ThemedView style={styles.buttonContainer}>
-			<Pressable style={styles.button} onPress={onPlayPrevious}>
+			<Pressable style={styles.button} onPress={playPreviousSong}>
 				<Ionicons name='play-skip-back' size={35} color='#fff' />
 			</Pressable>
-			<Pressable style={[styles.button, styles.playButton]} onPress={onTogglePlayPause}>
+			<Pressable style={[styles.button, styles.playButton]} onPress={togglePlayPause}>
 				<Ionicons name={isPlaying ? 'pause' : 'play'} size={45} color='#fff' />
 			</Pressable>
-			<Pressable style={styles.button} onPress={onPlayNext}>
+			<Pressable style={styles.button} onPress={playNextSong}>
 				<Ionicons name='play-skip-forward' size={35} color='#fff' />
 			</Pressable>
 		</ThemedView>

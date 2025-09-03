@@ -16,7 +16,7 @@ import { fetchAllTracks, rehydrateLibraryStore, saveLibraryToCache } from '@/uti
 function AnimatedStack() {
 	const { scale } = useRootScale();
 	const router = useRouter();
-	const { currentSong, isPlaying, togglePlayPause } = useAudio();
+	const { currentSong } = useAudio();
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -49,9 +49,6 @@ function AnimatedStack() {
 
 				{currentSong && (
 					<MiniPlayer
-						song={currentSong}
-						isPlaying={isPlaying}
-						onPlayPause={togglePlayPause}
 						onPress={() => router.push(`/music/${currentSong.id}`)}
 					/>
 				)}
