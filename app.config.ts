@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 	icon: './assets/images/icon.png',
 	scheme: 'myapp',
 	userInterfaceStyle: 'automatic',
-	newArchEnabled: true,
+	newArchEnabled: false,
 	splash: {
 		image: './assets/images/splash.png',
 		resizeMode: 'contain',
@@ -55,5 +55,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		EXPO_PUBLIC_PLEX_SERVER: process.env.EXPO_PUBLIC_PLEX_SERVER,
 		EXPO_PUBLIC_PLEX_TOKEN: process.env.EXPO_PUBLIC_PLEX_TOKEN,
 		EXPO_PUBLIC_PLEX_MUSIC_SECTION_ID: process.env.EXPO_PUBLIC_PLEX_MUSIC_SECTION_ID,
+		EXPO_PUBLIC_PLEX_CLIENT_ID: process.env.EXPO_PUBLIC_PLEX_CLIENT_ID,
 	},
 });
