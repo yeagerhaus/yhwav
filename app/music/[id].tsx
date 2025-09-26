@@ -7,7 +7,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ExpandedPlayer } from '@/cmps/BottomSheet/ExpandedPlayer';
 import { ThemedView } from '@/cmps/ThemedView';
-import { useAudio } from '@/ctx/AudioContext';
 import { useRootScale } from '@/ctx/RootScaleContext';
 
 const SCALE_FACTOR = 0.83;
@@ -21,7 +20,6 @@ export default function MusicScreen() {
 	const { id } = useLocalSearchParams();
 	const router = useRouter();
 	const { setScale } = useRootScale();
-	
 
 	const translateY = useSharedValue(0);
 	const isClosing = useRef(false);

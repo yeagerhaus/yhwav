@@ -39,13 +39,28 @@ bun start
 
 ### Environment Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (copy from `env.example`):
 
 ```env
 EXPO_PUBLIC_PLEX_SERVER=https://your-plex-server.com
 EXPO_PUBLIC_PLEX_TOKEN=your-plex-token
 EXPO_PUBLIC_PLEX_MUSIC_SECTION_ID=your-music-section-id
 ```
+
+**JWT Authentication Setup:**
+
+The app now uses Plex's new JWT authentication system for enhanced security. Here's how it works:
+
+1. **Automatic Setup**: No manual configuration needed!
+2. **Unique Device IDs**: Each device gets a unique client ID automatically (e.g., `yhplayer-ios-1703123456789-a1b2c3d4`)
+3. **First run**: The app automatically registers with Plex's JWT system using your existing token
+4. **Automatic token refresh**: The app automatically refreshes JWT tokens every 7 days
+
+**Migration from Legacy Auth:**
+- Your existing `EXPO_PUBLIC_PLEX_TOKEN` is used only for the initial JWT registration
+- After the first run, the app uses JWT tokens exclusively
+- Each device registers independently with Plex
+- No changes needed to your Plex server configuration
 
 ---
 
@@ -138,9 +153,11 @@ yhplayer/
 
 ### Plex Setup
 1. Ensure your Plex server is accessible
-2. Get your Plex token from server settings
+2. Get your Plex token from server settings (for initial JWT registration)
 3. Find your music section ID in Plex web interface
-4. Configure environment variables
+4. Configure environment variables in `.env` file
+5. The app automatically generates unique client IDs per device
+6. JWT authentication is handled automatically after first run
 
 ### iOS Development
 - Requires Xcode 15+ for iOS 17+ support

@@ -7,11 +7,12 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
 import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
 import { AudioProvider, useAudio } from '@/ctx/AudioContext';
-import { SongProvider } from '@/ctx/SongContext';
 import { PlaybackProvider } from '@/ctx/PlaybackContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { SongProvider } from '@/ctx/SongContext';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { fetchAllTracks, rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
+import { initializePlexJWT } from '@/utils/plex';
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -47,11 +48,7 @@ function AnimatedStack() {
 					<Stack.Screen name='+not-found' />
 				</Stack>
 
-				{currentSong && (
-					<MiniPlayer
-						onPress={() => router.push(`/music/${currentSong.id}`)}
-					/>
-				)}
+				{currentSong && <MiniPlayer onPress={() => router.push(`/music/${currentSong.id}`)} />}
 			</Animated.View>
 
 			{/* putting anything here is not scalled down upon modal open */}
@@ -67,17 +64,25 @@ export default function RootLayout() {
 		const init = async () => {
 			setLibraryLoading(true);
 
-			const hydrated = await rehydrateLibraryStore();
-			if (!hydrated) {
-				const fetchedTracks = await fetchAllTracks();
-				console.log('Fetched sample track:', fetchedTracks[0]);
-				console.log('Setting tracks in Zustand store...');
-				await setTracks(fetchedTracks);
-				await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
-				await saveLibraryToCache();
-			}
+			try {
+				// Initialize Plex JWT authentication first
+				await initializePlexJWT();
+				console.log('Plex JWT authentication initialized');
 
-			setLibraryLoading(false);
+				const hydrated = await rehydrateLibraryStore();
+				if (!hydrated) {
+					const fetchedTracks = await fetchAllTracks();
+					console.log('Fetched sample track:', fetchedTracks[0]);
+					console.log('Setting tracks in Zustand store...');
+					await setTracks(fetchedTracks);
+					await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
+					await saveLibraryToCache();
+				}
+			} catch (error) {
+				console.error('Failed to initialize app:', error);
+			} finally {
+				setLibraryLoading(false);
+			}
 		};
 
 		init();

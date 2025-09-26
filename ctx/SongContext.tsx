@@ -18,11 +18,7 @@ const SongContext = createContext<SongContextType | undefined>(undefined);
 export function SongProvider({ children }: { children: React.ReactNode }) {
 	const [currentSong, setCurrentSong] = useState<Song | null>(null);
 
-	return (
-		<SongContext.Provider value={{ currentSong, setCurrentSong }}>
-			{children}
-		</SongContext.Provider>
-	);
+	return <SongContext.Provider value={{ currentSong, setCurrentSong }}>{children}</SongContext.Provider>;
 }
 
 export function useSong() {

@@ -17,14 +17,16 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
 	const [duration, setDuration] = useState(0);
 
 	return (
-		<PlaybackContext.Provider value={{ 
-			isPlaying, 
-			position, 
-			duration, 
-			setPosition, 
-			setDuration, 
-			setIsPlaying 
-		}}>
+		<PlaybackContext.Provider
+			value={{
+				isPlaying,
+				position,
+				duration,
+				setPosition,
+				setDuration,
+				setIsPlaying,
+			}}
+		>
 			{children}
 		</PlaybackContext.Provider>
 	);

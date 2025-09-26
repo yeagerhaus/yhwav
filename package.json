@@ -81,7 +81,10 @@
 	"expo": {
 		"doctor": {
 			"reactNativeDirectoryCheck": {
-				"exclude": ["react-native-track-player", "react-native-get-music-files"]
+				"exclude": [
+					"react-native-track-player",
+					"react-native-get-music-files"
+				]
 			}
 		}
 	},
