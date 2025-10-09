@@ -1,3 +1,4 @@
+// Polyfills are loaded in global.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { exportJWK, generateKeyPair, importJWK, SignJWT } from 'jose';
 import { getClientId } from './client-id';

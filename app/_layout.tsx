@@ -1,3 +1,5 @@
+import 'react-native-crypto';
+import 'react-native-randombytes';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
