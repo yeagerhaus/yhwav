@@ -1,0 +1,104 @@
+import { router } from 'expo-router';
+import { Image, Pressable, StyleSheet } from 'react-native';
+import { ThemedText } from '@/cmps/ThemedText';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import type { Album } from '@/types/album';
+
+interface SearchAlbumItemProps {
+	album: Album;
+	query: string;
+	onPress?: () => void;
+}
+
+export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumItemProps) {
+	const colorScheme = useColorScheme();
+
+	const handlePress = () => {
+		router.push({
+			// @ts-expect-error
+			pathname: '(library)/(albums)/[albumId]',
+			params: { albumId: album.id },
+		});
+		onPress?.();
+	};
+
+	const highlightText = (text: string, query: string) => {
+		if (!query) return text;
+
+		const parts = text.split(new RegExp(`(${query})`, 'gi'));
+		return parts.map((part, index) =>
+			part.toLowerCase() === query.toLowerCase() ? (
+				<ThemedText key={index} style={styles.highlighted}>
+					{part}
+				</ThemedText>
+			) : (
+				part
+			),
+		);
+	};
+
+	return (
+		<Pressable onPress={handlePress} style={styles.albumItem}>
+			<Image source={{ uri: album.artwork }} style={styles.albumArtwork} />
+			<ThemedView style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<ThemedView style={styles.albumInfo}>
+					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
+						{highlightText(album.title, query)}
+					</ThemedText>
+					<ThemedText type='subtitle' numberOfLines={1} style={styles.albumArtist}>
+						{highlightText(album.artist, query)}
+					</ThemedText>
+					<ThemedText type='subtitle' numberOfLines={1} style={styles.albumCount}>
+						{album.songIds.length} song{album.songIds.length !== 1 ? 's' : ''}
+					</ThemedText>
+				</ThemedView>
+			</ThemedView>
+		</Pressable>
+	);
+}
+
+const styles = StyleSheet.create({
+	albumItem: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 6,
+		gap: 12,
+	},
+	albumArtwork: {
+		width: 50,
+		height: 50,
+		borderRadius: 4,
+	},
+	albumInfoContainer: {
+		flex: 1,
+		gap: 4,
+		flexDirection: 'row',
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		paddingBottom: 14,
+		paddingRight: 14,
+	},
+	albumInfo: {
+		flex: 1,
+		gap: 2,
+		backgroundColor: 'transparent',
+	},
+	albumTitle: {
+		fontSize: 15,
+		fontWeight: '400',
+	},
+	albumArtist: {
+		fontSize: 14,
+		fontWeight: '400',
+		opacity: 0.6,
+	},
+	albumCount: {
+		fontSize: 12,
+		fontWeight: '400',
+		opacity: 0.5,
+	},
+	highlighted: {
+		backgroundColor: '#FA2D48',
+		color: 'white',
+		fontWeight: '600',
+	},
+});

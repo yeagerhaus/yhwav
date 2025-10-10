@@ -1,25 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { useAudio } from '@/ctx/AudioContext';
 import { usePlayback } from '@/ctx/PlaybackContext';
+import { Div } from '../Div';
 
 export const PlaybackControls = React.memo(() => {
 	const { togglePlayPause, playNextSong, playPreviousSong } = useAudio();
 	const { isPlaying } = usePlayback();
 
 	return (
-		<ThemedView style={styles.buttonContainer}>
+		<Div style={styles.buttonContainer}>
 			<Pressable style={styles.button} onPress={playPreviousSong}>
-				<Ionicons name='play-skip-back' size={35} color='#fff' />
+				<SymbolView name='backward.fill' type='hierarchical' size={35} />
 			</Pressable>
 			<Pressable style={[styles.button, styles.playButton]} onPress={togglePlayPause}>
-				<Ionicons name={isPlaying ? 'pause' : 'play'} size={45} color='#fff' />
+				<SymbolView name={isPlaying ? 'pause.fill' : 'play.fill'} type='hierarchical' size={40} />
 			</Pressable>
 			<Pressable style={styles.button} onPress={playNextSong}>
-				<Ionicons name='play-skip-forward' size={35} color='#fff' />
+				<SymbolView name='forward.fill' type='hierarchical' size={35} />
 			</Pressable>
-		</ThemedView>
+		</Div>
 	);
 });
 

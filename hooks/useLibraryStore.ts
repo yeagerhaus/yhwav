@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Album, Artist, Song } from '@/types';
+import type { Album, Artist, Playlist, Song } from '@/types';
 import { normalizeArtist } from '@/utils/song';
 
 interface LibraryState {
@@ -8,7 +8,10 @@ interface LibraryState {
 	songsById: Record<string, Song>;
 	albumsById: Record<string, Album>;
 	artistsByName: Record<string, Artist>;
+	playlists: Playlist[];
+	playlistsById: Record<string, Playlist>;
 	setTracks: (songs: Song[]) => void;
+	setPlaylists: (playlists: Playlist[]) => void;
 	setLibraryLoading: (loading: boolean) => void;
 }
 
@@ -18,8 +21,23 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 	songsById: {},
 	albumsById: {},
 	artistsByName: {},
+	playlists: [],
+	playlistsById: {},
 
 	setLibraryLoading: (loading: boolean) => set({ isLibraryLoading: loading }),
+
+	setPlaylists: (playlists: Playlist[]) => {
+		const playlistsById: Record<string, Playlist> = {};
+
+		playlists.forEach((playlist) => {
+			playlistsById[playlist.id] = playlist;
+		});
+
+		set({
+			playlists,
+			playlistsById,
+		});
+	},
 
 	setTracks: (songs: Song[]) => {
 		const songsById: Record<string, Song> = {};

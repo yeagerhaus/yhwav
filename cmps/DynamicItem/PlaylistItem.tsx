@@ -4,33 +4,30 @@ import { Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;
 
-interface GridItemProps {
+interface PlaylistItemProps {
 	item: {
-		album: string;
+		id: string;
+		title: string;
 		artwork: string;
 		count: number;
-		artist: string;
 	};
 }
 
-export default function GridItem({ item }: GridItemProps) {
+export default function PlaylistItem({ item }: PlaylistItemProps) {
 	return (
 		<Pressable
 			style={styles.gridItem}
 			onPress={() =>
 				router.push({
 					// @ts-expect-error
-					pathname: '(library)/(albums)/[albumId]',
-					params: { albumId: encodeURIComponent(item.album) },
+					pathname: '(library)/(playlists)/[playlistId]',
+					params: { playlistId: item.id },
 				})
 			}
 		>
 			<Image source={{ uri: item.artwork }} style={styles.artwork} />
 			<Text style={styles.name} numberOfLines={1}>
-				{item.album}
-			</Text>
-			<Text style={styles.artist} numberOfLines={1}>
-				{item.artist}
+				{item.title}
 			</Text>
 			<Text style={styles.count}>{item.count} songs</Text>
 		</Pressable>

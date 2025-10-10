@@ -1,4 +1,5 @@
 import { fetch } from 'expo/fetch';
+import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexJWTService } from './plex-jwt';
@@ -60,9 +61,16 @@ export class PlexClient {
 		if (plexAuthService.isAuthenticated()) {
 			const selectedServer = plexAuthService.getSelectedServer();
 			if (selectedServer) {
-				this.baseURL = selectedServer.uri;
+				// Ensure baseURL only contains the server base URL without API paths
+				const serverUri = selectedServer.uri;
+				// Remove any existing API paths and ensure we have just the base server URL
+				this.baseURL = serverUri
+					.replace(/\/playlists.*$/, '')
+					.replace(/\/library.*$/, '')
+					.replace(/\/$/, '');
 				this.token = plexAuthService.getAccessToken() || '';
 				console.log('✅ Using authenticated Plex server:', selectedServer.name);
+				console.log('🔗 Base URL:', this.baseURL);
 				return;
 			}
 		}
@@ -70,6 +78,13 @@ export class PlexClient {
 		// Fallback to JWT service
 		await initializeJWT();
 		this.token = await plexJWTService.getValidToken();
+
+		// Ensure baseURL is clean for JWT fallback too
+		this.baseURL = this.baseURL
+			.replace(/\/playlists.*$/, '')
+			.replace(/\/library.*$/, '')
+			.replace(/\/$/, '');
+		console.log('🔗 JWT Base URL:', this.baseURL);
 	}
 
 	/**
@@ -381,6 +396,93 @@ export class PlexClient {
 		const data = response.data as any;
 		return data?.MediaContainer?.Metadata || [];
 	}
+
+	/**
+	 * Fetch all playlists
+	 */
+	async fetchAllPlaylists(): Promise<Playlist[]> {
+		await this.initialize();
+
+		const response = await this.request('/playlists');
+		const data = response.data as any;
+		const rawPlaylists = data?.MediaContainer?.Metadata || [];
+
+		// Process playlists in parallel for better performance
+		const playlists = await Promise.all(
+			(Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists]).map((playlist) => this.formatPlaylist(playlist)),
+		);
+
+		return playlists;
+	}
+
+	/**
+	 * Fetch a specific playlist by ID
+	 */
+	async fetchPlaylist(playlistId: string): Promise<Playlist | null> {
+		await this.initialize();
+
+		try {
+			const response = await this.request(`/playlists/${playlistId}`);
+			const data = response.data as any;
+			const playlist = data?.MediaContainer?.Metadata?.[0];
+
+			if (!playlist) {
+				return null;
+			}
+
+			return this.formatPlaylist(playlist);
+		} catch (error) {
+			console.error('Failed to fetch playlist:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Fetch tracks from a specific playlist
+	 */
+	async fetchPlaylistTracks(playlistId: string): Promise<Song[]> {
+		await this.initialize();
+
+		try {
+			const response = await this.request(`${playlistId}`);
+			const data = response.data as any;
+			const rawTracks = data?.MediaContainer?.Metadata || [];
+
+			// Process tracks in parallel for better performance
+			const tracks = await Promise.all((Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track) => this.formatTrack(track)));
+
+			return tracks;
+		} catch (error) {
+			console.error('Failed to fetch playlist tracks:', error);
+			return [];
+		}
+	}
+
+	/**
+	 * Format a Plex playlist into our Playlist type
+	 */
+	private async formatPlaylist(playlist: any): Promise<Playlist> {
+		// Build artwork URL
+		const artworkUrl = playlist.thumb ? this.buildURL(playlist.thumb) : undefined;
+
+		return {
+			id: playlist.ratingKey,
+			title: playlist.title,
+			summary: playlist.summary,
+			playlistType: playlist.playlistType as 'audio' | 'video' | 'photo',
+			artworkUrl,
+			artwork: '', // Will be populated by image loading
+			duration: parseInt(playlist.duration || '0', 10),
+			leafCount: parseInt(playlist.leafCount || '0', 10),
+			createdAt: playlist.addedAt,
+			updatedAt: playlist.updatedAt,
+			smart: playlist.smart === '1',
+			composite: playlist.composite,
+			ratingKey: playlist.ratingKey,
+			key: playlist.key,
+			guid: playlist.guid,
+		};
+	}
 }
 
 // Create singleton instance
@@ -389,9 +491,12 @@ export const plexClient = new PlexClient(PLEX_SERVER);
 // Export convenience functions for backward compatibility
 export const testPlexServer = () => plexClient.testConnectivity();
 export const fetchAllTracks = () => plexClient.fetchAllTracks();
+export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
+export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
+export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
 export const buildPlexURL = async (path: string, params: Record<string, string> = {}) => {
 	await plexClient.initialize();
-	return plexClient.buildURL(path, params);
+	return (plexClient as any).buildURL(path, params);
 };
 
 // Export JWT service for manual initialization

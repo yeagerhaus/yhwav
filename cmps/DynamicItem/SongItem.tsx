@@ -1,15 +1,15 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/cmps/MusicVisualizer';
 import { ThemedText } from '@/cmps/ThemedText';
-import { ThemedView } from '@/cmps/ThemedView';
 import { useAudio } from '@/ctx/AudioContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
+import { Div } from '../Div';
 
-export default function SongItem({ item, queue }: { item: Song; queue?: Song[] }) {
+export default function SongItem({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) {
 	const colorScheme = useColorScheme();
 	const playbackState = usePlaybackState();
 	const { playSound, currentSong } = useAudio();
@@ -39,28 +39,60 @@ export default function SongItem({ item, queue }: { item: Song; queue?: Song[] }
 		await playSound(formattedSong, formattedQueue);
 	};
 
+	if (listItem) {
+		return (
+			<Pressable onPress={() => playSong(item)} style={styles.songItem}>
+				<Div style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+					{isCurrentSong ? (
+						<MusicVisualizer isPlaying={playbackState.state === State.Playing} />
+					) : (
+						<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+							{item.trackNumber}
+						</ThemedText>
+					)}
+				</Div>
+				<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+					<Div style={styles.songInfo}>
+						<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+							{item.title}
+						</ThemedText>
+						<Div style={styles.artistRow}>
+							{item.id === String(currentSong?.id) && <Ionicons name='musical-note' size={12} color='#FA2D48' />}
+							<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
+								{item.artist}
+							</ThemedText>
+						</Div>
+					</Div>
+					<Pressable style={styles.moreButton}>
+						<MaterialIcons name='more-horiz' size={20} color='#222222' />
+					</Pressable>
+				</Div>
+			</Pressable>
+		);
+	}
+
 	return (
 		<Pressable onPress={() => playSong(item)} style={styles.songItem}>
-			<View style={styles.artworkContainer}>
+			<Div style={styles.artworkContainer}>
 				<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
-			</View>
-			<ThemedView style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<ThemedView style={styles.songInfo}>
+			</Div>
+			<Div style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div style={styles.songInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 						{item.title}
 					</ThemedText>
-					<ThemedView style={styles.artistRow}>
+					<Div style={styles.artistRow}>
 						{item.id === String(currentSong?.id) && <Ionicons name='musical-note' size={12} color='#FA2D48' />}
 						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{item.artist}
 						</ThemedText>
-					</ThemedView>
-				</ThemedView>
+					</Div>
+				</Div>
 				<Pressable style={styles.moreButton}>
 					<MaterialIcons name='more-horiz' size={20} color='#222222' />
 				</Pressable>
-			</ThemedView>
+			</Div>
 		</Pressable>
 	);
 }
@@ -93,6 +125,14 @@ const styles = StyleSheet.create({
 		width: '100%',
 		height: '100%',
 		borderRadius: 4,
+	},
+	songInfoContainerList: {
+		flex: 1,
+		gap: 4,
+		flexDirection: 'row',
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		paddingBottom: 4,
+		paddingRight: 4,
 	},
 	songInfoContainer: {
 		flex: 1,
