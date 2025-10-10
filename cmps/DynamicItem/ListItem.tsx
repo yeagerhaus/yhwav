@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
-import { ThemedView } from '@/cmps/ThemedView';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function ListItem({ item, onPress }: { item: any; onPress: () => void }) {
@@ -8,7 +8,7 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 
 	return (
 		<Pressable onPress={onPress}>
-			<ThemedView
+			<View
 				style={{
 					flex: 1,
 					borderBottomWidth: StyleSheet.hairlineWidth,
@@ -16,12 +16,13 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 					borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353',
 				}}
 			>
-				<ThemedView style={{ flex: 1 }}>
+				<View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+					{item.icon && <SymbolView name={item.icon} style={{ width: 20, height: 20, margin: 5 }} type='hierarchical' />}
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={{ fontSize: 24, fontWeight: '600' }}>
 						{item.title}
 					</ThemedText>
-				</ThemedView>
-			</ThemedView>
+				</View>
+			</View>
 		</Pressable>
 	);
 }

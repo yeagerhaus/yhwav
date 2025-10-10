@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import ImageColors from 'react-native-image-colors';
 import TrackPlayer, { Capability, Event, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
-import { useSong } from './SongContext';
 import { usePlayback } from './PlaybackContext';
+import { useSong } from './SongContext';
 
 export const STORAGE_QUEUE_KEY = 'SONG_QUEUE';
 export const STORAGE_SONG_KEY = 'CURRENT_SONG';
@@ -256,15 +256,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 			// Add a small delay to ensure track is properly loaded before playing
 			setTimeout(async () => {
 				try {
-
 					// Check TrackPlayer state before playing
-					const state = await TrackPlayer.getState();
+					const _state = await TrackPlayer.getState();
 
 					// Get current track info
-					const currentTrack = await TrackPlayer.getCurrentTrack();
+					const _currentTrack = await TrackPlayer.getCurrentTrack();
 
 					// Get queue info
-					const queue = await TrackPlayer.getQueue();
+					const _queue = await TrackPlayer.getQueue();
 
 					// Test if the audio URL is accessible
 					if (song.uri) {
@@ -286,7 +285,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
 						// If not playing, try alternative approaches
 						if (newState !== State.Playing) {
-							const currentTrackInfo = await TrackPlayer.getCurrentTrack();
+							const _currentTrackInfo = await TrackPlayer.getCurrentTrack();
 
 							// Try to pause and play again
 							try {
@@ -295,7 +294,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 								await TrackPlayer.play();
 
 								setTimeout(async () => {
-									const retryState = await TrackPlayer.getState();
+									const _retryState = await TrackPlayer.getState();
 								}, 500);
 							} catch (retryError) {
 								console.error('🎵 Retry failed:', retryError);

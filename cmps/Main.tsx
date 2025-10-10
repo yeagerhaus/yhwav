@@ -1,24 +1,22 @@
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ThemedView } from './ThemedView';
 
-export function Main({ children }: any) {
+export function Main({ children, scrollEnabled = true }: any) {
+	const ScrollComponent = scrollEnabled ? ScrollView : View;
 	return (
-		<SafeAreaView
+		<ScrollComponent
 			style={{
 				flex: 1,
-				backgroundColor: 'transparent',
 			}}
 		>
-			<ThemedView
+			<SafeAreaView
 				style={{
 					flex: 1,
-					// paddingHorizontal: 16,
-					// paddingTop: 12,
-					// paddingBottom: 24,
+					backgroundColor: 'transparent',
 				}}
 			>
 				{children}
-			</ThemedView>
-		</SafeAreaView>
+			</SafeAreaView>
+		</ScrollComponent>
 	);
 }

@@ -1,16 +1,15 @@
-import React, { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import React, { useMemo } from 'react';
+import { Dimensions, Image, Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
-import { Dimensions } from 'react-native';
 import { useSong } from '@/ctx/SongContext';
 
 const { width } = Dimensions.get('window');
 
 export const SongInfo = React.memo(() => {
 	const { currentSong } = useSong();
-	
+
 	if (!currentSong) return null;
 
 	const artwork = useMemo(() => {
@@ -39,9 +38,7 @@ export const SongInfo = React.memo(() => {
 						</ThemedText>
 						<ThemedText
 							style={styles.artist}
-							onPress={() =>
-								router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)
-							}
+							onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)}
 						>
 							{artist}
 						</ThemedText>

@@ -6,6 +6,7 @@ podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties
 
 ENV['RCT_NEW_ARCH_ENABLED'] = '0' if podfile_properties['newArchEnabled'] == 'false'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
+ENV['NODE_BINARY'] = '/usr/local/bin/node'
 
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
@@ -52,6 +53,17 @@ target 'yhplayer' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
+
+    # Fix Hermes script phase to avoid running on every build
+    installer.pods_project.targets.each do |target|
+      target.build_phases.each do |phase|
+        if phase.is_a?(Xcodeproj::Project::Object::PBXShellScriptBuildPhase) && 
+           phase.name&.include?('[CP-User] [Hermes] Replace Hermes for the right configuration, if needed')
+          # Add output files to prevent running on every build
+          phase.output_paths = ['$(DERIVED_FILE_DIR)/hermes-ios-$(EXECUTABLE_ARCH).tar.gz']
+        end
+      end
+    end
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
