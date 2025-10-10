@@ -46,8 +46,6 @@ export function useSearch() {
 	const debouncedQuery = useDebounce(query, 300);
 
 	useEffect(() => {
-		console.log('🔍 useSearch useEffect triggered - debouncedQuery:', debouncedQuery);
-
 		if (!debouncedQuery.trim()) {
 			setSearchResults({
 				songs: [],
@@ -142,49 +140,8 @@ export function useSearch() {
 
 		results.totalResults = results.songs.length + results.albums.length + results.artists.length;
 
-		console.log('🔍 Final results:', {
-			songs: results.songs.length,
-			albums: results.albums.length,
-			artists: results.artists.length,
-			total: results.totalResults,
-		});
-
-		// Log actual items found
-		if (results.songs.length > 0) {
-			console.log(
-				'🔍 Songs found:',
-				results.songs.map((s) => ({
-					title: (s.item as Song).title,
-					artist: (s.item as Song).artist,
-					score: s.score,
-				})),
-			);
-		}
-		if (results.albums.length > 0) {
-			console.log(
-				'🔍 Albums found:',
-				results.albums.map((a) => ({
-					title: (a.item as Album).title,
-					artist: (a.item as Album).artist,
-					score: a.score,
-				})),
-			);
-		}
-		if (results.artists.length > 0) {
-			console.log(
-				'🔍 Artists found:',
-				results.artists.map((a) => ({
-					name: (a.item as Artist).name,
-					score: a.score,
-				})),
-			);
-		}
-
 		setSearchResults(results);
 	}, [debouncedQuery, tracks, songsById, albumsById, artistsByName]);
-
-	// Force re-render when search results change
-	console.log('🔍 useSearch - returning searchResults:', searchResults);
 
 	return {
 		query,
