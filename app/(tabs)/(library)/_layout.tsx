@@ -4,7 +4,7 @@ import { InternalHeader } from '@/cmps/navigation/InternalHeader';
 export default function LibraryLayout() {
 	const _currentScreen = usePathname();
 	return (
-		<Stack>
+		<Stack screenOptions={{ headerShown: false }}>
 			<Stack.Screen
 				name='(artists)'
 				options={{

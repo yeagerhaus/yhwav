@@ -1,5 +1,5 @@
 export * from './cache';
-export * from './client-id';
-export * from './fetch';
 export * from './plex';
+export * from './plex-auth';
+export * from './plex-discovery';
 export * from './song';

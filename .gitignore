@@ -38,4 +38,4 @@ yarn-error.*
 *.tsbuildinfo
 
 # Project-specific files
-app-example
+/musrv

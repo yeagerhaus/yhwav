@@ -1,58 +1,34 @@
-import { BlurView } from 'expo-blur';
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet } from 'react-native';
-import { TabBarIcon } from '@/cmps/navigation/TabBarIcon';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-function TabIcon({ sfSymbol, ionIcon, color }: { sfSymbol: string; ionIcon: string; color: string }) {
-	// @ts-ignore
-	return <TabBarIcon name={ionIcon} color={color} />;
-}
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { DynamicColorIOS } from 'react-native';
 
 export default function TabLayout() {
-	const colorScheme = useColorScheme();
-
 	return (
-		<Tabs
-			screenOptions={{
-				tabBarActiveTintColor: '#FA2D48',
-				headerShown: false,
-				tabBarStyle: {
-					position: 'absolute',
-					backgroundColor: Platform.select({
-						ios: 'transparent',
-						android: 'rgba(255, 255, 255, 0.8)', // Fallback for Android
-					}),
-					borderTopWidth: 0,
-					elevation: 0,
-					height: 80,
-					paddingTop: 0,
-					paddingBottom: 40,
-				},
-				tabBarBackground: () =>
-					Platform.OS === 'ios' ? (
-						<BlurView
-							tint={colorScheme === 'dark' ? 'systemThickMaterialDark' : 'systemThickMaterialLight'}
-							intensity={80}
-							style={StyleSheet.absoluteFill}
-						/>
-					) : null,
+		<NativeTabs
+			minimizeBehavior='onScrollDown'
+			labelStyle={{
+				// For the text color
+				color: DynamicColorIOS({
+					dark: 'white',
+					light: 'black',
+				}),
 			}}
 		>
-			<Tabs.Screen
-				name='(library)'
-				options={{
-					title: 'Library',
-					tabBarIcon: ({ color }) => <TabIcon sfSymbol='music.note.list' ionIcon='musical-notes' color={color} />,
-				}}
-			/>
-			<Tabs.Screen
-				name='(search)'
-				options={{
-					title: 'Search',
-					tabBarIcon: ({ color }) => <TabIcon sfSymbol='magnifyingglass' ionIcon='search' color={color} />,
-				}}
-			/>
-		</Tabs>
+			<NativeTabs.Trigger name='(library)'>
+				<Label>Library</Label>
+				<Icon sf={{ default: 'music.note.house', selected: 'music.note.house.fill' }} />
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger
+				name='search'
+				// biome-ignore lint/a11y/useSemanticElements: role is supported in NativeTabs
+				role='search'
+			>
+				<Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} />
+				<Label>Search</Label>
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name='settings'>
+				<Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
+				<Label>Settings</Label>
+			</NativeTabs.Trigger>
+		</NativeTabs>
 	);
 }
