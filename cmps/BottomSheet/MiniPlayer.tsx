@@ -1,5 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,29 +8,19 @@ import { useAudio } from '@/ctx/AudioContext';
 import { usePlayback } from '@/ctx/PlaybackContext';
 import { useSong } from '@/ctx/SongContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Div } from '../Div';
 
 export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	const insets = useSafeAreaInsets();
-	const colorScheme = useColorScheme();
 
 	// Calculate bottom position considering tab bar height
 	const bottomPosition = Platform.OS === 'ios' ? insets.bottom + 57 : 60;
 
 	return (
 		<Pressable onPress={onPress} style={[styles.container, { bottom: bottomPosition }]}>
-			{Platform.OS === 'ios' ? (
-				<BlurView
-					tint={colorScheme === 'dark' ? 'systemThickMaterialDark' : 'systemThickMaterialLight'}
-					intensity={80}
-					style={[styles.content, styles.blurContainer]}
-				>
-					<MiniPlayerContent />
-				</BlurView>
-			) : (
-				<ThemedView style={[styles.content, styles.androidContainer]}>
-					<MiniPlayerContent />
-				</ThemedView>
-			)}
+			<Div useGlass style={styles.content}>
+				<MiniPlayerContent />
+			</Div>
 		</Pressable>
 	);
 }
@@ -43,10 +32,10 @@ const MiniPlayerContent = React.memo(() => {
 	const { currentSong } = useSong();
 	const { isPlaying } = usePlayback();
 
-	if (!currentSong) return null;
+	const artwork = React.useMemo(() => currentSong?.artwork, [currentSong?.artwork]);
+	const title = React.useMemo(() => currentSong?.title, [currentSong?.title]);
 
-	const artwork = React.useMemo(() => currentSong.artwork, [currentSong.artwork]);
-	const title = React.useMemo(() => currentSong.title, [currentSong.title]);
+	if (!currentSong) return null;
 
 	return (
 		<ThemedView style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
@@ -56,10 +45,10 @@ const MiniPlayerContent = React.memo(() => {
 			</ThemedView>
 			<ThemedView style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
-					<Ionicons name={isPlaying ? 'pause' : 'play'} size={24} color={colorScheme === 'light' ? '#000' : '#fff'} />
+					<SymbolView name={isPlaying ? 'pause.fill' : 'play.fill'} type='hierarchical' size={20} />
 				</Pressable>
 				<Pressable style={styles.controlButton} onPress={playNextSong}>
-					<Ionicons name='play-forward' size={24} color={colorScheme === 'light' ? '#000' : '#fff'} />
+					<SymbolView name='forward.fill' type='hierarchical' size={24} />
 				</Pressable>
 			</ThemedView>
 		</ThemedView>
@@ -86,8 +75,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		// height: 40,
-		marginHorizontal: 10,
-		borderRadius: 12,
+		marginHorizontal: 20,
+		borderRadius: 100,
 		overflow: 'hidden',
 		zIndex: 1000,
 		flex: 1,
@@ -101,14 +90,12 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 10,
 		// backgroundColor: '#ffffffa4',
 	},
-	blurContainer: {
-		// backgroundColor: '#00000000',
-	},
 	androidContainer: {},
 	title: {
 		fontWeight: '500',
 	},
 	artwork: {
+		marginLeft: 8,
 		width: 40,
 		height: 40,
 		borderRadius: 8,

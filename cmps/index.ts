@@ -6,5 +6,6 @@ export * from './MusicVisualizer';
 export * from './Overlay/OverlayContext';
 export * from './Overlay/OverlayProvider';
 export * from './ParallaxScrollView';
+export * from './SearchItem';
 export * from './ThemedText';
 export * from './ThemedView';

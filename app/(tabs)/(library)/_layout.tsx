@@ -1,36 +1,35 @@
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import { InternalHeader } from '@/cmps/navigation/InternalHeader';
 
 export default function LibraryLayout() {
-	const _currentScreen = usePathname();
 	return (
 		<Stack screenOptions={{ headerShown: false }}>
 			<Stack.Screen
 				name='(artists)'
 				options={{
 					title: 'Artists',
-					header: () => <InternalHeader title='Artists' />,
+					header: () => <InternalHeader />,
 				}}
 			/>
 			<Stack.Screen
 				name='(albums)'
 				options={{
 					title: 'Albums',
-					header: () => <InternalHeader title='Albums' />,
+					header: () => <InternalHeader />,
 				}}
 			/>
 			<Stack.Screen
 				name='songs'
 				options={{
 					title: 'Songs',
-					header: () => <InternalHeader title='Songs' />,
+					header: () => <InternalHeader />,
 				}}
 			/>
 			<Stack.Screen
 				name='(playlists)'
 				options={{
 					title: 'Playlists',
-					header: () => <InternalHeader title='Playlists' />,
+					header: () => <InternalHeader />,
 				}}
 			/>
 		</Stack>

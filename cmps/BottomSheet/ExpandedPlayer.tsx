@@ -5,6 +5,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudio } from '@/ctx/AudioContext';
 import { useSong } from '@/ctx/SongContext';
+import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
 import { PlaybackControls } from '../Player/PlaybackControls';
 import { SongInfo } from '../Player/SongInfo';
@@ -38,21 +39,21 @@ export const ExpandedPlayer = React.memo(
 				end={{ x: 1, y: 0 }}
 			>
 				{/* <BlurView intensity={20} style={{ flex: 1 }} tint="dark"> */}
-				<ThemedView style={styles.dragHandleContainer}>
+				<Div style={styles.dragHandleContainer}>
 					<ThemedView style={styles.dragHandle} />
-				</ThemedView>
+				</Div>
 
 				<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-					<ThemedView style={styles.container}>
+					<Div style={styles.container}>
 						<SongInfo />
 
-						<ThemedView style={styles.controls}>
+						<Div style={styles.controls}>
 							<SongProgressBar />
 							<TimeDisplay />
 							<PlaybackControls />
 							<ExtraControls />
-						</ThemedView>
-					</ThemedView>
+						</Div>
+					</Div>
 				</MemoizedScrollComponent>
 				{/* </BlurView> */}
 			</LinearGradient>

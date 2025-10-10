@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { FlatList, View } from 'react-native';
-import { DynamicItem } from '@/cmps';
+import { FlatList } from 'react-native';
+import { DynamicItem, ThemedText } from '@/cmps';
+import { Div } from '@/cmps/Div';
 import { Main } from '@/cmps/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
@@ -13,14 +14,18 @@ export default function SongsScreen() {
 
 	return (
 		<Main>
-			<View style={{ flex: 1, paddingTop: 32, padding: 16 }}>
+			<Div style={{ paddingHorizontal: 16 }}>
+				<Div>
+					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Songs</ThemedText>
+				</Div>
 				<FlatList
+					scrollEnabled={false}
 					data={songs}
 					keyExtractor={(item) => item.id.toString()}
 					renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} />}
-					contentContainerStyle={{ paddingBottom: 100 }}
+					contentContainerStyle={{ paddingBottom: 300 }}
 				/>
-			</View>
+			</Div>
 		</Main>
 	);
 }

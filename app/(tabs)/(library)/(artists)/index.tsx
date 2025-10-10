@@ -3,6 +3,8 @@ import { groupBy, map } from 'lodash';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/cmps';
+import { Div } from '@/cmps/Div';
+import { Main } from '@/cmps/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 type ArtistRow = {
@@ -31,34 +33,34 @@ export default function ArtistsScreen() {
 	}, [tracks]);
 
 	return (
-		<View style={styles.container}>
-			{loading ? (
-				<ActivityIndicator size='large' color='#FA2D48' />
-			) : (
-				<FlatList
-					data={artists}
-					keyExtractor={(item) => item.name}
-					renderItem={({ item }) => (
-						<Pressable
-							style={styles.item}
-							// @ts-ignore
-							onPress={() => router.push(`(library)/(artists)/${encodeURIComponent(item.name)}`)}
-						>
-							{/* {item.image && (
-					<Image
-					source={{ uri: item.image }}
-					style={styles.image}
+		<Main>
+			<Div style={{ paddingHorizontal: 16 }}>
+				<Div>
+					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Artists</ThemedText>
+				</Div>
+				{loading ? (
+					<ActivityIndicator size='large' color='#FA2D48' />
+				) : (
+					<FlatList
+						scrollEnabled={false}
+						data={artists}
+						keyExtractor={(item) => item.name}
+						renderItem={({ item }) => (
+							<Pressable
+								style={styles.item}
+								// @ts-ignore
+								onPress={() => router.push(`(library)/(artists)/${encodeURIComponent(item.name)}`)}
+							>
+								<View style={{ flex: 1 }}>
+									<ThemedText style={styles.name}>{item.name}</ThemedText>
+									<ThemedText style={styles.count}>{item.count} songs</ThemedText>
+								</View>
+							</Pressable>
+						)}
 					/>
-				)} */}
-							<View style={{ flex: 1 }}>
-								<ThemedText style={styles.name}>{item.name}</ThemedText>
-								<ThemedText style={styles.count}>{item.count} songs</ThemedText>
-							</View>
-						</Pressable>
-					)}
-				/>
-			)}
-		</View>
+				)}
+			</Div>
+		</Main>
 	);
 }
 

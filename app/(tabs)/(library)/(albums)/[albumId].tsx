@@ -1,9 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, View } from 'react-native';
+import { FlatList, Image } from 'react-native';
 import ImageColors from 'react-native-image-colors';
-import { DynamicItem, ThemedText, ThemedView } from '@/cmps';
-import ParallaxScrollView from '@/cmps/ParallaxScrollView';
+import { DynamicItem, ThemedText } from '@/cmps';
+import { Div } from '@/cmps/Div';
+import { Main } from '@/cmps/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Song } from '@/types/song';
 
@@ -44,29 +45,27 @@ export default function AlbumDetailScreen() {
 	}, [albumId, allTracks]);
 
 	return (
-		<ThemedView style={{ flex: 1 }}>
-			<ParallaxScrollView
-				album
-				headerBackgroundColor={{ light: bgColor, dark: bgColor }}
-				// @ts-ignore
-				headerImage={
-					artwork ? <Image source={{ uri: artwork }} style={{ width: '100%', height: '100%' }} resizeMode='cover' /> : undefined
-				}
-			>
-				<ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginTop: 16, marginLeft: 16 }}>
-					{decodeURIComponent(albumId || '')}
-				</ThemedText>
-				<ThemedText style={{ fontSize: 16, marginLeft: 16, marginTop: -8, color: '#888' }}>{artist}</ThemedText>
-
-				<View style={{ paddingVertical: 16, paddingHorizontal: 16 }}>
+		<Main>
+			<Div style={{ paddingHorizontal: 16 }}>
+				{artwork && (
+					<Image source={{ uri: artwork }} style={{ width: '100%', height: '100%', maxHeight: 250 }} resizeMode='contain' />
+				)}
+				<Div style={{ paddingVertical: 16 }}>
+					{artist && (
+						<Div style={{ marginBottom: 16 }}>
+							<ThemedText style={{ fontSize: 24, fontWeight: 'bold' }}>{decodeURIComponent(albumId || '')}</ThemedText>
+							<ThemedText style={{ fontSize: 16, color: '#888' }}>{artist}</ThemedText>
+						</Div>
+					)}
 					<FlatList
+						scrollEnabled={false}
 						data={songs}
 						keyExtractor={(item) => item.id}
-						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} />}
-						contentContainerStyle={{ paddingBottom: 100 }}
+						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} listItem />}
+						contentContainerStyle={{ paddingBottom: 300 }}
 					/>
-				</View>
-			</ParallaxScrollView>
-		</ThemedView>
+				</Div>
+			</Div>
+		</Main>
 	);
 }

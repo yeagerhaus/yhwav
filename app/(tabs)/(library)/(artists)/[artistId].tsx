@@ -1,6 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet } from 'react-native';
 import { DynamicItem, ThemedText, ThemedView } from '@/cmps';
+import { Div } from '@/cmps/Div';
+import { Main } from '@/cmps/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 export default function ArtistDetailScreen() {
@@ -32,18 +34,22 @@ export default function ArtistDetailScreen() {
 		}));
 
 	return (
-		<ThemedView style={styles.container}>
-			<ThemedText style={styles.header}>{artist.name}</ThemedText>
-
-			<FlatList
-				data={albums}
-				keyExtractor={(item) => item.id}
-				numColumns={2}
-				contentContainerStyle={{ paddingBottom: 80 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
-				renderItem={({ item }) => <DynamicItem item={item} type='grid' />}
-			/>
-		</ThemedView>
+		<Main>
+			<Div style={{ paddingHorizontal: 16 }}>
+				<Div>
+					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>{artist.name}</ThemedText>
+				</Div>
+				<FlatList
+					scrollEnabled={false}
+					data={albums}
+					keyExtractor={(item) => item.id}
+					numColumns={2}
+					contentContainerStyle={{ paddingBottom: 300 }}
+					columnWrapperStyle={{ justifyContent: 'space-between' }}
+					renderItem={({ item }) => <DynamicItem item={item} type='album' />}
+				/>
+			</Div>
+		</Main>
 	);
 }
 

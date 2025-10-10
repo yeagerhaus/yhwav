@@ -1,6 +1,14 @@
 import { Stack } from 'expo-router';
+import { SearchProvider, useSearchContext } from '@/ctx/SearchContext';
 
-export default function SearchLayout() {
+function SearchLayoutContent() {
+	const { setQuery } = useSearchContext();
+
+	const handleSearchChange = (event: any) => {
+		const text = event.nativeEvent.text;
+		setQuery(text);
+	};
+
 	return (
 		<Stack>
 			<Stack.Screen
@@ -9,11 +17,20 @@ export default function SearchLayout() {
 					title: 'Search',
 					headerSearchBarOptions: {
 						placement: 'automatic',
-						placeholder: 'Search',
-						onChangeText: () => {},
+						placeholder: 'Search songs, albums, artists...',
+						onChangeText: handleSearchChange,
 					},
+					headerShown: false,
 				}}
 			/>
 		</Stack>
+	);
+}
+
+export default function SearchLayout() {
+	return (
+		<SearchProvider>
+			<SearchLayoutContent />
+		</SearchProvider>
 	);
 }

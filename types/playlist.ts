@@ -1,0 +1,30 @@
+export interface Playlist {
+	id: string;
+	title: string;
+	summary?: string;
+	playlistType: 'audio' | 'video' | 'photo';
+	artworkUrl?: string;
+	artwork?: string;
+	duration?: number;
+	leafCount?: number;
+	createdAt?: string;
+	updatedAt?: string;
+	smart?: boolean;
+	composite?: string;
+	playlistType?: string;
+	ratingKey: string;
+	key: string;
+	guid?: string;
+	summary?: string;
+	smart?: boolean;
+	playlistType?: string;
+	composite?: string;
+	leafCount?: number;
+	duration?: number;
+	addedAt?: string;
+	updatedAt?: string;
+	title?: string;
+	ratingKey?: string;
+	key?: string;
+	guid?: string;
+}

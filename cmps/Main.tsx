@@ -1,12 +1,20 @@
-import { ScrollView, View } from 'react-native';
+import { ScrollView, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Div } from './Div';
 
-export function Main({ children, scrollEnabled = true }: any) {
-	const ScrollComponent = scrollEnabled ? ScrollView : View;
+interface MainProps {
+	children: React.ReactNode;
+	scrollEnabled?: boolean;
+	style?: StyleProp<ViewStyle>;
+}
+
+export function Main({ children, scrollEnabled = true, style }: MainProps) {
+	const ScrollComponent = scrollEnabled ? ScrollView : Div;
 	return (
 		<ScrollComponent
 			style={{
 				flex: 1,
+				...(style as any),
 			}}
 		>
 			<SafeAreaView

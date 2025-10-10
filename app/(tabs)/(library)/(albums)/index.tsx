@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { FlatList, View } from 'react-native';
-import { DynamicItem } from '@/cmps';
+import { DynamicItem, ThemedText } from '@/cmps';
+import { Div } from '@/cmps/Div';
 import { Main } from '@/cmps/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
@@ -23,16 +24,20 @@ export default function AlbumsScreen() {
 
 	return (
 		<Main>
-			<View style={{ flex: 1, paddingTop: 32, padding: 16 }}>
+			<Div style={{ paddingHorizontal: 16 }}>
+				<Div>
+					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Albums</ThemedText>
+				</Div>
 				<FlatList
+					scrollEnabled={false}
 					data={albums}
 					keyExtractor={(item) => item.id.toString()}
 					numColumns={2}
-					contentContainerStyle={{ paddingBottom: 80 }}
+					contentContainerStyle={{ paddingBottom: 300 }}
 					columnWrapperStyle={{ justifyContent: 'space-between' }}
-					renderItem={({ item }) => <DynamicItem item={item} type='grid' />}
+					renderItem={({ item }) => <DynamicItem item={item} type='album' />}
 				/>
-			</View>
+			</Div>
 		</Main>
 	);
 }
