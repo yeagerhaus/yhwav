@@ -44,7 +44,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 				preventAutoHide: true,
 			},
 		],
-		'expo-font',
 		'expo-web-browser',
 	],
 	experiments: {

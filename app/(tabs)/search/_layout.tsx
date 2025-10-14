@@ -16,7 +16,7 @@ function SearchLayoutContent() {
 				options={{
 					title: 'Search',
 					headerSearchBarOptions: {
-						placement: 'automatic',
+						placement: 'inline',
 						placeholder: 'Search',
 						onChangeText: () => {},
 					},
