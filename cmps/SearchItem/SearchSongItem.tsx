@@ -6,7 +6,7 @@ import { MusicVisualizer } from '@/cmps/MusicVisualizer';
 import { ThemedText } from '@/cmps/ThemedText';
 import { ThemedView } from '@/cmps/ThemedView';
 import { Colors } from '@/constants';
-import { useAudio } from '@/ctx/AudioContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
 
@@ -19,7 +19,8 @@ interface SearchSongItemProps {
 export default function SearchSongItem({ song, query, onPress }: SearchSongItemProps) {
 	const colorScheme = useColorScheme();
 	const playbackState = usePlaybackState();
-	const { playSound, currentSong } = useAudio();
+	const currentSong = useAudioStore((state) => state.currentSong);
+	const playSound = useAudioStore((state) => state.playSound);
 
 	const isCurrentSong = useMemo(() => {
 		return song.id === String(currentSong?.id);

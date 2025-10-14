@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, View as ThemedView } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAudio } from '@/ctx/AudioContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { hexWithOpacity } from '@/utils';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
@@ -20,7 +20,7 @@ interface ExpandedPlayerProps {
 export const ExpandedPlayer = React.memo(
 	({ scrollComponent }: ExpandedPlayerProps) => {
 		const ScrollComponentToUse = scrollComponent || ScrollView;
-		const { artworkBgColor } = useAudio();
+		const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
 
 		const insets = useSafeAreaInsets();
 		const colorToUse = artworkBgColor || '#000000';

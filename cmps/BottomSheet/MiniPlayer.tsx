@@ -5,9 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/cmps/ThemedText';
 import { ThemedView } from '@/cmps/ThemedView';
 import { Colors } from '@/constants';
-import { useAudio } from '@/ctx/AudioContext';
-import { usePlayback } from '@/ctx/PlaybackContext';
-import { useSong } from '@/ctx/SongContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Div } from '../Div';
 
@@ -29,11 +27,12 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 // Extract the content into a separate component for reusability
 const MiniPlayerContent = React.memo(() => {
 	const colorScheme = useColorScheme();
-	const { playNextSong, togglePlayPause } = useAudio();
-	const { currentSong } = useSong();
-	const { isPlaying } = usePlayback();
+	const currentSong = useAudioStore((state) => state.currentSong);
+	const isPlaying = useAudioStore((state) => state.isPlaying);
+	const togglePlayPause = useAudioStore((state) => state.togglePlayPause);
+	const skipToNext = useAudioStore((state) => state.skipToNext);
 
-	const artwork = React.useMemo(() => currentSong?.artwork, [currentSong?.artwork]);
+	const artwork = React.useMemo(() => currentSong?.artworkUrl || currentSong?.artwork, [currentSong?.artworkUrl, currentSong?.artwork]);
 	const title = React.useMemo(() => currentSong?.title, [currentSong?.title]);
 
 	if (!currentSong) return null;
@@ -53,7 +52,7 @@ const MiniPlayerContent = React.memo(() => {
 						tintColor={Colors.brand.primary}
 					/>
 				</Pressable>
-				<Pressable style={styles.controlButton} onPress={playNextSong}>
+				<Pressable style={styles.controlButton} onPress={skipToNext}>
 					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brand.primary} />
 				</Pressable>
 			</ThemedView>

@@ -1,9 +1,10 @@
 import { View } from 'react-native';
 import Animated, { configureReanimatedLogger, ReanimatedLogLevel, useAnimatedStyle, useDerivedValue } from 'react-native-reanimated';
-import { usePlayback } from '@/ctx/PlaybackContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 
 export function SongProgressBar() {
-	const { position, duration } = usePlayback();
+	const position = useAudioStore((state) => state.position);
+	const duration = useAudioStore((state) => state.duration);
 
 	const progress = useDerivedValue(() => {
 		if (duration === 0) return 0;

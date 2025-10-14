@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { usePlayback } from '@/ctx/PlaybackContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 
 const formatTime = (seconds: number) => {
 	const minutes = Math.floor(seconds / 60);
@@ -9,7 +9,8 @@ const formatTime = (seconds: number) => {
 };
 
 export const TimeDisplay = React.memo(() => {
-	const { position, duration } = usePlayback();
+	const position = useAudioStore((state) => state.position);
+	const duration = useAudioStore((state) => state.duration);
 
 	const currentTime = formatTime(position);
 	const remainingTime = `-${formatTime(Math.max(0, duration - position))}`;

@@ -3,16 +3,16 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Dimensions, Image, Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
-import { useSong } from '@/ctx/SongContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 
 const { width } = Dimensions.get('window');
 
 export const SongInfo = React.memo(() => {
-	const { currentSong } = useSong();
+	const currentSong = useAudioStore((state) => state.currentSong);
 
 	if (!currentSong) return null;
 
-	const artwork = currentSong.artwork;
+	const artwork = currentSong.artworkUrl || currentSong.artwork;
 	const title = currentSong.title;
 	const artist = currentSong.artist;
 

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Album, Artist, Playlist, Song } from '@/types';
-import { normalizeArtist } from '@/utils/song';
 
 interface LibraryState {
 	isLibraryLoading: boolean;
@@ -13,6 +12,10 @@ interface LibraryState {
 	setTracks: (songs: Song[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
 	setLibraryLoading: (loading: boolean) => void;
+}
+
+function normalizeArtist(str: string) {
+	return str?.split(';')[0].trim().toLowerCase() || 'unknown artist';
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
