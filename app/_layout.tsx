@@ -6,20 +6,22 @@ import { StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MiniPlayer } from '@/cmps/BottomSheet/MiniPlayer';
-import { OverlayProvider } from '@/cmps/Overlay/OverlayProvider';
-import { AudioProvider, useAudio } from '@/ctx/AudioContext';
-import { PlaybackProvider } from '@/ctx/PlaybackContext';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
-import { SongProvider } from '@/ctx/SongContext';
+import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllTracks, initializePlexJWT, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 
+function AudioSync() {
+	useTrackPlayerSync();
+	return null;
+}
+
 function AnimatedStack() {
 	const { scale } = useRootScale();
 	const router = useRouter();
-	const { currentSong } = useAudio();
+	const currentSong = useAudioStore((state) => state.currentSong);
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -59,12 +61,17 @@ function AnimatedStack() {
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
 	const { setTracks, setLibraryLoading } = useLibraryStore();
+	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 
 	useEffect(() => {
 		const init = async () => {
 			setLibraryLoading(true);
 
 			try {
+				// Initialize audio player first
+				await initializePlayer();
+				console.log('✅ Audio player initialized');
+
 				// Try to load existing authentication state
 				const authLoaded = await plexAuthService.loadAuthState();
 
@@ -114,15 +121,8 @@ export default function RootLayout() {
 		<GestureHandlerRootView style={styles.container}>
 			<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
 				<RootScaleProvider>
-					<SongProvider>
-						<PlaybackProvider>
-							<AudioProvider>
-								<OverlayProvider>
-									<AnimatedStack />
-								</OverlayProvider>
-							</AudioProvider>
-						</PlaybackProvider>
-					</SongProvider>
+					<AudioSync />
+					<AnimatedStack />
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

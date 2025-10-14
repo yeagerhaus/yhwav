@@ -5,7 +5,7 @@ import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/cmps/MusicVisualizer';
 import { ThemedText } from '@/cmps/ThemedText';
 import { Colors } from '@/constants';
-import { useAudio } from '@/ctx/AudioContext';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
@@ -13,31 +13,14 @@ import { Div } from '../Div';
 export default function SongItem({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) {
 	const colorScheme = useColorScheme();
 	const playbackState = usePlaybackState();
-	const { playSound, currentSong } = useAudio();
+	const currentSong = useAudioStore((state) => state.currentSong);
+	const playSound = useAudioStore((state) => state.playSound);
 	const isCurrentSong = useMemo(() => {
 		return item.id === String(currentSong?.id);
 	}, [item.id, currentSong?.id]);
 
 	const playSong = async (song: Song) => {
-		// Format the song data for playSound
-		const formattedSong = {
-			id: song.id,
-			title: song.title || 'Unknown Title',
-			artist: song.artist || 'Unknown Artist',
-			artwork: song.artworkUrl || song.artwork || '',
-			uri: song.uri || song.streamUrl || '',
-		};
-
-		// Format the queue if available
-		const formattedQueue = queue?.map((q) => ({
-			id: q.id,
-			title: q.title || 'Unknown Title',
-			artist: q.artist || 'Unknown Artist',
-			artwork: q.artworkUrl || q.artwork || '',
-			uri: q.uri || q.streamUrl || '',
-		}));
-
-		await playSound(formattedSong, formattedQueue);
+		await playSound(song, queue);
 	};
 
 	if (listItem) {
@@ -86,7 +69,7 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 						{item.title}
 					</ThemedText>
 					<Div style={styles.artistRow}>
-						{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor='#FA2D48' />}
+						{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />}
 						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{item.artist}
 						</ThemedText>
