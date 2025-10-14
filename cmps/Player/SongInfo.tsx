@@ -1,7 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Dimensions, Image, Pressable, StyleSheet, View as ThemedView } from 'react-native';
+import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
+import { ContextMenu, type ContextMenuItem } from '@/cmps/ContextMenu';
 import { ThemedText } from '@/cmps/ThemedText';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
@@ -15,6 +16,45 @@ export const SongInfo = React.memo(() => {
 	const artwork = currentSong.artworkUrl || currentSong.artwork;
 	const title = currentSong.title;
 	const artist = currentSong.artist;
+
+	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Add to Playlist',
+			systemImage: 'plus.circle',
+			onPress: () => console.log('Add to Playlist'),
+		},
+		{
+			label: 'Go to Album',
+			systemImage: 'square.stack',
+			onPress: () => {
+				if (currentSong.album) {
+					router.back();
+					// Small delay to allow the modal to dismiss before navigation
+					setTimeout(() => {
+						router.push(`/(tabs)/(library)/(albums)/${encodeURIComponent(currentSong.album)}`);
+					}, 100);
+				}
+			},
+		},
+		{
+			label: 'Go to Artist',
+			systemImage: 'person.circle',
+			onPress: () => {
+				if (currentSong.artist) {
+					router.back();
+					// Small delay to allow the modal to dismiss before navigation
+					setTimeout(() => {
+						router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(currentSong.artist)}`);
+					}, 100);
+				}
+			},
+		},
+		{
+			label: 'Share',
+			systemImage: 'square.and.arrow.up',
+			onPress: () => console.log('Share'),
+		},
+	];
 
 	return (
 		<>
@@ -30,18 +70,18 @@ export const SongInfo = React.memo(() => {
 						</ThemedText>
 						<ThemedText
 							style={styles.artist}
-							onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)}
+							// onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)}
 						>
 							{artist}
 						</ThemedText>
 					</ThemedView>
 					<ThemedView style={styles.titleIcons}>
-						<Pressable style={styles.iconButton}>
-							<Ionicons name='star-outline' size={18} color='#fff' />
-						</Pressable>
-						<Pressable style={styles.iconButton}>
-							<Ionicons name='ellipsis-horizontal' size={18} color='#fff' />
-						</Pressable>
+						{/* <Pressable style={styles.iconButton}>
+						<Ionicons name='star-outline' size={18} color='#fff' />
+					</Pressable> */}
+						<ContextMenu items={menuItems} style={styles.iconButton}>
+							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+						</ContextMenu>
 					</ThemedView>
 				</ThemedView>
 			</ThemedView>

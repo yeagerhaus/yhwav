@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View as ThemedView } from 'react-native';
+import { Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { RepeatMode } from 'react-native-track-player';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
@@ -28,24 +27,16 @@ export const ExtraControls = React.memo(() => {
 	return (
 		<ThemedView style={styles.extraControls}>
 			<Pressable style={styles.extraControlButton} onPress={toggleShuffle}>
-				{Platform.OS === 'ios' ? (
-					<SymbolView name='shuffle' size={24} tintColor={getShuffleColor()} />
-				) : (
-					<Ionicons name='shuffle' size={24} color={getShuffleColor()} />
-				)}
+				<SymbolView name='shuffle' size={30} tintColor={getShuffleColor()} />
 			</Pressable>
-			<Pressable style={styles.extraControlButton}>
+			{/* <Pressable style={styles.extraControlButton}>
 				<ThemedView style={styles.extraControlIcons}>
 					<Ionicons name='volume-off' size={26} color='#fff' marginRight={-6} />
 					<Ionicons name='bluetooth' size={24} color='#fff' />
 				</ThemedView>
-			</Pressable>
+			</Pressable> */}
 			<Pressable style={styles.extraControlButton} onPress={toggleRepeat}>
-				{Platform.OS === 'ios' ? (
-					<SymbolView name={getRepeatIcon()} size={24} tintColor={getRepeatColor()} />
-				) : (
-					<Ionicons name='repeat' size={24} color={getRepeatColor()} />
-				)}
+				<SymbolView name={getRepeatIcon()} size={30} tintColor={getRepeatColor()} />
 			</Pressable>
 		</ThemedView>
 	);

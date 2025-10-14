@@ -31,31 +31,28 @@ export const ExpandedPlayer = React.memo(
 		}, [ScrollComponentToUse]);
 
 		return (
-			<LinearGradient
-				colors={colors}
-				style={[styles.rootContainer, { paddingTop: insets.top }]}
-				start={{ x: 0, y: 0.4 }}
-				end={{ x: 0, y: 1 }}
-			>
-				<BlurView intensity={20} style={styles.rootContainer} tint='dark'>
-					<Div style={styles.dragHandleContainer}>
-						<ThemedView style={styles.dragHandle} />
-					</Div>
-
-					<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-						<Div style={styles.container}>
-							<SongInfo />
-
-							<Div style={styles.controls}>
-								<SongProgressBar />
-								<TimeDisplay />
-								<PlaybackControls />
-								<ExtraControls />
-							</Div>
+			<BlurView intensity={20} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
+				<LinearGradient colors={colors} style={[styles.rootContainer]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
+					<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
+						<Div style={styles.dragHandleContainer}>
+							<ThemedView style={styles.dragHandle} />
 						</Div>
-					</MemoizedScrollComponent>
-				</BlurView>
-			</LinearGradient>
+
+						<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+							<Div style={styles.container}>
+								<SongInfo />
+
+								<Div style={styles.controls}>
+									<SongProgressBar />
+									<TimeDisplay />
+									<PlaybackControls />
+									<ExtraControls />
+								</Div>
+							</Div>
+						</MemoizedScrollComponent>
+					</Div>
+				</LinearGradient>
+			</BlurView>
 		);
 	},
 	(prevProps, nextProps) => {
@@ -79,7 +76,7 @@ const styles = StyleSheet.create({
 	dragHandle: {
 		width: 40,
 		height: 5,
-		backgroundColor: 'rgba(255, 255, 255, 0.445)',
+		backgroundColor: 'rgba(255, 255, 255, 0.6)',
 		borderRadius: 5,
 		alignSelf: 'center',
 		marginTop: 10,
