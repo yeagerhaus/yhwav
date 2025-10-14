@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Div } from '../Div';
 
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;
@@ -25,7 +27,14 @@ export default function PlaylistItem({ item }: PlaylistItemProps) {
 				})
 			}
 		>
-			<Image source={{ uri: item.artwork }} style={styles.artwork} />
+			{item.artwork && <Image source={{ uri: item.artwork }} style={styles.artwork} />}
+			{!item.artwork && (
+				<>
+					<Div style={{ ...styles.artwork, backgroundColor: '#666', justifyContent: 'center', alignItems: 'center' }}>
+						<SymbolView name='music.note' size={60} type='hierarchical' tintColor='#ddd' />
+					</Div>
+				</>
+			)}
 			<Text style={styles.name} numberOfLines={1}>
 				{item.title}
 			</Text>

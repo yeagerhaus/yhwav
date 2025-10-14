@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList } from 'react-native';
 import { DynamicItem, ThemedText } from '@/cmps';
 import { Div } from '@/cmps/Div';
 import { Main } from '@/cmps/Main';

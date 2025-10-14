@@ -1,10 +1,11 @@
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, View as ThemedView } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudio } from '@/ctx/AudioContext';
-import { useSong } from '@/ctx/SongContext';
+import { hexWithOpacity } from '@/utils';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
 import { PlaybackControls } from '../Player/PlaybackControls';
@@ -20,13 +21,11 @@ export const ExpandedPlayer = React.memo(
 	({ scrollComponent }: ExpandedPlayerProps) => {
 		const ScrollComponentToUse = scrollComponent || ScrollView;
 		const { artworkBgColor } = useAudio();
-		const { currentSong } = useSong();
 
 		const insets = useSafeAreaInsets();
 		const colorToUse = artworkBgColor || '#000000';
-		const colors: [string, string] = [colorToUse, colorToUse];
+		const colors: [string, string] = [colorToUse, hexWithOpacity(colorToUse, 0.9)];
 
-		// Memoize the scroll component to prevent unnecessary re-renders
 		const MemoizedScrollComponent = React.useMemo(() => {
 			return ScrollComponentToUse;
 		}, [ScrollComponentToUse]);
@@ -35,27 +34,27 @@ export const ExpandedPlayer = React.memo(
 			<LinearGradient
 				colors={colors}
 				style={[styles.rootContainer, { paddingTop: insets.top }]}
-				start={{ x: 0, y: 0 }}
-				end={{ x: 1, y: 0 }}
+				start={{ x: 0, y: 0.4 }}
+				end={{ x: 0, y: 1 }}
 			>
-				{/* <BlurView intensity={20} style={{ flex: 1 }} tint="dark"> */}
-				<Div style={styles.dragHandleContainer}>
-					<ThemedView style={styles.dragHandle} />
-				</Div>
-
-				<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-					<Div style={styles.container}>
-						<SongInfo />
-
-						<Div style={styles.controls}>
-							<SongProgressBar />
-							<TimeDisplay />
-							<PlaybackControls />
-							<ExtraControls />
-						</Div>
+				<BlurView intensity={20} style={styles.rootContainer} tint='dark'>
+					<Div style={styles.dragHandleContainer}>
+						<ThemedView style={styles.dragHandle} />
 					</Div>
-				</MemoizedScrollComponent>
-				{/* </BlurView> */}
+
+					<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+						<Div style={styles.container}>
+							<SongInfo />
+
+							<Div style={styles.controls}>
+								<SongProgressBar />
+								<TimeDisplay />
+								<PlaybackControls />
+								<ExtraControls />
+							</Div>
+						</Div>
+					</MemoizedScrollComponent>
+				</BlurView>
 			</LinearGradient>
 		);
 	},

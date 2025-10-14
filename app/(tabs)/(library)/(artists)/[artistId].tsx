@@ -20,8 +20,6 @@ export default function ArtistDetailScreen() {
 		);
 	}
 
-	console.log('Artist Detail', artist);
-
 	const albums = artist.albumIds
 		.map((id) => albumsById[id])
 		.filter(Boolean)
@@ -44,7 +42,7 @@ export default function ArtistDetailScreen() {
 					data={albums}
 					keyExtractor={(item) => item.id}
 					numColumns={2}
-					contentContainerStyle={{ paddingBottom: 300 }}
+					contentContainerStyle={{ paddingBottom: 80 }}
 					columnWrapperStyle={{ justifyContent: 'space-between' }}
 					renderItem={({ item }) => <DynamicItem item={item} type='album' />}
 				/>
