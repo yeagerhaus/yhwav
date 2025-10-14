@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
+import { ThemedView } from '@/cmps/ThemedView';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Album } from '@/types/album';
 

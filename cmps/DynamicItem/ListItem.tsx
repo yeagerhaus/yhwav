@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
+import { Colors } from '@/constants';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function ListItem({ item, onPress }: { item: any; onPress: () => void }) {
@@ -17,7 +18,14 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 				}}
 			>
 				<View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-					{item.icon && <SymbolView name={item.icon} style={{ width: 20, height: 20, margin: 5 }} type='hierarchical' />}
+					{item.icon && (
+						<SymbolView
+							name={item.icon}
+							style={{ width: 20, height: 20, margin: 5 }}
+							type='hierarchical'
+							tintColor={Colors.brand.primary}
+						/>
+					)}
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={{ fontSize: 24, fontWeight: '600' }}>
 						{item.title}
 					</ThemedText>

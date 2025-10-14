@@ -13,8 +13,6 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		E7BFC3B55B8637D6D1BCF965 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 973DF22213096A2780923FB2 /* ExpoModulesProvider.swift */; };
-		EDA43E1C2E0C8CD6009E9A91 /* MetadataModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA43E1B2E0C8CD6009E9A91 /* MetadataModule.swift */; };
-		EDA43E1E2E0C8D11009E9A91 /* MetadataModuleBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = EDA43E1D2E0C8D0E009E9A91 /* MetadataModuleBridge.m */; };
 		EDB60C9D2E05BF9000397F81 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9C2E05BF9000397F81 /* MediaPlayer.framework */; };
 		EDB60C9F2E05BF9400397F81 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9E2E05BF9400397F81 /* AVFoundation.framework */; };
 		EDB60CA32E05BFA100397F81 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60CA22E05BFA100397F81 /* AudioToolbox.framework */; };
@@ -31,8 +29,6 @@
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = yhplayer/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EDA43E1B2E0C8CD6009E9A91 /* MetadataModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataModule.swift; sourceTree = "<group>"; };
-		EDA43E1D2E0C8D0E009E9A91 /* MetadataModuleBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MetadataModuleBridge.m; sourceTree = "<group>"; };
 		EDB60C9C2E05BF9000397F81 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		EDB60C9E2E05BF9400397F81 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		EDB60CA22E05BFA100397F81 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
@@ -76,8 +72,6 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				F2E0B9D63CD048973E84764D /* PrivacyInfo.xcprivacy */,
-				EDA43E1B2E0C8CD6009E9A91 /* MetadataModule.swift */,
-				EDA43E1D2E0C8D0E009E9A91 /* MetadataModuleBridge.m */,
 			);
 			name = yhplayer;
 			sourceTree = "<group>";
@@ -350,8 +344,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				EDA43E1E2E0C8D11009E9A91 /* MetadataModuleBridge.m in Sources */,
-				EDA43E1C2E0C8CD6009E9A91 /* MetadataModule.swift in Sources */,
 				E7BFC3B55B8637D6D1BCF965 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -485,10 +477,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -546,10 +535,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

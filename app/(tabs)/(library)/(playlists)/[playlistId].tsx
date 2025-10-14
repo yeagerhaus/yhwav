@@ -31,8 +31,11 @@ export default function DetailScreen() {
 			// Load playlist tracks using the playlist ID directly
 			const tracks = await loadPlaylistTracks(playlistId);
 			if (tracks && tracks.length > 0) {
-				// Sort tracks by track number if available, otherwise maintain order
+				// Sort tracks by playlist index (order from Plex) if available, otherwise maintain order
 				const sorted = tracks.sort((a, b) => {
+					const playlistIndexDiff = (a.playlistIndex ?? 0) - (b.playlistIndex ?? 0);
+					if (playlistIndexDiff !== 0) return playlistIndexDiff;
+					// Fallback to track number if playlistIndex is not available
 					const trackDiff = (a.trackNumber ?? 0) - (b.trackNumber ?? 0);
 					if (trackDiff !== 0) return trackDiff;
 					return (a.discNumber ?? 0) - (b.discNumber ?? 0);
@@ -42,7 +45,7 @@ export default function DetailScreen() {
 		};
 
 		loadPlaylistData();
-	}, [playlistId, playlists, loadPlaylistTracks]);
+	}, [playlistId, playlists]);
 
 	return (
 		<Main>
@@ -63,7 +66,7 @@ export default function DetailScreen() {
 						scrollEnabled={false}
 						data={songs}
 						keyExtractor={(item) => item.id}
-						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} listItem />}
+						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} />}
 						contentContainerStyle={{ paddingBottom: 300 }}
 					/>
 				</Div>

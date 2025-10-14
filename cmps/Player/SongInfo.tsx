@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Dimensions, Image, Pressable, StyleSheet, View as ThemedView } from 'react-native';
 import { ThemedText } from '@/cmps/ThemedText';
 import { useSong } from '@/ctx/SongContext';
@@ -12,17 +12,9 @@ export const SongInfo = React.memo(() => {
 
 	if (!currentSong) return null;
 
-	const artwork = useMemo(() => {
-		return currentSong.artwork;
-	}, [currentSong.artwork]);
-
-	const title = useMemo(() => {
-		return currentSong.title;
-	}, [currentSong.title]);
-
-	const artist = useMemo(() => {
-		return currentSong.artist;
-	}, [currentSong.artist]);
+	const artwork = currentSong.artwork;
+	const title = currentSong.title;
+	const artist = currentSong.artist;
 
 	return (
 		<>
@@ -91,12 +83,11 @@ const styles = StyleSheet.create({
 		gap: 15,
 	},
 	title: {
-		fontSize: 21,
-		marginBottom: -4,
+		fontSize: 24,
 		color: '#fff',
 	},
 	artist: {
-		fontSize: 19,
+		fontSize: 18,
 		opacity: 0.7,
 		color: '#fff',
 	},

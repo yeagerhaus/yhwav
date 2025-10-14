@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { FlatList } from 'react-native';
+import { ActivityIndicator, FlatList } from 'react-native';
 import { DynamicItem, ThemedText } from '@/cmps';
 import { Div } from '@/cmps/Div';
 import { Main } from '@/cmps/Main';
@@ -28,7 +28,7 @@ export default function PlaylistsScreen() {
 		return (
 			<Main>
 				<Div style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-					<ThemedText style={{ fontSize: 18 }}>Loading playlists...</ThemedText>
+					<ActivityIndicator />
 				</Div>
 			</Main>
 		);

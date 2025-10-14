@@ -1,10 +1,11 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/cmps/MusicVisualizer';
 import { ThemedText } from '@/cmps/ThemedText';
 import { ThemedView } from '@/cmps/ThemedView';
+import { Colors } from '@/constants';
 import { useAudio } from '@/ctx/AudioContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
@@ -64,7 +65,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 						{highlightText(song.title, query)}
 					</ThemedText>
 					<ThemedView style={styles.artistRow}>
-						{isCurrentSong && <Ionicons name='musical-note' size={12} color='#FA2D48' />}
+						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />}
 						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{highlightText(song.artist, query)}
 						</ThemedText>
@@ -74,7 +75,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 					</ThemedText>
 				</ThemedView>
 				<Pressable style={styles.moreButton}>
-					<MaterialIcons name='more-horiz' size={20} color='#222222' />
+					<SymbolView name='ellipsis' size={20} tintColor='#222222' />
 				</Pressable>
 			</ThemedView>
 		</Pressable>
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
 		padding: 8,
 	},
 	highlighted: {
-		backgroundColor: '#FA2D48',
+		backgroundColor: Colors.brand.primary,
 		color: 'white',
 		fontWeight: '600',
 	},

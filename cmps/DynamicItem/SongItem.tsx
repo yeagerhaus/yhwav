@@ -1,9 +1,10 @@
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/cmps/MusicVisualizer';
 import { ThemedText } from '@/cmps/ThemedText';
+import { Colors } from '@/constants';
 import { useAudio } from '@/ctx/AudioContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
@@ -43,11 +44,11 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 		return (
 			<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 				<Div style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-					{isCurrentSong ? (
+					{isCurrentSong && playbackState.state === State.Playing ? (
 						<MusicVisualizer isPlaying={playbackState.state === State.Playing} />
 					) : (
 						<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
-							{item.trackNumber}
+							{item.playlistIndex !== undefined ? item.playlistIndex + 1 : item.trackNumber}
 						</ThemedText>
 					)}
 				</Div>
@@ -57,14 +58,16 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 							{item.title}
 						</ThemedText>
 						<Div style={styles.artistRow}>
-							{item.id === String(currentSong?.id) && <Ionicons name='musical-note' size={12} color='#FA2D48' />}
+							{item.id === String(currentSong?.id) && (
+								<SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />
+							)}
 							<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}
 							</ThemedText>
 						</Div>
 					</Div>
 					<Pressable style={styles.moreButton}>
-						<MaterialIcons name='more-horiz' size={20} color='#222222' />
+						<SymbolView name='ellipsis' size={20} tintColor='#222222' />
 					</Pressable>
 				</Div>
 			</Pressable>
@@ -83,14 +86,14 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 						{item.title}
 					</ThemedText>
 					<Div style={styles.artistRow}>
-						{item.id === String(currentSong?.id) && <Ionicons name='musical-note' size={12} color='#FA2D48' />}
+						{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor='#FA2D48' />}
 						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{item.artist}
 						</ThemedText>
 					</Div>
 				</Div>
 				<Pressable style={styles.moreButton}>
-					<MaterialIcons name='more-horiz' size={20} color='#222222' />
+					<SymbolView name='ellipsis' size={20} tintColor='#222222' />
 				</Pressable>
 			</Div>
 		</Pressable>

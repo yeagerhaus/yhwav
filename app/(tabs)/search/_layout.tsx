@@ -16,9 +16,9 @@ function SearchLayoutContent() {
 				options={{
 					title: 'Search',
 					headerSearchBarOptions: {
-						placement: 'automatic',
-						placeholder: 'Search songs, albums, artists...',
-						onChangeText: handleSearchChange,
+						placement: 'inline',
+						placeholder: 'Search',
+						onChangeText: () => {},
 					},
 					headerShown: false,
 				}}

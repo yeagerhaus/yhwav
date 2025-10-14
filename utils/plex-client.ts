@@ -343,7 +343,7 @@ export class PlexClient {
 	/**
 	 * Format a Plex track into our Song type
 	 */
-	private async formatTrack(track: any): Promise<Song> {
+	private async formatTrack(track: any, playlistIndex?: number): Promise<Song> {
 		const media = track.Media?.[0];
 		const part = media?.Part?.[0];
 		const duration = parseInt(track.duration || part?.duration || '0', 10);
@@ -366,6 +366,7 @@ export class PlexClient {
 			duration,
 			trackNumber: parseInt(track.index || '0', 10),
 			discNumber: parseInt(track.parentIndex || '0', 10),
+			playlistIndex,
 			artistKey: track.grandparentKey || '',
 		};
 	}
@@ -448,8 +449,10 @@ export class PlexClient {
 			const data = response.data as any;
 			const rawTracks = data?.MediaContainer?.Metadata || [];
 
-			// Process tracks in parallel for better performance
-			const tracks = await Promise.all((Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track) => this.formatTrack(track)));
+			// Process tracks in parallel for better performance, preserving order
+			const tracks = await Promise.all(
+				(Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track, index) => this.formatTrack(track, index)),
+			);
 
 			return tracks;
 		} catch (error) {

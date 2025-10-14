@@ -4,6 +4,7 @@ import { Image, Platform, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/cmps/ThemedText';
 import { ThemedView } from '@/cmps/ThemedView';
+import { Colors } from '@/constants';
 import { useAudio } from '@/ctx/AudioContext';
 import { usePlayback } from '@/ctx/PlaybackContext';
 import { useSong } from '@/ctx/SongContext';
@@ -45,10 +46,15 @@ const MiniPlayerContent = React.memo(() => {
 			</ThemedView>
 			<ThemedView style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
-					<SymbolView name={isPlaying ? 'pause.fill' : 'play.fill'} type='hierarchical' size={20} />
+					<SymbolView
+						name={isPlaying ? 'pause.fill' : 'play.fill'}
+						type='hierarchical'
+						size={20}
+						tintColor={Colors.brand.primary}
+					/>
 				</Pressable>
 				<Pressable style={styles.controlButton} onPress={playNextSong}>
-					<SymbolView name='forward.fill' type='hierarchical' size={24} />
+					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brand.primary} />
 				</Pressable>
 			</ThemedView>
 		</ThemedView>

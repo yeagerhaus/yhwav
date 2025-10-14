@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable } from 'react-native';
+import { Colors } from '@/constants';
 import { Div } from '../Div';
 
 export function HeaderBackButton() {
@@ -11,7 +12,7 @@ export function HeaderBackButton() {
 			style={{ marginLeft: 16, height: 50, width: 50, borderRadius: 100, alignItems: 'center', justifyContent: 'center' }}
 		>
 			<Div useGlass style={{ width: 50, height: 50, borderRadius: 100, alignItems: 'center', justifyContent: 'center' }}>
-				<SymbolView name='chevron.left' type='hierarchical' />
+				<SymbolView name='chevron.left' type='hierarchical' tintColor={Colors.brand.primary} />
 			</Div>
 		</Pressable>
 	);

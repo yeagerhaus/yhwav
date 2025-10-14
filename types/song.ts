@@ -11,6 +11,7 @@ export interface Song {
 	duration: number;
 	trackNumber: number;
 	discNumber: number;
+	playlistIndex?: number;
 	localUri?: string;
 	isDownloaded?: boolean;
 }
