@@ -107,7 +107,7 @@ yhplayer/
 │   │   ├── (library)/     # Music library screens
 │   │   └── (search)/      # Search and browse
 │   └── music/[id].tsx     # Full-screen player modal
-├── cmps/                  # Reusable components
+├── components/                  # Reusable components
 │   ├── BottomSheet/       # Mini & expanded player
 │   ├── Player/           # Audio controls & progress
 │   ├── DynamicItem/      # List/grid item components
