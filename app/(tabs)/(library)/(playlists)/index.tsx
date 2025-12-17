@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList } from 'react-native';
-import { DynamicItem, ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { usePlaylists } from '@/hooks/usePlaylists';
 
 export default function PlaylistsScreen() {
@@ -52,13 +52,17 @@ export default function PlaylistsScreen() {
 					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Playlists</ThemedText>
 				</Div>
 				<FlatList
-					scrollEnabled={false}
 					data={formattedPlaylists}
-					keyExtractor={(item) => item.id.toString()}
+					keyExtractor={useCallback((item: typeof formattedPlaylists[0]) => item.id.toString(), [])}
 					numColumns={2}
+					renderItem={useCallback(({ item }: { item: typeof formattedPlaylists[0] }) => <DynamicItem item={item} type='playlist' />, [])}
+					removeClippedSubviews={true}
+					maxToRenderPerBatch={10}
+					windowSize={10}
+					initialNumToRender={10}
+					updateCellsBatchingPeriod={50}
 					contentContainerStyle={{ paddingBottom: 80 }}
 					columnWrapperStyle={{ justifyContent: 'space-between' }}
-					renderItem={({ item }) => <DynamicItem item={item} type='playlist' />}
 				/>
 			</Div>
 		</Main>

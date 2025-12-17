@@ -1,8 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { FlatList, StyleSheet } from 'react-native';
-import { DynamicItem, ThemedText, ThemedView } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText, ThemedView } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 export default function ArtistDetailScreen() {

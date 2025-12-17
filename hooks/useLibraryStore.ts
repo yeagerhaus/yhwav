@@ -1,5 +1,7 @@
+import { InteractionManager } from 'react-native';
 import { create } from 'zustand';
 import type { Album, Artist, Playlist, Song } from '@/types';
+import { normalizeArtist } from '@/utils';
 
 interface LibraryState {
 	isLibraryLoading: boolean;
@@ -12,10 +14,6 @@ interface LibraryState {
 	setTracks: (songs: Song[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
 	setLibraryLoading: (loading: boolean) => void;
-}
-
-function normalizeArtist(str: string) {
-	return str?.split(';')[0].trim().toLowerCase() || 'unknown artist';
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -43,59 +41,77 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 	},
 
 	setTracks: (songs: Song[]) => {
-		const songsById: Record<string, Song> = {};
-		const albumsById: Record<string, Album> = {};
-		const artistsByName: Record<string, Artist> = {};
+		// For immediate UI update, set tracks first
+		set({ tracks: songs });
 
-		// Process songs in batches to avoid blocking the main thread
-		const BATCH_SIZE = 500;
-		const processBatch = (startIndex: number) => {
-			const endIndex = Math.min(startIndex + BATCH_SIZE, songs.length);
+		// Process indexing asynchronously to avoid blocking UI
+		InteractionManager.runAfterInteractions(() => {
+			// Accumulate results across batches
+			const songsById: Record<string, Song> = {};
+			const albumsById: Record<string, Album> = {};
+			const artistsByName: Record<string, Artist> = {};
 
-			for (let i = startIndex; i < endIndex; i++) {
-				const song = songs[i];
-				const artistKey = normalizeArtist(song.artist);
-				const albumId = `${artistKey}-${song.album.trim().toLowerCase()}`;
+			// Process songs in smaller batches with yields to keep UI responsive
+			const BATCH_SIZE = 500; // Smaller batches for better responsiveness
+			let currentIndex = 0;
 
-				songsById[song.id] = song;
+			const processBatch = () => {
+				const endIndex = Math.min(currentIndex + BATCH_SIZE, songs.length);
 
-				// Album
-				if (!albumsById[albumId]) {
-					albumsById[albumId] = {
-						id: albumId,
-						title: song.album,
-						artist: song.artist,
-						artistKey,
-						artwork: song.artworkUrl || song.artwork || '',
-						songIds: [],
-					};
+				for (let i = currentIndex; i < endIndex; i++) {
+					const song = songs[i];
+					if (!song || !song.id) continue; // Skip invalid songs
+
+					const artistKey = normalizeArtist(song.artist || '');
+					const albumName = (song.album || '').trim();
+					const albumId = albumName ? `${artistKey}-${albumName.toLowerCase()}` : `${artistKey}-unknown`;
+
+					songsById[song.id] = song;
+
+					// Album
+					if (albumName && !albumsById[albumId]) {
+						albumsById[albumId] = {
+							id: albumId,
+							title: albumName,
+							artist: song.artist || '',
+							artistKey,
+							artwork: song.artworkUrl || song.artwork || '',
+							songIds: [],
+						};
+					}
+					if (albumsById[albumId]) {
+						albumsById[albumId].songIds.push(song.id);
+					}
+
+					// Artist
+					if (!artistsByName[artistKey]) {
+						artistsByName[artistKey] = {
+							key: artistKey,
+							name: song.artist || 'Unknown Artist',
+							albumIds: [],
+						};
+					}
+					if (albumId && !artistsByName[artistKey].albumIds.includes(albumId)) {
+						artistsByName[artistKey].albumIds.push(albumId);
+					}
 				}
-				albumsById[albumId].songIds.push(song.id);
 
-				// Artist
-				if (!artistsByName[artistKey]) {
-					artistsByName[artistKey] = {
-						key: artistKey,
-						name: song.artist,
-						albumIds: [],
-					};
+				currentIndex = endIndex;
+
+				if (currentIndex < songs.length) {
+					// Process next batch after a short delay to allow UI updates
+					setTimeout(processBatch, 0);
+				} else {
+					// All processing complete, update state
+					set({
+						songsById,
+						albumsById,
+						artistsByName,
+					});
 				}
-				if (!artistsByName[artistKey].albumIds.includes(albumId)) {
-					artistsByName[artistKey].albumIds.push(albumId);
-				}
-			}
-		};
+			};
 
-		// Process all batches
-		for (let startIndex = 0; startIndex < songs.length; startIndex += BATCH_SIZE) {
-			processBatch(startIndex);
-		}
-
-		set({
-			tracks: songs,
-			songsById,
-			albumsById,
-			artistsByName,
+			processBatch();
 		});
 	},
 }));

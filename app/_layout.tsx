@@ -10,7 +10,7 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
-import { fetchAllTracks, initializePlexJWT, testPlexServer } from '@/utils/plex';
+import { fetchAllTracks, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 
 function AudioSync() {
@@ -81,34 +81,38 @@ export default function RootLayout() {
 					if (selectedServer) {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
 					}
+
+					// Load cached data first (for instant UI)
+					const hydrated = await rehydrateLibraryStore();
+					if (hydrated) {
+						console.log('✅ Loaded cached library data');
+					}
+
+					// Fetch fresh tracks in background (non-blocking)
+					fetchAllTracks()
+						.then((fetchedTracks) => {
+							if (fetchedTracks.length > 0) {
+								console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
+								setTracks(fetchedTracks);
+								saveLibraryToCache();
+							}
+						})
+						.catch((error) => {
+							console.error('❌ Failed to fetch tracks:', error);
+							// If we have cached data, that's okay - use it
+							if (!hydrated) {
+								// No cache and fetch failed - test connectivity
+								testPlexServer().catch(() => {
+									console.warn('⚠️ Cannot connect to Plex server');
+								});
+							}
+						});
 				} else {
-					console.log('🔐 No existing authentication, using fallback method');
-					// Fallback to JWT authentication
-					await initializePlexJWT();
-					console.log('Plex JWT authentication initialized');
-				}
-
-				// Test Plex server connectivity
-				console.log('Testing Plex server connectivity...');
-				const isServerAccessible = await testPlexServer();
-				if (!isServerAccessible) {
-					throw new Error(
-						'Cannot connect to Plex server. Please check your server configuration or go to Settings to authenticate.',
-					);
-				}
-				console.log('Plex server connectivity verified');
-
-				const hydrated = await rehydrateLibraryStore();
-				if (!hydrated) {
-					const fetchedTracks = await fetchAllTracks();
-					console.log('Fetched sample track:', fetchedTracks[0]);
-					console.log('Setting tracks in Zustand store...');
-					await setTracks(fetchedTracks);
-					await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
-					await saveLibraryToCache();
+					console.log('🔐 No existing authentication found. Please sign in through Settings.');
 				}
 			} catch (error) {
 				console.error('Failed to initialize app:', error);
+				// Don't block app startup - user can authenticate in Settings
 			} finally {
 				setLibraryLoading(false);
 			}

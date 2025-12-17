@@ -1,8 +1,7 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/cmps/ThemedText';
+import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function ListItem({ item, onPress }: { item: any; onPress: () => void }) {
 	const colorScheme = useColorScheme();

@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
-import { ContextMenu, type ContextMenuItem } from '@/cmps/ContextMenu';
-import { ThemedText } from '@/cmps/ThemedText';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
+import { ThemedText } from '@/components/ThemedText';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
 const { width } = Dimensions.get('window');

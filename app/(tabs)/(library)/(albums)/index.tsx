@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FlatList } from 'react-native';
-import { DynamicItem, ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 export default function AlbumsScreen() {
@@ -22,6 +22,9 @@ export default function AlbumsScreen() {
 		[albumsById],
 	);
 
+	const renderItem = useCallback(({ item }: { item: typeof albums[0] }) => <DynamicItem item={item} type='album' />, []);
+	const keyExtractor = useCallback((item: typeof albums[0]) => item.id.toString(), []);
+
 	return (
 		<Main>
 			<Div style={{ paddingHorizontal: 16 }}>
@@ -29,13 +32,17 @@ export default function AlbumsScreen() {
 					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Albums</ThemedText>
 				</Div>
 				<FlatList
-					scrollEnabled={false}
 					data={albums}
-					keyExtractor={(item) => item.id.toString()}
+					keyExtractor={keyExtractor}
 					numColumns={2}
+					renderItem={renderItem}
+					removeClippedSubviews={true}
+					maxToRenderPerBatch={10}
+					windowSize={10}
+					initialNumToRender={10}
+					updateCellsBatchingPeriod={50}
 					contentContainerStyle={{ paddingBottom: 300 }}
 					columnWrapperStyle={{ justifyContent: 'space-between' }}
-					renderItem={({ item }) => <DynamicItem item={item} type='album' />}
 				/>
 			</Div>
 		</Main>

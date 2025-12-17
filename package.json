@@ -7,7 +7,7 @@
 		"web": "expo start --web",
 		"prep": "bun install && npx pod-install",
 		"kill": "lsof -ti:8081 | xargs kill -9",
-		"clean": "rm -rf node_moduels && rm -rf ios/Pods ios/Podfile.lock && rm -rf .expo",
+		"clean": "rm -rf node_modules && rm -rf ios/Pods ios/Podfile.lock && rm -rf .expo",
 		"up": "bun update; bunx expo@latest install --check",
 		"b": "eas build --profile development --platform ios",
 		"check:tsc": "tsc --project tsconfig.json --noEmit",
@@ -39,7 +39,6 @@
 		"expo-symbols": "^1.0.8",
 		"expo-system-ui": "~6.0.9",
 		"expo-web-browser": "~15.0.10",
-		"lodash": "^4.17.21",
 		"react": "19.1.0",
 		"react-dom": "19.1.0",
 		"react-native": "0.81.5",
@@ -49,7 +48,6 @@
 		"react-native-reanimated": "~4.1.6",
 		"react-native-safe-area-context": "~5.6.2",
 		"react-native-screens": "~4.16.0",
-		"react-native-skeleton-placeholder": "^5.2.4",
 		"react-native-track-player": "^4.1.2",
 		"react-native-web": "^0.21.2",
 		"tsx": "^4.21.0",
@@ -58,7 +56,6 @@
 	"devDependencies": {
 		"@babel/core": "^7.28.5",
 		"@biomejs/biome": "2.0.0",
-		"@types/lodash": "^4.17.21",
 		"@types/react": "~19.1.17",
 		"typescript": "~5.9.3"
 	},

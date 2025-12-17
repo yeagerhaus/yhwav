@@ -3,13 +3,12 @@
 export type { PlexError, PlexResponse } from './plex-client';
 export {
 	buildPlexURL,
-	clearPlexAuth,
 	fetchAllPlaylists,
 	fetchAllTracks,
+	fetchAllArtists,
+	fetchAllAlbums,
 	fetchPlaylist,
 	fetchPlaylistTracks,
-	initializePlexJWT,
 	plexClient,
-	plexJWTService,
 	testPlexServer,
 } from './plex-client';
