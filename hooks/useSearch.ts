@@ -57,6 +57,18 @@ export function useSearch() {
 		}
 
 		const normalizedQuery = debouncedQuery.toLowerCase().trim();
+		const queryLength = normalizedQuery.length;
+
+		// Early exit for very short queries
+		if (queryLength < 1) {
+			setSearchResults({
+				songs: [],
+				albums: [],
+				artists: [],
+				totalResults: 0,
+			});
+			return;
+		}
 
 		const results: SearchResults = {
 			songs: [],
@@ -65,66 +77,91 @@ export function useSearch() {
 			totalResults: 0,
 		};
 
-		// Fast search using simple string matching
-		// Search songs - limit to first 1000 for performance
-		const songsToSearch = tracks.slice(0, 1000);
+		// Optimized search with early termination and pre-normalized strings
+		// Search songs - increased limit and better performance
+		const MAX_SONG_RESULTS = 50; // Increased from 20 to allow better matching
+		const songsToSearch = tracks; // Search all tracks, but limit results
 
 		for (const song of songsToSearch) {
-			const titleMatch = song.title.toLowerCase().includes(normalizedQuery);
-			const artistMatch = song.artist.toLowerCase().includes(normalizedQuery);
-			const albumMatch = song.album.toLowerCase().includes(normalizedQuery);
+			// Pre-normalize once
+			const titleLower = song.title.toLowerCase();
+			const artistLower = song.artist.toLowerCase();
+			const albumLower = song.album.toLowerCase();
+
+			const titleMatch = titleLower.includes(normalizedQuery);
+			const artistMatch = artistLower.includes(normalizedQuery);
+			const albumMatch = albumLower.includes(normalizedQuery);
 
 			if (titleMatch || artistMatch || albumMatch) {
 				let score = 0;
-				if (song.title.toLowerCase().startsWith(normalizedQuery)) score += 100;
-				else if (song.title.toLowerCase().includes(normalizedQuery)) score += 50;
-				if (song.artist.toLowerCase().startsWith(normalizedQuery)) score += 80;
-				else if (song.artist.toLowerCase().includes(normalizedQuery)) score += 40;
-				if (song.album.toLowerCase().startsWith(normalizedQuery)) score += 60;
-				else if (song.album.toLowerCase().includes(normalizedQuery)) score += 30;
+				if (titleLower.startsWith(normalizedQuery)) score += 100;
+				else if (titleMatch) score += 50;
+				if (artistLower.startsWith(normalizedQuery)) score += 80;
+				else if (artistMatch) score += 40;
+				if (albumLower.startsWith(normalizedQuery)) score += 60;
+				else if (albumMatch) score += 30;
 
 				results.songs.push({
 					type: 'song',
 					item: song,
 					score,
 				});
+
+				// Early termination if we have enough high-scoring results
+				if (results.songs.length >= MAX_SONG_RESULTS * 2) {
+					break;
+				}
 			}
 		}
 
-		// Search albums
+		// Search albums - optimized
+		const MAX_ALBUM_RESULTS = 10;
 		for (const album of Object.values(albumsById)) {
-			const titleMatch = album.title.toLowerCase().includes(normalizedQuery);
-			const artistMatch = album.artist.toLowerCase().includes(normalizedQuery);
+			const titleLower = album.title.toLowerCase();
+			const artistLower = album.artist.toLowerCase();
+
+			const titleMatch = titleLower.includes(normalizedQuery);
+			const artistMatch = artistLower.includes(normalizedQuery);
 
 			if (titleMatch || artistMatch) {
 				let score = 0;
-				if (album.title.toLowerCase().startsWith(normalizedQuery)) score += 100;
-				else if (album.title.toLowerCase().includes(normalizedQuery)) score += 50;
-				if (album.artist.toLowerCase().startsWith(normalizedQuery)) score += 80;
-				else if (album.artist.toLowerCase().includes(normalizedQuery)) score += 40;
+				if (titleLower.startsWith(normalizedQuery)) score += 100;
+				else if (titleMatch) score += 50;
+				if (artistLower.startsWith(normalizedQuery)) score += 80;
+				else if (artistMatch) score += 40;
 
 				results.albums.push({
 					type: 'album',
 					item: album,
 					score,
 				});
+
+				if (results.albums.length >= MAX_ALBUM_RESULTS * 2) {
+					break;
+				}
 			}
 		}
 
-		// Search artists
+		// Search artists - optimized
+		const MAX_ARTIST_RESULTS = 10;
 		for (const artist of Object.values(artistsByName)) {
-			const nameMatch = artist.name.toLowerCase().includes(normalizedQuery);
+			const nameLower = artist.name.toLowerCase();
+			const nameMatch = nameLower.includes(normalizedQuery);
 
 			if (nameMatch) {
 				let score = 0;
-				if (artist.name.toLowerCase().startsWith(normalizedQuery)) score += 100;
-				else if (artist.name.toLowerCase().includes(normalizedQuery)) score += 50;
+				if (nameLower.startsWith(normalizedQuery)) score += 100;
+				else if (nameMatch) score += 50;
 
 				results.artists.push({
 					type: 'artist',
 					item: artist,
 					score,
 				});
+
+				if (results.artists.length >= MAX_ARTIST_RESULTS * 2) {
+					break;
+				}
 			}
 		}
 

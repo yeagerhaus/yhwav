@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
@@ -9,7 +9,8 @@ import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 
-export default function SongItem({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) {
+// Memoized component to prevent unnecessary re-renders
+const SongItem = React.memo(({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) => {
 	const colorScheme = useColorScheme();
 	const playbackState = usePlaybackState();
 	const currentSong = useAudioStore((state) => state.currentSong);
@@ -18,9 +19,9 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 		return item.id === String(currentSong?.id);
 	}, [item.id, currentSong?.id]);
 
-	const playSong = async (song: Song) => {
+	const playSong = useCallback(async (song: Song) => {
 		await playSound(song, queue);
-	};
+	}, [playSound, queue]);
 
 	if (listItem) {
 		return (
@@ -59,7 +60,11 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 	return (
 		<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 			<Div style={styles.artworkContainer}>
-				<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} />
+				<Image
+					source={{ uri: item.artworkUrl }}
+					style={styles.songArtwork}
+					resizeMode='cover'
+				/>
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 			</Div>
 			<Div style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
@@ -80,7 +85,20 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 			</Div>
 		</Pressable>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Custom comparison for better memoization
+	return (
+		prevProps.item.id === nextProps.item.id &&
+		prevProps.item.title === nextProps.item.title &&
+		prevProps.item.artist === nextProps.item.artist &&
+		prevProps.listItem === nextProps.listItem &&
+		prevProps.queue?.length === nextProps.queue?.length
+	);
+});
+
+SongItem.displayName = 'SongItem';
+
+export default SongItem;
 
 const styles = StyleSheet.create({
 	songItem: {

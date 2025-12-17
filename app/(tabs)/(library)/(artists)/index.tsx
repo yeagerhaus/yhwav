@@ -50,7 +50,6 @@ export default function ArtistsScreen() {
 					<ActivityIndicator size='large' color='#FA2D48' />
 				) : (
 					<FlatList
-						scrollEnabled={false}
 						data={artists}
 						keyExtractor={(item) => item.name}
 						renderItem={({ item }) => (
@@ -65,6 +64,11 @@ export default function ArtistsScreen() {
 								</View>
 							</Pressable>
 						)}
+						removeClippedSubviews={true}
+						maxToRenderPerBatch={10}
+						windowSize={10}
+						initialNumToRender={15}
+						updateCellsBatchingPeriod={50}
 					/>
 				)}
 			</Div>

@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Image } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';
@@ -7,6 +7,8 @@ import { Main } from '@/components/Main';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
+
+const ITEM_HEIGHT = 70;
 
 export default function DetailScreen() {
 	const { playlistId } = useLocalSearchParams<{ playlistId: string }>();
@@ -45,7 +47,18 @@ export default function DetailScreen() {
 		};
 
 		loadPlaylistData();
-	}, [playlistId, playlists]);
+	}, [playlistId, playlists, loadPlaylistTracks]);
+
+	const keyExtractor = useCallback((item: Song) => item.id, []);
+	const renderItem = useCallback(({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} />, [songs]);
+	const getItemLayout = useCallback(
+		(_: any, index: number) => ({
+			length: ITEM_HEIGHT,
+			offset: ITEM_HEIGHT * index,
+			index,
+		}),
+		[],
+	);
 
 	return (
 		<Main>
@@ -63,10 +76,15 @@ export default function DetailScreen() {
 						</Div>
 					)}
 					<FlatList
-						scrollEnabled={false}
 						data={songs}
-						keyExtractor={(item) => item.id}
-						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} />}
+						keyExtractor={keyExtractor}
+						renderItem={renderItem}
+						getItemLayout={getItemLayout}
+						removeClippedSubviews={true}
+						maxToRenderPerBatch={10}
+						windowSize={10}
+						initialNumToRender={15}
+						updateCellsBatchingPeriod={50}
 						contentContainerStyle={{ paddingBottom: 300 }}
 					/>
 				</Div>
