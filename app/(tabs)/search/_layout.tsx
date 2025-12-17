@@ -6,6 +6,7 @@ export default function SearchLayout() {
 			<Stack.Screen
 				name='index'
 				options={{
+					title: 'Search',
 					headerSearchBarOptions: {
 						placement: 'automatic',
 						placeholder: 'Search',

@@ -9,6 +9,9 @@ export default function SettingsScreen() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
 	const [showTokenInput, setShowTokenInput] = useState(false);
+	const [pinCode, setPinCode] = useState<string | null>(null);
+	const [pinStatus, setPinStatus] = useState<string>('');
+	const [showAdvanced, setShowAdvanced] = useState(false);
 
 	useEffect(() => {
 		// Load existing auth state
@@ -19,7 +22,42 @@ export default function SettingsScreen() {
 		});
 	}, []);
 
-	const handleLogin = async () => {
+	const handlePinLogin = async () => {
+		setIsLoading(true);
+		setPinCode(null);
+		setPinStatus('');
+
+		try {
+			const result = await plexAuthService.loginWithPin(
+				(pin) => {
+					setPinCode(pin);
+					setPinStatus('Please authorize this app on plex.tv');
+				},
+				(status) => {
+					setPinStatus(status);
+				},
+			);
+
+			if (result.success) {
+				setAuthState(result.authState!);
+				setPinCode(null);
+				setPinStatus('');
+				Alert.alert('Success', 'Successfully connected to Plex!');
+			} else {
+				Alert.alert('Login Failed', result.error || 'Unknown error');
+				setPinCode(null);
+				setPinStatus('');
+			}
+		} catch (error: any) {
+			Alert.alert('Error', error.message);
+			setPinCode(null);
+			setPinStatus('');
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleTokenLogin = async () => {
 		if (!plexToken.trim()) {
 			Alert.alert('Error', 'Please enter your Plex token');
 			return;
@@ -154,60 +192,125 @@ export default function SettingsScreen() {
 					<>
 						<View style={styles.section}>
 							<Text style={styles.sectionTitle}>Connect to Plex</Text>
-							<Text style={styles.sectionDescription}>Enter your Plex token to connect to your media server.</Text>
+							<Text style={styles.sectionDescription}>
+								Sign in with your Plex account to access your media servers.
+							</Text>
 						</View>
 
-						{showTokenInput ? (
+						{/* PIN-based authentication */}
+						{!pinCode ? (
 							<View style={styles.section}>
-								<Text style={styles.inputLabel}>Plex Token</Text>
-								<TextInput
-									style={styles.textInput}
-									value={plexToken}
-									onChangeText={setPlexToken}
-									placeholder='Enter your Plex token'
-									secureTextEntry
-									autoCapitalize='none'
-									autoCorrect={false}
-								/>
-								<View style={styles.buttonRow}>
-									<TouchableOpacity
-										style={styles.cancelButton}
-										onPress={() => {
-											setShowTokenInput(false);
-											setPlexToken('');
-										}}
-									>
-										<Text style={styles.cancelButtonText}>Cancel</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										style={[styles.loginButton, isLoading && styles.disabledButton]}
-										onPress={handleLogin}
-										disabled={isLoading}
-									>
-										{isLoading ? (
-											<ActivityIndicator color='#fff' size='small' />
-										) : (
-											<Text style={styles.loginButtonText}>Connect</Text>
-										)}
-									</TouchableOpacity>
-								</View>
+								<TouchableOpacity
+									style={[styles.connectButton, isLoading && styles.disabledButton]}
+									onPress={handlePinLogin}
+									disabled={isLoading}
+								>
+									{isLoading ? (
+										<ActivityIndicator color='#fff' size='small' />
+									) : (
+										<Text style={styles.connectButtonText}>Sign in with Plex</Text>
+									)}
+								</TouchableOpacity>
 							</View>
 						) : (
 							<View style={styles.section}>
-								<TouchableOpacity style={styles.connectButton} onPress={() => setShowTokenInput(true)}>
-									<Text style={styles.connectButtonText}>Connect to Plex</Text>
+								<View style={styles.pinContainer}>
+									<Text style={styles.pinLabel}>Enter this code on plex.tv/activate</Text>
+									<View style={styles.pinCodeContainer}>
+										<Text style={styles.pinCode}>{pinCode}</Text>
+									</View>
+									{pinStatus && (
+										<Text style={styles.pinStatus}>{pinStatus}</Text>
+									)}
+									{isLoading && (
+										<ActivityIndicator color='#007AFF' size='small' style={styles.pinLoader} />
+									)}
+								</View>
+								<TouchableOpacity
+									style={styles.cancelButton}
+									onPress={() => {
+										setPinCode(null);
+										setPinStatus('');
+										setIsLoading(false);
+									}}
+								>
+									<Text style={styles.cancelButtonText}>Cancel</Text>
 								</TouchableOpacity>
 							</View>
 						)}
 
+						{/* Advanced: Manual token entry */}
 						<View style={styles.section}>
-							<Text style={styles.helpTitle}>How to get your Plex token:</Text>
-							<Text style={styles.helpText}>
-								1. Go to plex.tv and sign in{'\n'}
-								2. Go to Settings → Network → Advanced{'\n'}
-								3. Click "Show Advanced" and find "Plex Token"{'\n'}
-								4. Copy the token and paste it above
-							</Text>
+							<TouchableOpacity
+								style={styles.advancedToggle}
+								onPress={() => setShowAdvanced(!showAdvanced)}
+							>
+								<Text style={styles.advancedToggleText}>
+									{showAdvanced ? '▼' : '▶'} Advanced: Manual Token Entry
+								</Text>
+							</TouchableOpacity>
+
+							{showAdvanced && (
+								<View style={styles.advancedSection}>
+									<Text style={styles.sectionDescription}>
+										If PIN authentication doesn't work, you can manually enter your Plex token.
+									</Text>
+
+									{showTokenInput ? (
+										<View style={styles.tokenInputSection}>
+											<Text style={styles.inputLabel}>Plex Token</Text>
+											<TextInput
+												style={styles.textInput}
+												value={plexToken}
+												onChangeText={setPlexToken}
+												placeholder='Enter your Plex token'
+												secureTextEntry
+												autoCapitalize='none'
+												autoCorrect={false}
+											/>
+											<View style={styles.buttonRow}>
+												<TouchableOpacity
+													style={styles.cancelButton}
+													onPress={() => {
+														setShowTokenInput(false);
+														setPlexToken('');
+													}}
+												>
+													<Text style={styles.cancelButtonText}>Cancel</Text>
+												</TouchableOpacity>
+												<TouchableOpacity
+													style={[styles.loginButton, isLoading && styles.disabledButton]}
+													onPress={handleTokenLogin}
+													disabled={isLoading}
+												>
+													{isLoading ? (
+														<ActivityIndicator color='#fff' size='small' />
+													) : (
+														<Text style={styles.loginButtonText}>Connect</Text>
+													)}
+												</TouchableOpacity>
+											</View>
+										</View>
+									) : (
+										<TouchableOpacity
+											style={styles.tokenButton}
+											onPress={() => setShowTokenInput(true)}
+										>
+											<Text style={styles.tokenButtonText}>Enter Token Manually</Text>
+										</TouchableOpacity>
+									)}
+
+									<View style={styles.helpSection}>
+										<Text style={styles.helpTitle}>How to get your Plex token:</Text>
+										<Text style={styles.helpText}>
+											1. Go to plex.tv and sign in{'\n'}
+											2. Go to Settings → Network → Advanced{'\n'}
+											3. Click "Show Advanced" and find "Plex Token"{'\n'}
+											4. Copy the token and paste it above
+										</Text>
+									</View>
+								</View>
+							)}
 						</View>
 					</>
 				)}
@@ -392,5 +495,77 @@ const styles = StyleSheet.create({
 		color: '#888',
 		fontSize: 14,
 		lineHeight: 20,
+	},
+	pinContainer: {
+		backgroundColor: '#111',
+		padding: 20,
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: '#333',
+		alignItems: 'center',
+		marginBottom: 15,
+	},
+	pinLabel: {
+		color: '#888',
+		fontSize: 14,
+		marginBottom: 15,
+		textAlign: 'center',
+	},
+	pinCodeContainer: {
+		backgroundColor: '#000',
+		padding: 20,
+		borderRadius: 8,
+		borderWidth: 2,
+		borderColor: '#007AFF',
+		marginBottom: 15,
+		minWidth: 120,
+		alignItems: 'center',
+	},
+	pinCode: {
+		color: '#007AFF',
+		fontSize: 32,
+		fontWeight: 'bold',
+		letterSpacing: 4,
+		fontFamily: 'monospace',
+	},
+	pinStatus: {
+		color: '#888',
+		fontSize: 12,
+		textAlign: 'center',
+		marginTop: 10,
+	},
+	pinLoader: {
+		marginTop: 10,
+	},
+	advancedToggle: {
+		padding: 10,
+	},
+	advancedToggleText: {
+		color: '#888',
+		fontSize: 14,
+	},
+	advancedSection: {
+		marginTop: 10,
+		paddingTop: 15,
+		borderTopWidth: 1,
+		borderTopColor: '#333',
+	},
+	tokenInputSection: {
+		marginTop: 15,
+	},
+	tokenButton: {
+		backgroundColor: '#333',
+		padding: 12,
+		borderRadius: 8,
+		alignItems: 'center',
+		marginTop: 15,
+	},
+	tokenButtonText: {
+		color: '#fff',
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	helpSection: {
+		marginTop: 20,
 	},
 });

@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image } from 'react-native';
-import { DynamicItem, ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';

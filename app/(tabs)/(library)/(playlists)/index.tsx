@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList } from 'react-native';
-import { DynamicItem, ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { usePlaylists } from '@/hooks/usePlaylists';
 
 export default function PlaylistsScreen() {

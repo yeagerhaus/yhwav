@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
 import { fetch } from 'expo/fetch';
+import * as WebBrowser from 'expo-web-browser';
 import { type PlexServer, plexDiscoveryService } from './plex-discovery';
 
 export interface PlexAuthState {
@@ -17,20 +20,243 @@ export interface PlexLoginResult {
 	error?: string;
 }
 
+export interface PlexPinResult {
+	success: boolean;
+	pinId?: number;
+	pinCode?: string;
+	error?: string;
+}
+
+export interface PlexPinStatus {
+	authToken?: string;
+	expiresAt?: string;
+	code?: string;
+}
+
 export class PlexAuthService {
 	private static instance: PlexAuthService;
 	private authState: PlexAuthState = {
 		isAuthenticated: false,
 		servers: [],
 	};
+	private clientIdentifier: string | null = null;
 
-	private constructor() {}
+	private constructor() {
+		this.clientIdentifier = this.getOrCreateClientIdentifier();
+	}
 
 	static getInstance(): PlexAuthService {
 		if (!PlexAuthService.instance) {
 			PlexAuthService.instance = new PlexAuthService();
 		}
 		return PlexAuthService.instance;
+	}
+
+	/**
+	 * Get or create a unique client identifier for this device (async version)
+	 */
+	private async getOrCreateClientIdentifierAsync(): Promise<string> {
+		const storageKey = 'plex_client_identifier';
+		try {
+			const stored = await AsyncStorage.getItem(storageKey);
+			if (stored) {
+				return stored;
+			}
+
+			// Generate a new client identifier
+			const platform = Platform.OS;
+			const deviceId = Device.modelId || 'unknown';
+			const timestamp = Date.now();
+			const random = Math.random().toString(36).substring(2, 10);
+			const identifier = `yhplayer-${platform}-${timestamp}-${random}`;
+
+			await AsyncStorage.setItem(storageKey, identifier);
+			return identifier;
+		} catch (error) {
+			console.error('Failed to get/create client identifier:', error);
+			// Fallback identifier
+			return `yhplayer-${Platform.OS}-${Date.now()}`;
+		}
+	}
+
+	/**
+	 * Get client identifier (synchronous version for immediate use)
+	 */
+	private getOrCreateClientIdentifier(): string {
+		if (this.clientIdentifier) {
+			return this.clientIdentifier;
+		}
+		// For immediate use, generate a deterministic identifier
+		const platform = Platform.OS;
+		const deviceId = Device.modelId || 'unknown';
+		const timestamp = Date.now();
+		const random = Math.random().toString(36).substring(2, 10);
+		this.clientIdentifier = `yhplayer-${platform}-${deviceId}-${random}`;
+		return this.clientIdentifier;
+	}
+
+	/**
+	 * Request a PIN from Plex API for OAuth authentication
+	 * Uses the /api/v2/pins endpoint (doesn't require JWT/key registration)
+	 */
+	async requestPlexPin(): Promise<PlexPinResult> {
+		try {
+			console.log('🔐 Requesting Plex PIN...');
+
+			const clientId = await this.getOrCreateClientIdentifierAsync();
+			
+			// Use the v2 API endpoint for PIN-based OAuth
+			const response = await fetch('https://plex.tv/api/v2/pins', {
+				method: 'POST',
+				headers: {
+					'X-Plex-Client-Identifier': clientId,
+					'X-Plex-Product': 'YH Player',
+					'X-Plex-Version': '1.0.0',
+					'X-Plex-Device': Device.modelName || 'Unknown Device',
+					'X-Plex-Platform': Platform.OS,
+					Accept: 'application/json',
+				},
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text().catch(() => 'Unknown error');
+				console.error(`❌ PIN request failed: ${response.status} - ${errorText}`);
+				
+				return {
+					success: false,
+					error: `Failed to request PIN: ${response.status} ${errorText}`,
+				};
+			}
+
+			// v2 API returns JSON
+			const data = await response.json();
+			const pinId = data.id;
+			const pinCode = data.code;
+
+			if (!pinId || !pinCode) {
+				throw new Error('Invalid response format from Plex API');
+			}
+
+			console.log(`✅ PIN requested: ${pinCode} (ID: ${pinId})`);
+
+			return {
+				success: true,
+				pinId,
+				pinCode,
+			};
+		} catch (error: any) {
+			console.error('❌ Failed to request PIN:', error);
+			return {
+				success: false,
+				error: `Failed to request PIN: ${error.message}`,
+			};
+		}
+	}
+
+	/**
+	 * Check PIN status and get auth token if authorized
+	 * Uses the older /api/pins endpoint which doesn't require JWT/key registration
+	 */
+	async pollPinStatus(pinId: number): Promise<PlexPinStatus | null> {
+		try {
+			const clientId = await this.getOrCreateClientIdentifierAsync();
+			const response = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
+				method: 'GET',
+				headers: {
+					'X-Plex-Client-Identifier': clientId,
+					Accept: 'application/json',
+				},
+			});
+
+			if (!response.ok) {
+				return null;
+			}
+
+			// v2 API returns JSON
+			const data = await response.json();
+
+			// Only return if we have an auth token (PIN was authorized)
+			if (data.authToken) {
+				return {
+					authToken: data.authToken,
+					expiresAt: data.expiresAt,
+					code: data.code,
+				};
+			}
+
+			return null;
+		} catch (error) {
+			console.error('Failed to poll PIN status:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Open Plex activation page in browser
+	 */
+	async openPlexActivation(pinCode: string): Promise<void> {
+		const activationUrl = `https://plex.tv/link/?pin=${pinCode}`;
+		await WebBrowser.openBrowserAsync(activationUrl);
+	}
+
+	/**
+	 * Login with PIN-based OAuth flow
+	 */
+	async loginWithPin(
+		onPinReceived?: (pinCode: string) => void,
+		onStatusUpdate?: (status: string) => void,
+	): Promise<PlexLoginResult> {
+		try {
+			onStatusUpdate?.('Requesting PIN...');
+			const pinResult = await this.requestPlexPin();
+
+			if (!pinResult.success || !pinResult.pinId || !pinResult.pinCode) {
+				return {
+					success: false,
+					error: pinResult.error || 'Failed to request PIN',
+				};
+			}
+
+			onPinReceived?.(pinResult.pinCode);
+			onStatusUpdate?.('Opening browser for authorization...');
+
+			// Open browser for user to authorize
+			await this.openPlexActivation(pinResult.pinCode);
+
+			onStatusUpdate?.('Waiting for authorization...');
+
+			// Poll for authorization (up to 5 minutes)
+			const maxAttempts = 150; // 5 minutes at 2 seconds per attempt
+			const pollInterval = 2000; // 2 seconds
+
+			for (let attempt = 0; attempt < maxAttempts; attempt++) {
+				await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+				const pinStatus = await this.pollPinStatus(pinResult.pinId);
+				if (pinStatus?.authToken) {
+					onStatusUpdate?.('Authorization successful! Connecting...');
+					// Use the token to complete login
+					return await this.loginWithToken(pinStatus.authToken);
+				}
+
+				// Update status every 10 seconds
+				if (attempt % 5 === 0) {
+					const remainingSeconds = Math.floor((maxAttempts - attempt) * (pollInterval / 1000));
+					onStatusUpdate?.(`Waiting for authorization... (${remainingSeconds}s remaining)`);
+				}
+			}
+
+			return {
+				success: false,
+				error: 'PIN authorization timed out. Please try again.',
+			};
+		} catch (error: any) {
+			console.error('❌ PIN login failed:', error);
+			return {
+				success: false,
+				error: `PIN login failed: ${error.message}`,
+			};
+		}
 	}
 
 	/**
@@ -58,17 +284,17 @@ export class PlexAuthService {
 				};
 			}
 
-			// Test connection to recommended server
+			// Test connection to recommended server (with authentication)
 			const recommendedServer = discoveryResult.recommendedServer;
 			if (recommendedServer) {
-				const isConnected = await plexDiscoveryService.testServerConnection(recommendedServer);
+				const isConnected = await plexDiscoveryService.testServerConnection(recommendedServer, plexToken);
 				if (!isConnected) {
 					console.warn('⚠️ Recommended server connection failed, trying other servers...');
 
 					// Try other servers
 					for (const server of discoveryResult.servers) {
 						if (server.id !== recommendedServer.id) {
-							const connected = await plexDiscoveryService.testServerConnection(server);
+							const connected = await plexDiscoveryService.testServerConnection(server, plexToken);
 							if (connected) {
 								recommendedServer.id = server.id;
 								recommendedServer.uri = server.uri;
@@ -149,8 +375,8 @@ export class PlexAuthService {
 			return false;
 		}
 
-		// Test connection to the new server
-		const isConnected = await plexDiscoveryService.testServerConnection(server);
+		// Test connection to the new server (with authentication)
+		const isConnected = await plexDiscoveryService.testServerConnection(server, this.authState.accessToken);
 		if (!isConnected) {
 			console.error('Failed to connect to selected server');
 			return false;

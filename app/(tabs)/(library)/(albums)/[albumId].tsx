@@ -2,9 +2,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image } from 'react-native';
 import ImageColors from 'react-native-image-colors';
-import { DynamicItem, ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { DynamicItem, ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Song } from '@/types/song';
 

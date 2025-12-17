@@ -2,9 +2,9 @@ import { useRouter } from 'expo-router';
 import { groupBy, map } from 'lodash';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/cmps';
-import { Div } from '@/cmps/Div';
-import { Main } from '@/cmps/Main';
+import { ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 type ArtistRow = {

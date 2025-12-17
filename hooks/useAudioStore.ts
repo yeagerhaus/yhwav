@@ -178,7 +178,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	// Initialize TrackPlayer
 	initializePlayer: async () => {
 		try {
-			await TrackPlayer.setupPlayer();
+			// Try to setup player, but ignore if already initialized
+			try {
+				await TrackPlayer.setupPlayer();
+			} catch (setupError: any) {
+				// If player is already initialized, that's fine - just continue
+				if (setupError?.message?.includes('already been initialized')) {
+					console.log('TrackPlayer already initialized, skipping setup');
+				} else {
+					// Re-throw other errors
+					throw setupError;
+				}
+			}
+
 			await TrackPlayer.updateOptions({
 				alwaysPauseOnInterruption: false,
 				capabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext, Capability.SkipToPrevious, Capability.SeekTo],
