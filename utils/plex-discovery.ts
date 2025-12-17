@@ -24,13 +24,12 @@ class PlexDiscoveryService {
 		try {
 			console.log('🔍 Discovering Plex servers...');
 
-			// Use the traditional /api/resources endpoint (v2 doesn't have this endpoint)
-			// Token can be passed as header or query parameter - try both approaches
+			// Request JSON response explicitly (Plex API supports JSON with Accept header)
 			const url = `https://plex.tv/api/resources?includeHttps=1&X-Plex-Token=${encodeURIComponent(plexToken)}`;
 			const response = await fetch(url, {
 				headers: {
 					'X-Plex-Token': plexToken,
-					Accept: 'application/json, application/xml',
+					Accept: 'application/json',
 				},
 			});
 
@@ -43,127 +42,106 @@ class PlexDiscoveryService {
 				};
 			}
 
-			const responseText = await response.text();
-			let servers: PlexServer[] = [];
+			// Check content type
+			const contentType = response.headers.get('content-type') || '';
+			console.log(`   Response Content-Type: ${contentType}`);
 
-			// Try to parse as JSON first
-			try {
-				const data = JSON.parse(responseText);
-				
-				// Handle array response
-				const resources = Array.isArray(data) ? data : (data.MediaContainer?.Device || []);
-				
-				for (const resource of resources) {
-					// Check if this resource provides server functionality
-					const provides = resource.provides || resource.capabilities || [];
-					const providesArray = Array.isArray(provides) ? provides : provides.split(',');
-					
-					if (providesArray.includes('server') || resource.server) {
-						// Extract connection info
-						const connections = resource.Connection || resource.connections || [];
-						const connection = Array.isArray(connections) ? connections[0] : connections;
-						
-						const address = connection?.address || resource.address || '';
-						const port = parseInt(connection?.port || resource.port || '32400', 10);
-						const local = connection?.local === true || connection?.local === '1' || resource.local === true || resource.local === '1';
-						
-						// Build URI - prefer existing URI, then construct from address/port
-						let uri = connection?.uri || resource.uri;
-						if (!uri) {
-							if (!address) {
-								console.warn(`⚠️ Skipping server ${resource.name} - no address found`);
-								continue;
-							}
-							// Prefer HTTPS for remote connections, HTTP for local
-							const protocol = local ? 'http' : 'https';
-							uri = `${protocol}://${address}:${port}`;
-						}
-						
-						// Validate URI format
-						if (!uri.match(/^https?:\/\/.+/)) {
-							console.warn(`⚠️ Invalid URI format for server ${resource.name}: ${uri}`);
-							continue;
-						}
-						
-						const server: PlexServer = {
-							id: resource.clientIdentifier || resource.machineIdentifier,
-							name: resource.name,
-							uri,
-							serverId: resource.clientIdentifier || resource.machineIdentifier,
-							local,
-							address: address || new URL(uri).hostname,
-							port,
+			// Get response as text first to check format
+			const responseText = await response.text();
+			
+			// The /api/resources endpoint doesn't support JSON, it only returns XML
+			// So we need to parse XML for this specific endpoint
+			if (contentType.includes('xml') || responseText.trim().startsWith('<')) {
+				console.log('   ⚠️ /api/resources returned XML (this endpoint doesn\'t support JSON)');
+				return this.parseResourcesXML(responseText);
+			}
+
+			// Parse JSON response (for other endpoints that support it)
+			const data = JSON.parse(responseText);
+			console.log(`   ✅ Successfully parsed JSON response`);
+			
+			// Handle array response (Plex returns array of resources)
+			const resources = Array.isArray(data) ? data : (data.MediaContainer?.Device || []);
+			console.log(`   Found ${resources.length} resources`);
+
+			const servers: PlexServer[] = [];
+
+			for (const resource of resources) {
+				// Check if this resource provides server functionality
+				const provides = resource.provides || resource.capabilities || [];
+				const providesArray = Array.isArray(provides) ? provides : provides.split(',');
+
+				if (providesArray.includes('server') || resource.server) {
+					console.log(`   📡 Processing server: ${resource.name}`);
+
+					// Extract connection info - Plex returns array of connections
+					const connections = resource.Connection || resource.connections || [];
+					const connectionsArray = Array.isArray(connections) ? connections : [connections];
+
+					console.log(`      Found ${connectionsArray.length} connection(s)`);
+
+					// Find best connection (prefer local, then first available with address)
+					let bestConnection: {
+						uri?: string;
+						address?: string;
+						port?: number;
+						local?: boolean;
+					} | null = null;
+
+					for (const conn of connectionsArray) {
+						if (!conn) continue;
+
+						const connData = {
+							uri: conn.uri,
+							address: conn.address,
+							port: parseInt(conn.port || '32400', 10),
+							local: conn.local === true || conn.local === '1' || conn.local === 1,
 						};
-						servers.push(server);
-					}
-				}
-			} catch (jsonError) {
-				// If JSON parsing fails, try XML parsing
-				console.log('⚠️ Response is not JSON, trying XML parsing...');
-				
-				// Parse XML response
-				const serverMatches = responseText.matchAll(/<Device[^>]*>(.*?)<\/Device>/gs);
-				
-				for (const match of serverMatches) {
-					const deviceXml = match[0];
-					const providesMatch = deviceXml.match(/provides="([^"]+)"/);
-					const provides = providesMatch ? providesMatch[1].split(',') : [];
-					
-					if (provides.includes('server')) {
-						const nameMatch = deviceXml.match(/name="([^"]+)"/);
-						const idMatch = deviceXml.match(/clientIdentifier="([^"]+)"/);
-						const connectionMatch = deviceXml.match(/<Connection[^>]*>(.*?)<\/Connection>/s);
-						
-						if (nameMatch && idMatch) {
-							let uri = '';
-							let address = '';
-							let port = 32400;
-							let local = false;
-							
-							if (connectionMatch) {
-								const connXml = connectionMatch[0];
-								const uriMatch = connXml.match(/uri="([^"]+)"/);
-								const addrMatch = connXml.match(/address="([^"]+)"/);
-								const portMatch = connXml.match(/port="([^"]+)"/);
-								const localMatch = connXml.match(/local="([^"]+)"/);
-								
-								uri = uriMatch ? uriMatch[1] : '';
-								address = addrMatch ? addrMatch[1] : '';
-								port = portMatch ? parseInt(portMatch[1], 10) : 32400;
-								local = localMatch ? localMatch[1] === '1' : false;
+
+						console.log(
+							`      Connection: uri=${connData.uri || 'none'}, address=${connData.address || 'none'}, port=${connData.port}, local=${connData.local}`,
+						);
+
+						// Prefer local connections with address, or first valid connection with address
+						if (connData.address) {
+							if (!bestConnection || (connData.local && !bestConnection.local)) {
+								bestConnection = connData;
 							}
-							
-							// Build URI if not provided
-							if (!uri) {
-								if (address) {
-									// Prefer HTTPS for remote connections, HTTP for local
-									const protocol = local ? 'http' : 'https';
-									uri = `${protocol}://${address}:${port}`;
-								} else {
-									// If no address, skip this server (invalid)
-									console.warn(`⚠️ Skipping server ${nameMatch[1]} - no address found`);
-									continue;
-								}
-							}
-							
-							// Validate URI format
-							if (!uri.match(/^https?:\/\/.+/)) {
-								console.warn(`⚠️ Invalid URI format for server ${nameMatch[1]}: ${uri}`);
-								continue;
-							}
-							
-							const server: PlexServer = {
-								id: idMatch[1],
-								name: nameMatch[1],
-								uri,
-								serverId: idMatch[1],
-								local,
-								address: address || new URL(uri).hostname,
-								port,
-							};
-							servers.push(server);
 						}
 					}
+
+					if (!bestConnection || !bestConnection.address) {
+						console.warn(`   ⚠️ Skipping server ${resource.name} - no valid connection with address found`);
+						continue;
+					}
+
+					// Build URI - prefer existing URI, then construct from address/port
+					let uri = bestConnection.uri || resource.uri;
+					if (!uri) {
+						// Prefer HTTPS for remote connections, HTTP for local
+						const protocol = bestConnection.local ? 'http' : 'https';
+						uri = `${protocol}://${bestConnection.address}:${bestConnection.port}`;
+						console.log(`      ✅ Constructed URI: ${uri}`);
+					}
+
+					// Validate URI format
+					if (!uri.match(/^https?:\/\/.+/)) {
+						console.warn(`   ⚠️ Invalid URI format for server ${resource.name}: ${uri}`);
+						continue;
+					}
+
+					const server: PlexServer = {
+						id: resource.clientIdentifier || resource.machineIdentifier,
+						name: resource.name,
+						uri,
+						serverId: resource.clientIdentifier || resource.machineIdentifier,
+						local: bestConnection.local || false,
+						address: bestConnection.address,
+						port: bestConnection.port,
+					};
+
+					console.log(`   ✅ Added server: ${server.name} - ${server.uri}`);
+					servers.push(server);
 				}
 			}
 
@@ -180,6 +158,120 @@ class PlexDiscoveryService {
 			return {
 				servers: [],
 				error: error instanceof Error ? error.message : 'Unknown error during server discovery',
+			};
+		}
+	}
+
+	/**
+	 * Parse XML response from /api/resources endpoint
+	 * This endpoint doesn't support JSON, so we must parse XML
+	 */
+	private parseResourcesXML(xmlText: string): PlexDiscoveryResult {
+		try {
+			console.log('   📄 Parsing XML response...');
+			const servers: PlexServer[] = [];
+
+			// Parse XML response - find all Device elements
+			const deviceMatches = Array.from(xmlText.matchAll(/<Device[^>]*>([\s\S]*?)<\/Device>/g));
+			console.log(`   Found ${deviceMatches.length} Device elements`);
+
+			for (const match of deviceMatches) {
+				const deviceXml = match[0];
+				const providesMatch = deviceXml.match(/provides="([^"]+)"/);
+				const provides = providesMatch ? providesMatch[1].split(',') : [];
+
+				if (provides.includes('server')) {
+					const nameMatch = deviceXml.match(/name="([^"]+)"/);
+					const idMatch = deviceXml.match(/clientIdentifier="([^"]+)"/);
+
+					if (!nameMatch || !idMatch) {
+						console.warn('   ⚠️ Skipping server - missing name or ID');
+						continue;
+					}
+
+					console.log(`   📡 Found server: ${nameMatch[1]} (${idMatch[1]})`);
+
+					// Find ALL Connection elements (Plex returns multiple - local, remote, etc.)
+					const connectionMatches = Array.from(deviceXml.matchAll(/<Connection[^>]*\/>/g));
+					console.log(`      Found ${connectionMatches.length} Connection elements`);
+
+					let bestConnection: { uri?: string; address?: string; port?: number; local?: boolean } | null = null;
+
+					// Parse all connections and prefer local ones with addresses
+					for (const connMatch of connectionMatches) {
+						const connXml = connMatch[0];
+						const uriMatch = connXml.match(/uri="([^"]+)"/);
+						const addrMatch = connXml.match(/address="([^"]+)"/);
+						const portMatch = connXml.match(/port="([^"]+)"/);
+						const localMatch = connXml.match(/local="([^"]+)"/);
+
+						const conn = {
+							uri: uriMatch ? uriMatch[1] : undefined,
+							address: addrMatch ? addrMatch[1] : undefined,
+							port: portMatch ? parseInt(portMatch[1], 10) : 32400,
+							local: localMatch ? localMatch[1] === '1' : false,
+						};
+
+						console.log(
+							`      Connection: uri=${conn.uri || 'none'}, address=${conn.address || 'none'}, port=${conn.port}, local=${conn.local}`,
+						);
+
+						// Prefer local connections with address, or first valid connection with address
+						if (conn.address) {
+							if (!bestConnection || (conn.local && !bestConnection.local)) {
+								bestConnection = conn;
+							}
+						}
+					}
+
+					if (!bestConnection || !bestConnection.address) {
+						console.warn(`   ⚠️ Skipping server ${nameMatch[1]} - no valid connection with address found`);
+						continue;
+					}
+
+					// Build URI if not provided
+					let uri = bestConnection.uri || '';
+					if (!uri) {
+						// Prefer HTTPS for remote connections, HTTP for local
+						const protocol = bestConnection.local ? 'http' : 'https';
+						uri = `${protocol}://${bestConnection.address}:${bestConnection.port}`;
+						console.log(`      ✅ Constructed URI: ${uri}`);
+					}
+
+					// Validate URI format
+					if (!uri.match(/^https?:\/\/.+/)) {
+						console.warn(`   ⚠️ Invalid URI format for server ${nameMatch[1]}: ${uri}`);
+						continue;
+					}
+
+					const server: PlexServer = {
+						id: idMatch[1],
+						name: nameMatch[1],
+						uri,
+						serverId: idMatch[1],
+						local: bestConnection.local || false,
+						address: bestConnection.address,
+						port: bestConnection.port,
+					};
+
+					console.log(`   ✅ Added server: ${server.name} - ${server.uri}`);
+					servers.push(server);
+				}
+			}
+
+			// Find recommended server (prefer local, then first available)
+			const recommendedServer = servers.find((s) => s.local) || servers[0];
+
+			console.log(`✅ Found ${servers.length} servers`);
+			return {
+				servers,
+				recommendedServer,
+			};
+		} catch (error) {
+			console.error('❌ XML parsing failed:', error);
+			return {
+				servers: [],
+				error: error instanceof Error ? error.message : 'Unknown error during XML parsing',
 			};
 		}
 	}
