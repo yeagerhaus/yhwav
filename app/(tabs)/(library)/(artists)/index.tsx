@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
-import { groupBy, map } from 'lodash';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { normalizeArtist } from '@/utils';
 
 type ArtistRow = {
 	name: string;
@@ -19,15 +19,23 @@ export default function ArtistsScreen() {
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		const grouped = map(
-			groupBy(tracks, (t: any) => t.artist.split(';')[0].trim()),
-			(songs: any, artist: any) => ({
-				name: artist,
-				count: songs.length,
-			}),
-		);
+		// Group tracks by artist name (first artist if multiple)
+		const grouped = tracks.reduce((acc, track) => {
+			const artistName = normalizeArtist(track.artist);
+			if (!acc[artistName]) {
+				acc[artistName] = [];
+			}
+			acc[artistName].push(track);
+			return acc;
+		}, {} as Record<string, typeof tracks>);
 
-		const sorted = grouped.sort((a: any, b: any) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+		// Transform grouped data into artist rows
+		const artistRows = Object.entries(grouped).map(([artist, songs]) => ({
+			name: artist,
+			count: songs.length,
+		}));
+
+		const sorted = artistRows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 		setArtists(sorted);
 		setLoading(false);
 	}, [tracks]);

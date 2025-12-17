@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { fetchAllPlaylists, fetchPlaylist, fetchPlaylistTracks } from '@/utils/plex';
+import { fetchAllPlaylists, fetchPlaylistTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
 
 export const usePlaylists = () => {
@@ -19,15 +19,6 @@ export const usePlaylists = () => {
 		}
 	}, [playlists.length, isLibraryLoading, setPlaylists, setLibraryLoading]);
 
-	const loadPlaylist = useCallback(async (playlistId: string) => {
-		try {
-			return await fetchPlaylist(playlistId);
-		} catch (error) {
-			console.error('Failed to load playlist:', error);
-			return null;
-		}
-	}, []);
-
 	const loadPlaylistTracks = useCallback(async (playlistId: string) => {
 		try {
 			return await fetchPlaylistTracks(playlistId);
@@ -40,13 +31,12 @@ export const usePlaylists = () => {
 	// Auto-load playlists on mount
 	useEffect(() => {
 		loadPlaylists();
-	}, []);
+	}, [loadPlaylists]);
 
 	return {
 		playlists,
 		isLoading: isLibraryLoading,
 		loadPlaylists,
-		loadPlaylist,
 		loadPlaylistTracks,
 	};
 };

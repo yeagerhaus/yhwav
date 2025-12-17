@@ -1,13 +1,12 @@
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
 
 interface SearchSongItemProps {

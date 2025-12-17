@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debounce } from 'lodash';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
 import TrackPlayer, { Capability, Event, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
@@ -92,13 +91,16 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 }
 
 // Debounced position save (max once per 2 seconds)
-const debouncedSavePosition = debounce(
-	async (position: number) => {
+let positionSaveTimeout: NodeJS.Timeout | null = null;
+const debouncedSavePosition = (position: number) => {
+	if (positionSaveTimeout) {
+		clearTimeout(positionSaveTimeout);
+	}
+	positionSaveTimeout = setTimeout(async () => {
 		await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(position));
-	},
-	2000,
-	{ leading: false, trailing: true },
-);
+		positionSaveTimeout = null;
+	}, 2000);
+};
 
 // Extract artwork color with caching
 async function extractArtworkColor(song: Song): Promise<string> {

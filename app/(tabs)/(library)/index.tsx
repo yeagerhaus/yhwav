@@ -1,11 +1,9 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
-import { fetchAllTracks, saveLibraryToCache } from '@/utils';
 
 const SECTIONS = [
 	{ title: 'Playlists', icon: 'music.note.list', route: '/(tabs)/(library)/(playlists)' },
@@ -16,48 +14,22 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
-	const { isLibraryLoading, tracks, setTracks } = useLibraryStore();
-	const [_isRefreshing, setIsRefreshing] = useState(false);
-
-	console.log('isLibraryLoading:', isLibraryLoading);
-
-	const _handleRefresh = async () => {
-		setIsRefreshing(true);
-		try {
-			// Fetch fresh data from Plex
-			const fetchedTracks = await fetchAllTracks();
-
-			// Update the store
-			await setTracks(fetchedTracks);
-			await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
-			await saveLibraryToCache();
-		} catch (error) {
-			console.error('❌ Failed to refresh library:', error);
-		} finally {
-			setIsRefreshing(false);
-		}
-	};
+	const tracks = useLibraryStore((s) => s.tracks);
 
 	return (
 		<Main>
 			<Div style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-				{isLibraryLoading ? (
-					<ActivityIndicator />
-				) : (
-					<>
-						<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
-							{Number(tracks.length).toLocaleString()} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
-						</ThemedText>
-						<FlatList
-							scrollEnabled={false}
-							data={SECTIONS}
-							keyExtractor={(item) => item.title}
-							renderItem={({ item }) => (
-								<DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />
-							)}
-						/>
-					</>
-				)}
+				<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
+					{Number(tracks.length).toLocaleString()} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
+				</ThemedText>
+				<FlatList
+					scrollEnabled={false}
+					data={SECTIONS}
+					keyExtractor={(item) => item.title}
+					renderItem={({ item }) => (
+						<DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />
+					)}
+				/>
 			</Div>
 			<ThemedText style={styles.title}>Recent Plays</ThemedText>
 			{/* <Div style={styles.categoriesContainer}></Div> */}

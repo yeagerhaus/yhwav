@@ -1,12 +1,11 @@
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Image, Platform, Pressable, StyleSheet } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Div } from '../Div';
 
 export function MiniPlayer({ onPress }: { onPress: () => void }) {

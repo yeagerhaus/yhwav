@@ -5,6 +5,8 @@ export {
 	buildPlexURL,
 	fetchAllPlaylists,
 	fetchAllTracks,
+	fetchAllArtists,
+	fetchAllAlbums,
 	fetchPlaylist,
 	fetchPlaylistTracks,
 	plexClient,

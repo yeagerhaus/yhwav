@@ -1,12 +1,11 @@
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 
@@ -84,18 +83,6 @@ export default function SongItem({ item, queue, listItem }: { item: Song; queue?
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1 },
-	scrollView: { flex: 1 },
-	titleContainer: {
-		flexDirection: 'column',
-		paddingHorizontal: 16,
-		paddingVertical: 16,
-	},
-	titleRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 8,
-	},
 	songItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -151,29 +138,5 @@ const styles = StyleSheet.create({
 	},
 	moreButton: {
 		padding: 8,
-	},
-	headerButtons: {
-		flexDirection: 'row',
-		justifyContent: 'center',
-		gap: 20,
-		position: 'absolute',
-		bottom: 30,
-		marginHorizontal: 20,
-	},
-	headerButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		backgroundColor: 'rgba(0,0,0,0.1)',
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: 10,
-		gap: 8,
-		flex: 1,
-		justifyContent: 'center',
-	},
-	headerButtonText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: '600',
 	},
 });

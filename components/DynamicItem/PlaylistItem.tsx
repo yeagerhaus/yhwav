@@ -27,7 +27,7 @@ export default function PlaylistItem({ item }: PlaylistItemProps) {
 				})
 			}
 		>
-			{item.artwork && <Image source={{ uri: item.artwork }} style={styles.artwork} />}
+			{item.artwork && <Image source={{ uri: item.artwork }} style={styles.artwork} resizeMode='cover' />}
 			{!item.artwork && (
 				<>
 					<Div style={{ ...styles.artwork, backgroundColor: '#666', justifyContent: 'center', alignItems: 'center' }}>

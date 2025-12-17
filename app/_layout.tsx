@@ -82,33 +82,31 @@ export default function RootLayout() {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
 					}
 
-					// Try to fetch tracks (connection test is optional - we'll try fetching anyway)
+					// Load cached data first (for instant UI)
 					const hydrated = await rehydrateLibraryStore();
-					if (!hydrated) {
-						try {
-							console.log('📚 No cached data found, fetching tracks from Plex library...');
-							const fetchedTracks = await fetchAllTracks();
+					if (hydrated) {
+						console.log('✅ Loaded cached library data');
+					}
+
+					// Fetch fresh tracks in background (non-blocking)
+					fetchAllTracks()
+						.then((fetchedTracks) => {
 							if (fetchedTracks.length > 0) {
 								console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
-								console.log('Fetched sample track:', fetchedTracks[0]);
-								console.log('Setting tracks in Zustand store...');
-								await setTracks(fetchedTracks);
-								await new Promise((resolve) => setTimeout(resolve, 10)); // allow flush
-								await saveLibraryToCache();
-							} else {
-								console.warn('⚠️ No tracks found in library');
+								setTracks(fetchedTracks);
+								saveLibraryToCache();
 							}
-						} catch (trackError) {
-							console.error('❌ Failed to fetch tracks:', trackError);
-							// Test connectivity as fallback to provide better error message
-							const isServerAccessible = await testPlexServer();
-							if (!isServerAccessible) {
-								console.warn('⚠️ Cannot connect to Plex server. Please check your server is running and accessible.');
+						})
+						.catch((error) => {
+							console.error('❌ Failed to fetch tracks:', error);
+							// If we have cached data, that's okay - use it
+							if (!hydrated) {
+								// No cache and fetch failed - test connectivity
+								testPlexServer().catch(() => {
+									console.warn('⚠️ Cannot connect to Plex server');
+								});
 							}
-						}
-					} else {
-						console.log('✅ Using cached library data (to see fetch logs, navigate to Playlists or clear cache)');
-					}
+						});
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');
 				}

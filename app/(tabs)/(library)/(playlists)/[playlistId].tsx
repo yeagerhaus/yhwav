@@ -51,7 +51,7 @@ export default function DetailScreen() {
 		<Main>
 			<Div style={{ paddingHorizontal: 16 }}>
 				{artwork && (
-					<Image source={{ uri: artwork }} style={{ width: '100%', height: '100%', maxHeight: 250 }} resizeMode='contain' />
+					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1 }} resizeMode='contain' />
 				)}
 				<Div style={{ paddingVertical: 16 }}>
 					{playlist && (

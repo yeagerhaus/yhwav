@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Album, Artist, Playlist, Song } from '@/types';
+import { normalizeArtist } from '@/utils';
 
 interface LibraryState {
 	isLibraryLoading: boolean;
@@ -12,10 +13,6 @@ interface LibraryState {
 	setTracks: (songs: Song[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
 	setLibraryLoading: (loading: boolean) => void;
-}
-
-function normalizeArtist(str: string) {
-	return str?.split(';')[0].trim().toLowerCase() || 'unknown artist';
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -48,47 +45,49 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 		const artistsByName: Record<string, Artist> = {};
 
 		// Process songs in batches to avoid blocking the main thread
-		const BATCH_SIZE = 500;
-		const processBatch = (startIndex: number) => {
+		// Optimized for large libraries - process synchronously but efficiently
+		const BATCH_SIZE = 2000; // Larger batches for better performance with modern devices
+		
+		for (let startIndex = 0; startIndex < songs.length; startIndex += BATCH_SIZE) {
 			const endIndex = Math.min(startIndex + BATCH_SIZE, songs.length);
 
 			for (let i = startIndex; i < endIndex; i++) {
 				const song = songs[i];
-				const artistKey = normalizeArtist(song.artist);
-				const albumId = `${artistKey}-${song.album.trim().toLowerCase()}`;
+				if (!song || !song.id) continue; // Skip invalid songs
+				
+				const artistKey = normalizeArtist(song.artist || '');
+				const albumName = (song.album || '').trim();
+				const albumId = albumName ? `${artistKey}-${albumName.toLowerCase()}` : `${artistKey}-unknown`;
 
 				songsById[song.id] = song;
 
 				// Album
-				if (!albumsById[albumId]) {
+				if (albumName && !albumsById[albumId]) {
 					albumsById[albumId] = {
 						id: albumId,
-						title: song.album,
-						artist: song.artist,
+						title: albumName,
+						artist: song.artist || '',
 						artistKey,
 						artwork: song.artworkUrl || song.artwork || '',
 						songIds: [],
 					};
 				}
-				albumsById[albumId].songIds.push(song.id);
+				if (albumsById[albumId]) {
+					albumsById[albumId].songIds.push(song.id);
+				}
 
 				// Artist
 				if (!artistsByName[artistKey]) {
 					artistsByName[artistKey] = {
 						key: artistKey,
-						name: song.artist,
+						name: song.artist || 'Unknown Artist',
 						albumIds: [],
 					};
 				}
-				if (!artistsByName[artistKey].albumIds.includes(albumId)) {
+				if (albumId && !artistsByName[artistKey].albumIds.includes(albumId)) {
 					artistsByName[artistKey].albumIds.push(albumId);
 				}
 			}
-		};
-
-		// Process all batches
-		for (let startIndex = 0; startIndex < songs.length; startIndex += BATCH_SIZE) {
-			processBatch(startIndex);
 		}
 
 		set({

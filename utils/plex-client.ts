@@ -36,6 +36,8 @@ export class PlexClient {
 	private baseURL: string = '';
 	private token: string | null = null;
 	private musicSectionId: string | null = null;
+	private initialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 
 	constructor(baseURL?: string) {
 		if (baseURL) {
@@ -44,39 +46,52 @@ export class PlexClient {
 	}
 
 	/**
-	 * Initialize the client with authentication
+	 * Initialize the client with authentication (cached to avoid repeated calls)
 	 */
 	async initialize(): Promise<void> {
-		console.log('🔧 PlexClient.initialize() called');
-		
+		// Return cached promise if already initializing
+		if (this.initPromise) {
+			return this.initPromise;
+		}
+
+		// If already initialized and server hasn't changed, skip
+		if (this.initialized) {
+			const selectedServer = plexAuthService.getSelectedServer();
+			if (selectedServer && this.baseURL && this.token) {
+				return;
+			}
+			// Server changed, need to re-initialize
+			this.initialized = false;
+		}
+
+		this.initPromise = this._doInitialize();
+		try {
+			await this.initPromise;
+			this.initialized = true;
+		} finally {
+			this.initPromise = null;
+		}
+	}
+
+	/**
+	 * Internal initialization logic
+	 */
+	private async _doInitialize(): Promise<void> {
 		if (!plexAuthService.isAuthenticated()) {
-			console.error('❌ Not authenticated');
-			throw new Error(
-				'No Plex authentication available. Please sign in through Settings.',
-			);
+			throw new Error('No Plex authentication available. Please sign in through Settings.');
 		}
 
 		const selectedServer = plexAuthService.getSelectedServer();
 		if (!selectedServer) {
-			console.error('❌ No server selected');
 			throw new Error('No Plex server selected. Please select a server in Settings.');
 		}
 
-		console.log(`📡 Selected server: ${selectedServer.name}`);
-		console.log(`   ID: ${selectedServer.id}`);
-		console.log(`   URI: ${selectedServer.uri}`);
-		console.log(`   Address: ${selectedServer.address}`);
-		console.log(`   Port: ${selectedServer.port}`);
-		console.log(`   Local: ${selectedServer.local}`);
-
 		if (!selectedServer.uri) {
-			console.error('❌ Server has no URI');
 			throw new Error(`Server "${selectedServer.name}" has no valid URI. Please refresh servers in Settings.`);
 		}
 
 		// Validate and clean the server URI
 		let serverUri = selectedServer.uri.trim();
-		console.log(`🧹 Cleaning URI: "${serverUri}"`);
 		
 		// Remove any existing API paths and ensure we have just the base server URL
 		serverUri = serverUri
@@ -85,18 +100,13 @@ export class PlexClient {
 			.replace(/\/status.*$/, '')
 			.replace(/\/$/, '');
 		
-		console.log(`   After cleaning: "${serverUri}"`);
-		
 		// Validate URI format - must have protocol and hostname
 		if (!serverUri.match(/^https?:\/\/.+/)) {
-			console.warn('⚠️ URI missing protocol/hostname, attempting reconstruction...');
 			// If URI is missing hostname, try to construct it from address and port
 			if (selectedServer.address && selectedServer.port) {
 				const protocol = selectedServer.local ? 'http' : 'https';
 				serverUri = `${protocol}://${selectedServer.address}:${selectedServer.port}`;
-				console.log(`   ✅ Reconstructed server URI: ${serverUri}`);
 			} else {
-				console.error(`   ❌ Cannot reconstruct - address: ${selectedServer.address}, port: ${selectedServer.port}`);
 				throw new Error(
 					`Invalid server URI format: "${selectedServer.uri}". Server: ${selectedServer.name}. Please refresh servers in Settings.`,
 				);
@@ -105,12 +115,19 @@ export class PlexClient {
 		
 		this.baseURL = serverUri;
 		this.token = plexAuthService.getAccessToken() || '';
-		console.log('✅ PlexClient initialized:');
-		console.log(`   Server: ${selectedServer.name}`);
-		console.log(`   Base URL: ${this.baseURL}`);
-		console.log(`   Token: ${this.token ? '***' + this.token.slice(-4) : 'MISSING'}`);
 
 		// Music section ID will be auto-discovered when needed
+		this.musicSectionId = null;
+	}
+
+	/**
+	 * Clear initialization cache (call when server changes)
+	 */
+	clearInitialization(): void {
+		this.initialized = false;
+		this.initPromise = null;
+		this.baseURL = '';
+		this.token = null;
 		this.musicSectionId = null;
 	}
 
@@ -118,24 +135,15 @@ export class PlexClient {
 	 * Auto-discover music section ID from library
 	 */
 	private async discoverMusicSection(): Promise<void> {
-		console.log('🔍 discoverMusicSection() called');
 		try {
 			const sections = await this.getLibrarySections();
-			console.log(`   Found ${sections.length} library sections`);
-			sections.forEach((section: any, index: number) => {
-				console.log(`   Section ${index + 1}: ${section.title} (type: ${section.type}, key: ${section.key})`);
-			});
-			
 			const musicSection = sections.find((section: any) => section.type === 'artist' || section.type === 'music');
 			if (musicSection) {
 				this.musicSectionId = musicSection.key;
-				console.log(`✅ Auto-discovered music section: ${musicSection.title} (ID: ${this.musicSectionId})`);
 			} else {
-				console.warn('⚠️ No music section found in library');
-				console.warn('   Available section types:', sections.map((s: any) => s.type).join(', '));
+				throw new Error('No music section found in library');
 			}
 		} catch (error) {
-			console.error('❌ Failed to discover music section:', error);
 			throw error;
 		}
 	}
@@ -146,7 +154,6 @@ export class PlexClient {
 	private buildURL(path: string, params: Record<string, string> = {}): string {
 		// Validate baseURL before using it
 		if (!this.baseURL || !this.baseURL.match(/^https?:\/\/.+/)) {
-			console.error('❌ buildURL: Invalid baseURL:', this.baseURL);
 			throw new Error(
 				`Invalid baseURL: "${this.baseURL}". Please ensure you are authenticated and have selected a valid server.`,
 			);
@@ -155,29 +162,19 @@ export class PlexClient {
 		// Ensure path starts with /
 		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
-		console.log(`🔗 buildURL: baseURL="${this.baseURL}", path="${normalizedPath}"`);
-
 		const url = new URL(`${this.baseURL}${normalizedPath}`);
 
 		// Add authentication token
 		if (this.token) {
 			url.searchParams.set('X-Plex-Token', this.token);
-			console.log('   ✅ Added X-Plex-Token to URL');
-		} else {
-			console.warn('   ⚠️ No token available for URL');
 		}
 
 		// Add additional parameters
-		if (Object.keys(params).length > 0) {
-			console.log('   📋 Adding params:', params);
-			for (const [key, value] of Object.entries(params)) {
-				url.searchParams.set(key, value);
-			}
+		for (const [key, value] of Object.entries(params)) {
+			url.searchParams.set(key, value);
 		}
 
-		const finalUrl = url.toString();
-		console.log(`   ✅ Final URL: ${finalUrl.replace(/X-Plex-Token=[^&]+/, 'X-Plex-Token=***')}`);
-		return finalUrl;
+		return url.toString();
 	}
 
 	/**
@@ -251,11 +248,6 @@ export class PlexClient {
 	): Promise<PlexResponse<T>> {
 		const { method = 'GET', headers = {}, timeout = TIMEOUT_CONFIG.requestTimeout, retries = RETRY_CONFIG.maxRetries } = options;
 
-		console.log(`📤 PlexClient.request(): ${method} ${path}`);
-		console.log(`   Params:`, params);
-		console.log(`   BaseURL: ${this.baseURL}`);
-		console.log(`   Token: ${this.token ? 'present' : 'missing'}`);
-
 		const url = this.buildURL(path, params);
 
 		// Default headers for Plex API
@@ -286,10 +278,7 @@ export class PlexClient {
 					if (fallbackUrl) {
 						requestUrl = fallbackUrl;
 						triedHttpFallback = true;
-						console.log('🔄 Trying HTTP fallback:', requestUrl);
 					}
-				} else {
-					console.log(`🔄 Using original Plex URL (attempt ${attempt + 1}/${retries + 1}):`, requestUrl.replace(/X-Plex-Token=[^&]+/, 'X-Plex-Token=***'));
 				}
 
 				// Add SSL handling for React Native
@@ -299,14 +288,11 @@ export class PlexClient {
 					signal: controller.signal,
 				};
 
-				console.log(`   📡 Making ${method} request...`);
 				const response = await fetch(requestUrl, fetchOptions);
-				console.log(`   📥 Response status: ${response.status} ${response.statusText}`);
 
 				// Handle HTTP errors
 				if (!response.ok) {
 					const errorText = await response.text().catch(() => 'Unknown error');
-					console.error(`   ❌ Request failed: ${response.status} - ${errorText.substring(0, 200)}`);
 					const error: PlexError = new Error(`HTTP ${response.status}: ${errorText}`);
 					error.status = response.status;
 					error.code = `HTTP_${response.status}`;
@@ -327,17 +313,13 @@ export class PlexClient {
 
 				// Parse response
 				const contentType = response.headers.get('content-type') || '';
-				console.log(`   📄 Content-Type: ${contentType}`);
 				let data: T;
 
 				if (contentType.includes('application/json')) {
 					data = await response.json();
-					console.log(`   ✅ Parsed JSON response (data keys: ${Object.keys(data as any).join(', ')})`);
 				} else {
 					// Fallback to text for non-JSON responses
-					const textData = await response.text();
-					console.log(`   ⚠️ Non-JSON response (length: ${textData.length} chars)`);
-					data = textData as T;
+					data = (await response.text()) as T;
 				}
 
 				// Extract response headers
@@ -346,7 +328,6 @@ export class PlexClient {
 					responseHeaders[key] = value;
 				});
 
-				console.log(`   ✅ Request successful: ${response.status}`);
 				return {
 					data,
 					status: response.status,
@@ -408,46 +389,102 @@ export class PlexClient {
 	}
 
 	/**
-	 * Fetch all tracks from the music library
+	 * Fetch all tracks from the music library (type 10)
 	 */
 	async fetchAllTracks(): Promise<Song[]> {
-		console.log('🎵 fetchAllTracks() called');
 		await this.initialize();
 
 		// Auto-discover music section if not set
 		if (!this.musicSectionId) {
-			console.log('🔍 Music section not set, discovering...');
 			await this.discoverMusicSection();
 		}
 
 		if (!this.musicSectionId) {
-			console.error('❌ No music section ID found');
 			throw new Error('Music section ID not found. Please ensure your library has a music section.');
 		}
 
-		const libraryUrl = `/library/sections/${this.musicSectionId}/all`;
-		console.log(`📚 Fetching tracks from: ${libraryUrl}`);
-		console.log(`   Section ID: ${this.musicSectionId}`);
-		console.log(`   Base URL: ${this.baseURL}`);
-		
-		const response = await this.request(libraryUrl, {
+		// Optimize request: only fetch essential fields to reduce payload size
+		// This significantly speeds up large library fetches
+		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
 			type: '10', // 10 = track
 			sort: 'titleSort:asc',
+			includeFields: 'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
 		});
 
 		const data = response.data as any;
 		const rawTracks = data?.MediaContainer?.Metadata || [];
 
-		// Process tracks in parallel for better performance
-		const tracks = await Promise.all((Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track) => this.formatTrack(track)));
+		// Process tracks in parallel batches for better performance
+		// Large libraries can block if processed all at once
+		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
+		const BATCH_SIZE = 100; // Process 100 tracks at a time
+		const tracks: Song[] = [];
+
+		for (let i = 0; i < tracksArray.length; i += BATCH_SIZE) {
+			const batch = tracksArray.slice(i, i + BATCH_SIZE);
+			const batchTracks = await Promise.all(batch.map((track) => this.formatTrack(track)));
+			tracks.push(...batchTracks);
+		}
 
 		return tracks;
+	}
+
+	/**
+	 * Fetch all artists from the music library (type 8)
+	 */
+	async fetchAllArtists(): Promise<any[]> {
+		await this.initialize();
+
+		// Auto-discover music section if not set
+		if (!this.musicSectionId) {
+			await this.discoverMusicSection();
+		}
+
+		if (!this.musicSectionId) {
+			throw new Error('Music section ID not found. Please ensure your library has a music section.');
+		}
+
+		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
+			type: '8', // 8 = artist
+			sort: 'titleSort:asc',
+		});
+
+		const data = response.data as any;
+		return data?.MediaContainer?.Metadata || [];
+	}
+
+	/**
+	 * Fetch all albums from the music library (type 9)
+	 */
+	async fetchAllAlbums(): Promise<any[]> {
+		await this.initialize();
+
+		// Auto-discover music section if not set
+		if (!this.musicSectionId) {
+			await this.discoverMusicSection();
+		}
+
+		if (!this.musicSectionId) {
+			throw new Error('Music section ID not found. Please ensure your library has a music section.');
+		}
+
+		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
+			type: '9', // 9 = album
+			sort: 'titleSort:asc',
+		});
+
+		const data = response.data as any;
+		return data?.MediaContainer?.Metadata || [];
 	}
 
 	/**
 	 * Format a Plex track into our Song type
 	 */
 	private async formatTrack(track: any, playlistIndex?: number): Promise<Song> {
+		if (!track || !track.ratingKey) {
+			throw new Error('Invalid track data');
+		}
+
 		const media = track.Media?.[0];
 		const part = media?.Part?.[0];
 		const duration = parseInt(track.duration || part?.duration || '0', 10);
@@ -455,14 +492,14 @@ export class PlexClient {
 		// Build stream URL
 		const streamUrl = part?.key ? this.buildURL(part.key) : '';
 
-		// Build artwork URL
-		const artworkUrl = track.thumb ? this.buildURL(track.thumb) : undefined;
+		// Build artwork URL (prefer thumb, fallback to art)
+		const artworkUrl = track.thumb ? this.buildURL(track.thumb) : (track.art ? this.buildURL(track.art) : undefined);
 
 		return {
 			id: track.ratingKey,
-			title: track.title,
-			artist: track.grandparentTitle,
-			album: track.parentTitle,
+			title: track.title || 'Unknown Title',
+			artist: track.grandparentTitle || 'Unknown Artist',
+			album: track.parentTitle || '',
 			artworkUrl,
 			artwork: '', // Will be populated by image loading
 			streamUrl,
@@ -479,12 +516,8 @@ export class PlexClient {
 	 * Get library sections
 	 */
 	async getLibrarySections(): Promise<any[]> {
-		console.log('📚 getLibrarySections() called');
 		await this.initialize();
 
-		console.log(`📚 Fetching library sections from: /library/sections`);
-		console.log(`   Base URL: ${this.baseURL}`);
-		
 		const response = await this.request('/library/sections');
 		const data = response.data as any;
 		return data?.MediaContainer?.Directory || [];
@@ -510,12 +543,8 @@ export class PlexClient {
 	 * Fetch all playlists
 	 */
 	async fetchAllPlaylists(): Promise<Playlist[]> {
-		console.log('📋 fetchAllPlaylists() called');
 		await this.initialize();
 
-		console.log(`📚 Fetching playlists from: /playlists`);
-		console.log(`   Base URL: ${this.baseURL}`);
-		
 		const response = await this.request('/playlists');
 		const data = response.data as any;
 		const rawPlaylists = data?.MediaContainer?.Metadata || [];
@@ -606,6 +635,8 @@ export const plexClient = new PlexClient();
 // Export convenience functions for backward compatibility
 export const testPlexServer = () => plexClient.testConnectivity();
 export const fetchAllTracks = () => plexClient.fetchAllTracks();
+export const fetchAllArtists = () => plexClient.fetchAllArtists();
+export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
 export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
 export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
