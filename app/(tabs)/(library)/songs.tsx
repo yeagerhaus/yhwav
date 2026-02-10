@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { clearCacheAndReload } from '@/utils/cache';
 
 // Estimated item height for getItemLayout optimization
 const ITEM_HEIGHT = 70;
@@ -13,6 +14,13 @@ export default function SongsScreen() {
 	const tracks = useLibraryStore((s) => s.tracks);
 	const isIndexing = useLibraryStore((s) => s.isLibraryIndexing);
 	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
+	const [refreshing, setRefreshing] = useState(false);
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true);
+		await clearCacheAndReload();
+		setRefreshing(false);
+	}, []);
 
 	// Defer sorting for large lists to prevent UI freeze - use chunked sorting
 	useEffect(() => {
@@ -126,6 +134,7 @@ export default function SongsScreen() {
 				initialNumToRender={15}
 				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
 			/>
 		</Main>
 	);

@@ -403,12 +403,10 @@ export class PlexAuthService {
 			if (discoveryResult.servers.length > 0) {
 				this.authState.servers = discoveryResult.servers;
 
-				// If current selected server is no longer available, select a new one
+				// Update selected server to refreshed version (with connections), or pick a new one
 				if (this.authState.selectedServer) {
-					const stillAvailable = discoveryResult.servers.find((s) => s.id === this.authState.selectedServer?.id);
-					if (!stillAvailable) {
-						this.authState.selectedServer = discoveryResult.recommendedServer;
-					}
+					const refreshed = discoveryResult.servers.find((s) => s.id === this.authState.selectedServer?.id);
+					this.authState.selectedServer = refreshed || discoveryResult.recommendedServer;
 				}
 
 				await this.saveAuthState();
@@ -482,6 +480,17 @@ export class PlexAuthService {
 					const userInfo = await this.getUserInfo(this.authState.accessToken);
 					if (userInfo) {
 						console.log('✅ Loaded authentication state from storage');
+
+						// If persisted server is missing connections (old format), refresh before proceeding
+						if (this.authState.selectedServer && !this.authState.selectedServer.connections?.length) {
+							console.log('🔄 Refreshing servers to populate connections...');
+							try {
+								await this.refreshServers();
+							} catch (err) {
+								console.warn('Server refresh failed:', err);
+							}
+						}
+
 						return true;
 					} else {
 						// Token is invalid, clear state

@@ -1,5 +1,12 @@
 import { fetch } from 'expo/fetch';
 
+export interface PlexConnection {
+	uri: string;
+	address: string;
+	port: number;
+	local: boolean;
+}
+
 export interface PlexServer {
 	id: string;
 	name: string;
@@ -8,6 +15,7 @@ export interface PlexServer {
 	local: boolean;
 	address: string;
 	port: number;
+	connections: PlexConnection[];
 }
 
 export interface PlexDiscoveryResult {
@@ -53,7 +61,7 @@ class PlexDiscoveryService {
 			// So we need to parse XML for this specific endpoint
 			if (contentType.includes('xml') || responseText.trim().startsWith('<')) {
 				console.log('   ⚠️ /api/resources returned XML (this endpoint doesn\'t support JSON)');
-				return this.parseResourcesXML(responseText);
+				return this.parseResourcesXML(responseText, plexToken);
 			}
 
 			// Parse JSON response (for other endpoints that support it)
@@ -80,64 +88,62 @@ class PlexDiscoveryService {
 
 					console.log(`      Found ${connectionsArray.length} connection(s)`);
 
-					// Find best connection (prefer local, then first available with address)
-					let bestConnection: {
-						uri?: string;
-						address?: string;
-						port?: number;
-						local?: boolean;
-					} | null = null;
+					// Collect all valid connections
+					const allConnections: PlexConnection[] = [];
 
 					for (const conn of connectionsArray) {
 						if (!conn) continue;
 
-						const connData = {
-							uri: conn.uri,
-							address: conn.address,
-							port: parseInt(conn.port || '32400', 10),
-							local: conn.local === true || conn.local === '1' || conn.local === 1,
-						};
+						const connUri = conn.uri as string | undefined;
+						const connAddress = conn.address as string | undefined;
+						const connPort = parseInt(conn.port || '32400', 10);
+						const connLocal = conn.local === true || conn.local === '1' || conn.local === 1;
 
 						console.log(
-							`      Connection: uri=${connData.uri || 'none'}, address=${connData.address || 'none'}, port=${connData.port}, local=${connData.local}`,
+							`      Connection: uri=${connUri || 'none'}, address=${connAddress || 'none'}, port=${connPort}, local=${connLocal}`,
 						);
 
-						// Prefer local connections with address, or first valid connection with address
-						if (connData.address) {
-							if (!bestConnection || (connData.local && !bestConnection.local)) {
-								bestConnection = connData;
-							}
+						if (!connAddress) continue;
+
+						let uri = connUri || '';
+						if (!uri) {
+							const protocol = connLocal ? 'http' : 'https';
+							uri = `${protocol}://${connAddress}:${connPort}`;
 						}
+
+						if (!uri.match(/^https?:\/\/.+/)) continue;
+
+						allConnections.push({ uri, address: connAddress, port: connPort, local: connLocal });
 					}
 
-					if (!bestConnection || !bestConnection.address) {
-						console.warn(`   ⚠️ Skipping server ${resource.name} - no valid connection with address found`);
+					if (allConnections.length === 0) {
+						console.warn(`   ⚠️ Skipping server ${resource.name} - no valid connections found`);
 						continue;
 					}
 
-					// Build URI - prefer existing URI, then construct from address/port
-					let uri = bestConnection.uri || resource.uri;
-					if (!uri) {
-						// Prefer HTTPS for remote connections, HTTP for local
-						const protocol = bestConnection.local ? 'http' : 'https';
-						uri = `${protocol}://${bestConnection.address}:${bestConnection.port}`;
-						console.log(`      ✅ Constructed URI: ${uri}`);
-					}
+					// Test connections: try local first, then remote
+					const sorted = [...allConnections].sort((a, b) => (a.local === b.local ? 0 : a.local ? -1 : 1));
+					let best = sorted[0];
 
-					// Validate URI format
-					if (!uri.match(/^https?:\/\/.+/)) {
-						console.warn(`   ⚠️ Invalid URI format for server ${resource.name}: ${uri}`);
-						continue;
+					for (const conn of sorted) {
+						const reachable = await this.testConnectionUri(conn.uri, plexToken);
+						if (reachable) {
+							best = conn;
+							console.log(`      ✅ Reachable: ${conn.uri}`);
+							break;
+						}
+						console.log(`      ❌ Unreachable: ${conn.uri}`);
 					}
 
 					const server: PlexServer = {
 						id: resource.clientIdentifier || resource.machineIdentifier,
 						name: resource.name,
-						uri,
+						uri: best.uri,
 						serverId: resource.clientIdentifier || resource.machineIdentifier,
-						local: bestConnection.local || false,
-						address: bestConnection.address,
-						port: bestConnection.port,
+						local: best.local,
+						address: best.address,
+						port: best.port,
+						connections: allConnections,
 					};
 
 					console.log(`   ✅ Added server: ${server.name} - ${server.uri}`);
@@ -145,8 +151,8 @@ class PlexDiscoveryService {
 				}
 			}
 
-			// Find recommended server (prefer local, then first available)
-			const recommendedServer = servers.find((s) => s.local) || servers[0];
+			// Recommended server is just the first one (connections already tested above)
+			const recommendedServer = servers[0];
 
 			console.log(`✅ Found ${servers.length} servers`);
 			return {
@@ -166,7 +172,7 @@ class PlexDiscoveryService {
 	 * Parse XML response from /api/resources endpoint
 	 * This endpoint doesn't support JSON, so we must parse XML
 	 */
-	private parseResourcesXML(xmlText: string): PlexDiscoveryResult {
+	private async parseResourcesXML(xmlText: string, plexToken: string): Promise<PlexDiscoveryResult> {
 		try {
 			console.log('   📄 Parsing XML response...');
 			const servers: PlexServer[] = [];
@@ -195,9 +201,9 @@ class PlexDiscoveryService {
 					const connectionMatches = Array.from(deviceXml.matchAll(/<Connection[^>]*\/>/g));
 					console.log(`      Found ${connectionMatches.length} Connection elements`);
 
-					let bestConnection: { uri?: string; address?: string; port?: number; local?: boolean } | null = null;
+					// Collect all valid connections
+					const allConnections: PlexConnection[] = [];
 
-					// Parse all connections and prefer local ones with addresses
 					for (const connMatch of connectionMatches) {
 						const connXml = connMatch[0];
 						const uriMatch = connXml.match(/uri="([^"]+)"/);
@@ -205,53 +211,55 @@ class PlexDiscoveryService {
 						const portMatch = connXml.match(/port="([^"]+)"/);
 						const localMatch = connXml.match(/local="([^"]+)"/);
 
-						const conn = {
-							uri: uriMatch ? uriMatch[1] : undefined,
-							address: addrMatch ? addrMatch[1] : undefined,
-							port: portMatch ? parseInt(portMatch[1], 10) : 32400,
-							local: localMatch ? localMatch[1] === '1' : false,
-						};
+						const connAddress = addrMatch ? addrMatch[1] : undefined;
+						const connPort = portMatch ? parseInt(portMatch[1], 10) : 32400;
+						const connLocal = localMatch ? localMatch[1] === '1' : false;
 
 						console.log(
-							`      Connection: uri=${conn.uri || 'none'}, address=${conn.address || 'none'}, port=${conn.port}, local=${conn.local}`,
+							`      Connection: uri=${uriMatch?.[1] || 'none'}, address=${connAddress || 'none'}, port=${connPort}, local=${connLocal}`,
 						);
 
-						// Prefer local connections with address, or first valid connection with address
-						if (conn.address) {
-							if (!bestConnection || (conn.local && !bestConnection.local)) {
-								bestConnection = conn;
-							}
+						if (!connAddress) continue;
+
+						let connUri = uriMatch ? uriMatch[1] : '';
+						if (!connUri) {
+							const protocol = connLocal ? 'http' : 'https';
+							connUri = `${protocol}://${connAddress}:${connPort}`;
 						}
+
+						if (!connUri.match(/^https?:\/\/.+/)) continue;
+
+						allConnections.push({ uri: connUri, address: connAddress, port: connPort, local: connLocal });
 					}
 
-					if (!bestConnection || !bestConnection.address) {
-						console.warn(`   ⚠️ Skipping server ${nameMatch[1]} - no valid connection with address found`);
+					if (allConnections.length === 0) {
+						console.warn(`   ⚠️ Skipping server ${nameMatch[1]} - no valid connections found`);
 						continue;
 					}
 
-					// Build URI if not provided
-					let uri = bestConnection.uri || '';
-					if (!uri) {
-						// Prefer HTTPS for remote connections, HTTP for local
-						const protocol = bestConnection.local ? 'http' : 'https';
-						uri = `${protocol}://${bestConnection.address}:${bestConnection.port}`;
-						console.log(`      ✅ Constructed URI: ${uri}`);
-					}
+					// Test connections: try local first, then remote
+					const sorted = [...allConnections].sort((a, b) => (a.local === b.local ? 0 : a.local ? -1 : 1));
+					let best = sorted[0];
 
-					// Validate URI format
-					if (!uri.match(/^https?:\/\/.+/)) {
-						console.warn(`   ⚠️ Invalid URI format for server ${nameMatch[1]}: ${uri}`);
-						continue;
+					for (const conn of sorted) {
+						const reachable = await this.testConnectionUri(conn.uri, plexToken);
+						if (reachable) {
+							best = conn;
+							console.log(`      ✅ Reachable: ${conn.uri}`);
+							break;
+						}
+						console.log(`      ❌ Unreachable: ${conn.uri}`);
 					}
 
 					const server: PlexServer = {
 						id: idMatch[1],
 						name: nameMatch[1],
-						uri,
+						uri: best.uri,
 						serverId: idMatch[1],
-						local: bestConnection.local || false,
-						address: bestConnection.address,
-						port: bestConnection.port,
+						local: best.local,
+						address: best.address,
+						port: best.port,
+						connections: allConnections,
 					};
 
 					console.log(`   ✅ Added server: ${server.name} - ${server.uri}`);
@@ -259,8 +267,8 @@ class PlexDiscoveryService {
 				}
 			}
 
-			// Find recommended server (prefer local, then first available)
-			const recommendedServer = servers.find((s) => s.local) || servers[0];
+			// Recommended server is just the first one (connections already tested above)
+			const recommendedServer = servers[0];
 
 			console.log(`✅ Found ${servers.length} servers`);
 			return {
@@ -277,38 +285,60 @@ class PlexDiscoveryService {
 	}
 
 	/**
-	 * Test connection to a specific Plex server
+	 * Quick connectivity test for a single URI (short timeout)
 	 */
-	async testServerConnection(server: PlexServer, plexToken?: string): Promise<boolean> {
+	private async testConnectionUri(uri: string, plexToken?: string): Promise<boolean> {
 		try {
-			console.log(`🔗 Testing connection to ${server.name}...`);
-
-			// Build test URL with authentication
-			const testUrl = new URL(`${server.uri}/status/sessions`);
+			const testUrl = new URL(`${uri}/identity`);
 			if (plexToken) {
 				testUrl.searchParams.set('X-Plex-Token', plexToken);
 			}
 
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 5000);
+			const timeoutId = setTimeout(() => controller.abort(), 3000);
 
 			const response = await fetch(testUrl.toString(), {
-				headers: {
-					Accept: 'application/json',
-					...(plexToken && { 'X-Plex-Token': plexToken }),
-				},
+				headers: { Accept: 'application/json' },
 				signal: controller.signal,
 			});
 
 			clearTimeout(timeoutId);
-
-			const isConnected = response.ok;
-			console.log(`${isConnected ? '✅' : '❌'} Server ${server.name}: ${isConnected ? 'Connected' : 'Failed'}`);
-			return isConnected;
-		} catch (error) {
-			console.error(`❌ Connection test failed for ${server.name}:`, error);
+			return response.ok;
+		} catch {
 			return false;
 		}
+	}
+
+	/**
+	 * Test connection to a specific Plex server (tries all stored connections)
+	 */
+	async testServerConnection(server: PlexServer, plexToken?: string): Promise<boolean> {
+		console.log(`🔗 Testing connection to ${server.name}...`);
+
+		// Try the primary URI first
+		if (await this.testConnectionUri(server.uri, plexToken)) {
+			console.log(`✅ Server ${server.name}: Connected via ${server.uri}`);
+			return true;
+		}
+
+		// Primary failed — try all stored connections
+		if (server.connections?.length) {
+			for (const conn of server.connections) {
+				if (conn.uri === server.uri) continue; // already tried
+				if (await this.testConnectionUri(conn.uri, plexToken)) {
+					// Update server to use the working connection
+					console.log(`✅ Server ${server.name}: Connected via fallback ${conn.uri}`);
+					server.uri = conn.uri;
+					server.address = conn.address;
+					server.port = conn.port;
+					server.local = conn.local;
+					return true;
+				}
+			}
+		}
+
+		console.error(`❌ Connection test failed for ${server.name} (all connections exhausted)`);
+		return false;
 	}
 
 	/**

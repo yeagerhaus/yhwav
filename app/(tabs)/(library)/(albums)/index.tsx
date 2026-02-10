@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';

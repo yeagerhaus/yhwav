@@ -14,4 +14,8 @@ export interface Song {
 	playlistIndex?: number;
 	localUri?: string;
 	isDownloaded?: boolean;
+	// Pre-computed for search (avoids 126k allocations per query)
+	titleLower?: string;
+	artistLower?: string;
+	albumLower?: string;
 }

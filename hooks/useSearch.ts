@@ -77,16 +77,13 @@ export function useSearch() {
 			totalResults: 0,
 		};
 
-		// Optimized search with early termination and pre-normalized strings
-		// Search songs - increased limit and better performance
-		const MAX_SONG_RESULTS = 50; // Increased from 20 to allow better matching
-		const songsToSearch = tracks; // Search all tracks, but limit results
+		// Search songs using pre-computed lowercase fields (zero allocations per iteration)
+		const MAX_SONG_RESULTS = 50;
 
-		for (const song of songsToSearch) {
-			// Pre-normalize once
-			const titleLower = song.title.toLowerCase();
-			const artistLower = song.artist.toLowerCase();
-			const albumLower = song.album.toLowerCase();
+		for (const song of tracks) {
+			const titleLower = song.titleLower || song.title.toLowerCase();
+			const artistLower = song.artistLower || song.artist.toLowerCase();
+			const albumLower = song.albumLower || song.album.toLowerCase();
 
 			const titleMatch = titleLower.includes(normalizedQuery);
 			const artistMatch = artistLower.includes(normalizedQuery);
@@ -107,7 +104,6 @@ export function useSearch() {
 					score,
 				});
 
-				// Early termination if we have enough high-scoring results
 				if (results.songs.length >= MAX_SONG_RESULTS * 2) {
 					break;
 				}

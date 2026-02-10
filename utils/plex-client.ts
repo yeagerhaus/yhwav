@@ -2,6 +2,7 @@ import { fetch } from 'expo/fetch';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
+import { plexDiscoveryService } from './plex-discovery';
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -115,6 +116,15 @@ export class PlexClient {
 		
 		this.baseURL = serverUri;
 		this.token = plexAuthService.getAccessToken() || '';
+
+		// Verify the stored URI is reachable; if not, try alternative connections
+		const reachable = await plexDiscoveryService.testServerConnection(selectedServer, this.token);
+		if (reachable) {
+			// testServerConnection may have updated the server URI to a working one
+			this.baseURL = selectedServer.uri.replace(/\/$/, '');
+		} else {
+			console.warn('⚠️ No reachable connection found — using stored URI as fallback');
+		}
 
 		// Music section ID will be auto-discovered when needed
 		this.musicSectionId = null;
@@ -414,19 +424,9 @@ export class PlexClient {
 		const data = response.data as any;
 		const rawTracks = data?.MediaContainer?.Metadata || [];
 
-		// Process tracks in parallel batches for better performance
-		// Large libraries can block if processed all at once
+		// formatTrack is synchronous — plain map, no Promise.all overhead
 		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
-		const BATCH_SIZE = 100; // Process 100 tracks at a time
-		const tracks: Song[] = [];
-
-		for (let i = 0; i < tracksArray.length; i += BATCH_SIZE) {
-			const batch = tracksArray.slice(i, i + BATCH_SIZE);
-			const batchTracks = await Promise.all(batch.map((track) => this.formatTrack(track)));
-			tracks.push(...batchTracks);
-		}
-
-		return tracks;
+		return tracksArray.map((track) => this.formatTrack(track));
 	}
 
 	/**
@@ -480,7 +480,7 @@ export class PlexClient {
 	/**
 	 * Format a Plex track into our Song type
 	 */
-	private async formatTrack(track: any, playlistIndex?: number): Promise<Song> {
+	private formatTrack(track: any, playlistIndex?: number): Song {
 		if (!track || !track.ratingKey) {
 			throw new Error('Invalid track data');
 		}
@@ -495,13 +495,17 @@ export class PlexClient {
 		// Build artwork URL (prefer thumb, fallback to art)
 		const artworkUrl = track.thumb ? this.buildURL(track.thumb) : (track.art ? this.buildURL(track.art) : undefined);
 
+		const title = track.title || 'Unknown Title';
+		const artist = track.grandparentTitle || 'Unknown Artist';
+		const album = track.parentTitle || '';
+
 		return {
 			id: track.ratingKey,
-			title: track.title || 'Unknown Title',
-			artist: track.grandparentTitle || 'Unknown Artist',
-			album: track.parentTitle || '',
+			title,
+			artist,
+			album,
 			artworkUrl,
-			artwork: '', // Will be populated by image loading
+			artwork: '',
 			streamUrl,
 			uri: streamUrl,
 			duration,
@@ -509,6 +513,9 @@ export class PlexClient {
 			discNumber: parseInt(track.parentIndex || '0', 10),
 			playlistIndex,
 			artistKey: track.grandparentKey || '',
+			titleLower: title.toLowerCase(),
+			artistLower: artist.toLowerCase(),
+			albumLower: album.toLowerCase(),
 		};
 	}
 
@@ -549,12 +556,8 @@ export class PlexClient {
 		const data = response.data as any;
 		const rawPlaylists = data?.MediaContainer?.Metadata || [];
 
-		// Process playlists in parallel for better performance
-		const playlists = await Promise.all(
-			(Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists]).map((playlist) => this.formatPlaylist(playlist)),
-		);
-
-		return playlists;
+		const playlistsArray = Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists];
+		return playlistsArray.map((playlist) => this.formatPlaylist(playlist));
 	}
 
 	/**
@@ -590,12 +593,8 @@ export class PlexClient {
 			const data = response.data as any;
 			const rawTracks = data?.MediaContainer?.Metadata || [];
 
-			// Process tracks in parallel for better performance, preserving order
-			const tracks = await Promise.all(
-				(Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track, index) => this.formatTrack(track, index)),
-			);
-
-			return tracks;
+			const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
+			return tracksArray.map((track, index) => this.formatTrack(track, index));
 		} catch (error) {
 			console.error('Failed to fetch playlist tracks:', error);
 			return [];
@@ -605,7 +604,7 @@ export class PlexClient {
 	/**
 	 * Format a Plex playlist into our Playlist type
 	 */
-	private async formatPlaylist(playlist: any): Promise<Playlist> {
+	private formatPlaylist(playlist: any): Playlist {
 		// Build artwork URL
 		const artworkUrl = playlist.thumb ? this.buildURL(playlist.thumb) : undefined;
 

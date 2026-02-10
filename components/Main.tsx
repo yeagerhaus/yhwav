@@ -1,4 +1,4 @@
-import { ScrollView, type StyleProp, type ViewStyle } from 'react-native';
+import { type RefreshControlProps, ScrollView, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Div } from './Div';
 
@@ -6,9 +6,10 @@ interface MainProps {
 	children: React.ReactNode;
 	scrollEnabled?: boolean;
 	style?: StyleProp<ViewStyle>;
+	refreshControl?: React.ReactElement<RefreshControlProps>;
 }
 
-export function Main({ children, scrollEnabled = true, style }: MainProps) {
+export function Main({ children, scrollEnabled = true, style, refreshControl }: MainProps) {
 	const ScrollComponent = scrollEnabled ? ScrollView : Div;
 	return (
 		<ScrollComponent
@@ -16,6 +17,7 @@ export function Main({ children, scrollEnabled = true, style }: MainProps) {
 				flex: 1,
 				...(style as any),
 			}}
+			refreshControl={refreshControl}
 		>
 			<SafeAreaView
 				style={{
