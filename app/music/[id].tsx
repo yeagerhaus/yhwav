@@ -64,6 +64,8 @@ function MusicScreen() {
 			requestAnimationFrame(() => {
 				router.back();
 			});
+		} else {
+			router.replace('/(tabs)/(library)');
 		}
 	}, [router, handleHapticFeedback]);
 

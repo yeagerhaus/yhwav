@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Song } from '@/types/song';
+
+// Import store directly to avoid circular dependency
+let useLibraryStore: any;
+try {
+	useLibraryStore = require('@/hooks/useLibraryStore').useLibraryStore;
+} catch {
+	// Fallback if not available
+}
 
 const STORAGE_LIBRARY_KEY = 'LIBRARY_STATE';
 
@@ -13,6 +20,9 @@ export interface SerializedLibraryState {
 
 export async function saveLibraryToCache() {
 	try {
+		if (!useLibraryStore) {
+			useLibraryStore = require('@/hooks/useLibraryStore').useLibraryStore;
+		}
 		const state = useLibraryStore.getState();
 		const serialized: SerializedLibraryState = {
 			tracks: state.tracks,
@@ -44,12 +54,25 @@ export async function rehydrateLibraryStore(): Promise<boolean> {
 		return false;
 	}
 
-	useLibraryStore.setState({
-		tracks: cached.tracks,
-		songsById: cached.songsById,
-		albumsById: cached.albumsById,
-		artistsByName: cached.artistsByName,
-	});
+	if (!useLibraryStore) {
+		useLibraryStore = require('@/hooks/useLibraryStore').useLibraryStore;
+	}
+
+	// For cached data, set it directly without re-indexing
+	// The cache already has all the indexes, so we can use them directly
+	// This is MUCH faster than re-indexing
+	if (cached.tracks && cached.tracks.length > 0) {
+		useLibraryStore.setState({
+			tracks: cached.tracks,
+			songsById: cached.songsById || {},
+			albumsById: cached.albumsById || {},
+			artistsByName: cached.artistsByName || {},
+			isLibraryIndexing: false,
+		});
+		return true;
+	}
+	
+	return false;
 
 	return true;
 }

@@ -14,13 +14,14 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
-	const tracks = useLibraryStore((s) => s.tracks);
+	// Only subscribe to tracks.length to avoid re-rendering on every track update
+	const trackCount = useLibraryStore((s) => s.tracks.length);
 
 	return (
 		<Main>
 			<Div style={{ paddingHorizontal: 16, marginBottom: 16 }}>
 				<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
-					{Number(tracks.length).toLocaleString()} {tracks.length === 1 ? 'Song' : 'Songs'} in Library
+					{Number(trackCount).toLocaleString()} {trackCount === 1 ? 'Song' : 'Songs'} in Library
 				</ThemedText>
 				<FlatList
 					scrollEnabled={false}

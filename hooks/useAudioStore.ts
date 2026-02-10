@@ -5,6 +5,7 @@ import ImageColors from 'react-native-image-colors';
 import TrackPlayer, { Capability, Event, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
 import { create } from 'zustand';
 import type { Song } from '@/types';
+import { performanceMonitor } from '@/utils/performance';
 
 // Storage keys
 export const STORAGE_QUEUE_KEY = 'SONG_QUEUE';
@@ -92,7 +93,7 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 }
 
 // Debounced position save (max once per 2 seconds)
-let positionSaveTimeout: NodeJS.Timeout | null = null;
+let positionSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 const debouncedSavePosition = (position: number) => {
 	if (positionSaveTimeout) {
 		clearTimeout(positionSaveTimeout);
@@ -300,8 +301,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Play sound
 	playSound: async (song: Song, newQueue?: Song[]) => {
-		try {
-			set({ error: null, isBuffering: true });
+		return performanceMonitor.trackAsync('playSound', async () => {
+			try {
+				set({ error: null, isBuffering: true });
 
 			const state = get();
 			const currentQueue = await TrackPlayer.getQueue();
@@ -376,10 +378,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			// Start playback
 			await TrackPlayer.play();
 			set({ isBuffering: false });
-		} catch (error) {
-			console.error('Error in playSound:', error);
-			set({ error: 'Failed to play song', isBuffering: false });
-		}
+			} catch (error) {
+				console.error('Error in playSound:', error);
+				set({ error: 'Failed to play song', isBuffering: false });
+			}
+		}, { songId: song.id, queueLength: newQueue?.length || 0 });
 	},
 
 	// Toggle play/pause
@@ -398,7 +401,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Skip to next - optimized for rapid skipping
 	skipToNext: async () => {
-		try {
+		return performanceMonitor.trackAsync('skipToNext', async () => {
+			try {
 			const state = get();
 			if (!state.currentSong || state.queue.length === 0) return;
 
@@ -431,14 +435,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				// Fallback to full playSound for queue changes
 				await get().playSound(nextSong, state.queue);
 			}
-		} catch (error) {
-			console.error('Error skipping to next:', error);
-		}
+			} catch (error) {
+				console.error('Error skipping to next:', error);
+			}
+		});
 	},
 
 	// Skip to previous - optimized for rapid skipping
 	skipToPrevious: async () => {
-		try {
+		return performanceMonitor.trackAsync('skipToPrevious', async () => {
+			try {
 			const state = get();
 			if (!state.currentSong || state.queue.length === 0) return;
 
@@ -478,9 +484,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				// Fallback to full playSound for queue changes
 				await get().playSound(prevSong, state.queue);
 			}
-		} catch (error) {
-			console.error('Error skipping to previous:', error);
-		}
+			} catch (error) {
+				console.error('Error skipping to previous:', error);
+			}
+		});
 	},
 
 	// Seek to position

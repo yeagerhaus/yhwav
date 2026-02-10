@@ -12,6 +12,8 @@ import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllTracks, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
+import { performanceMonitor } from '@/utils/performance';
+import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 
 function AudioSync() {
 	useTrackPlayerSync();
@@ -85,28 +87,43 @@ export default function RootLayout() {
 					// Load cached data first (for instant UI)
 					const hydrated = await rehydrateLibraryStore();
 					if (hydrated) {
-						console.log('✅ Loaded cached library data');
+						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 					}
 
-					// Fetch fresh tracks in background (non-blocking)
-					fetchAllTracks()
-						.then((fetchedTracks) => {
-							if (fetchedTracks.length > 0) {
-								console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
-								setTracks(fetchedTracks);
-								saveLibraryToCache();
-							}
-						})
-						.catch((error) => {
-							console.error('❌ Failed to fetch tracks:', error);
-							// If we have cached data, that's okay - use it
-							if (!hydrated) {
-								// No cache and fetch failed - test connectivity
+					// Only fetch fresh tracks if we don't have cache, or do it much later in background
+					if (!hydrated) {
+						// No cache - fetch immediately
+						fetchAllTracks()
+							.then((fetchedTracks) => {
+								if (fetchedTracks.length > 0) {
+									console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
+									setTracks(fetchedTracks);
+									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+								}
+							})
+							.catch((error) => {
+								console.error('❌ Failed to fetch tracks:', error);
 								testPlexServer().catch(() => {
 									console.warn('⚠️ Cannot connect to Plex server');
 								});
-							}
-						});
+							});
+					} else {
+						// We have cache - fetch fresh data in background much later (5 minutes)
+						// This prevents the double-loading issue
+						setTimeout(() => {
+							fetchAllTracks()
+								.then((fetchedTracks) => {
+									if (fetchedTracks.length > 0) {
+										console.log(`🔄 Background refresh: Fetched ${fetchedTracks.length} tracks`);
+										setTracks(fetchedTracks);
+										saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+									}
+								})
+								.catch((error) => {
+									console.warn('⚠️ Background refresh failed (using cache):', error);
+								});
+						}, 5 * 60 * 1000); // 5 minutes - user won't notice
+					}
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');
 				}
@@ -127,6 +144,7 @@ export default function RootLayout() {
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />
+					<PerformanceDebugger />
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

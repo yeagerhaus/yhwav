@@ -24,6 +24,19 @@ export default function PlaylistsScreen() {
 		[playlists],
 	);
 
+	const keyExtractor = useCallback((item: typeof formattedPlaylists[0]) => item.id.toString(), [formattedPlaylists]);
+
+	const renderItem = useCallback(({ item }: { item: typeof formattedPlaylists[0] }) => <DynamicItem item={item} type='playlist' />, []);
+
+	const listHeaderComponent = useMemo(
+		() => (
+			<Div>
+				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16, paddingTop: 64 }}>Playlists</ThemedText>
+			</Div>
+		),
+		[],
+	);
+
 	if (isLoading) {
 		return (
 			<Main>
@@ -46,25 +59,21 @@ export default function PlaylistsScreen() {
 	}
 
 	return (
-		<Main>
-			<Div style={{ paddingHorizontal: 16 }}>
-				<Div>
-					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Playlists</ThemedText>
-				</Div>
-				<FlatList
-					data={formattedPlaylists}
-					keyExtractor={useCallback((item: typeof formattedPlaylists[0]) => item.id.toString(), [])}
-					numColumns={2}
-					renderItem={useCallback(({ item }: { item: typeof formattedPlaylists[0] }) => <DynamicItem item={item} type='playlist' />, [])}
-					removeClippedSubviews={true}
-					maxToRenderPerBatch={10}
-					windowSize={10}
-					initialNumToRender={10}
-					updateCellsBatchingPeriod={50}
-					contentContainerStyle={{ paddingBottom: 80 }}
-					columnWrapperStyle={{ justifyContent: 'space-between' }}
-				/>
-			</Div>
+		<Main scrollEnabled={false}>
+			<FlatList
+				data={formattedPlaylists}
+				keyExtractor={keyExtractor}
+				numColumns={2}
+				renderItem={renderItem}
+				ListHeaderComponent={listHeaderComponent}
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={10}
+				windowSize={10}
+				initialNumToRender={10}
+				updateCellsBatchingPeriod={50}
+				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				columnWrapperStyle={{ justifyContent: 'space-between' }}
+			/>
 		</Main>
 	);
 }
