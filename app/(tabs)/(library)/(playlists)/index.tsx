@@ -7,6 +7,7 @@ import { usePlaylists } from '@/hooks/usePlaylists';
 
 export default function PlaylistsScreen() {
 	const { playlists, isLoading } = usePlaylists();
+	const hasNoPlaylists = useMemo(() => !playlists.length, [playlists]);
 
 	const formattedPlaylists = useMemo(
 		() =>
@@ -47,7 +48,7 @@ export default function PlaylistsScreen() {
 		);
 	}
 
-	if (formattedPlaylists.length === 0) {
+	if (hasNoPlaylists) {
 		return (
 			<Main>
 				<Div style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>

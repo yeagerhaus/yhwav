@@ -1,23 +1,25 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchAllPlaylists, fetchPlaylistTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
 
 export const usePlaylists = () => {
-	const { playlists, setPlaylists, isLibraryLoading, setLibraryLoading } = useLibraryStore();
+	const { playlists, setPlaylists } = useLibraryStore();
+	const [isLoading, setIsLoading] = useState(false);
+	const hasFetched = useRef(false);
 
 	const loadPlaylists = useCallback(async () => {
-		if (playlists.length === 0 && !isLibraryLoading) {
-			setLibraryLoading(true);
-			try {
-				const fetchedPlaylists = await fetchAllPlaylists();
-				setPlaylists(fetchedPlaylists);
-			} catch (error) {
-				console.error('Failed to load playlists:', error);
-			} finally {
-				setLibraryLoading(false);
-			}
+		if (hasFetched.current || isLoading) return;
+		setIsLoading(true);
+		try {
+			const fetchedPlaylists = await fetchAllPlaylists();
+			setPlaylists(fetchedPlaylists);
+			hasFetched.current = true;
+		} catch (error) {
+			console.error('Failed to load playlists:', error);
+		} finally {
+			setIsLoading(false);
 		}
-	}, [playlists.length, isLibraryLoading, setPlaylists, setLibraryLoading]);
+	}, [isLoading, setPlaylists]);
 
 	const loadPlaylistTracks = useCallback(async (playlistId: string) => {
 		try {
@@ -35,7 +37,7 @@ export const usePlaylists = () => {
 
 	return {
 		playlists,
-		isLoading: isLibraryLoading,
+		isLoading,
 		loadPlaylists,
 		loadPlaylistTracks,
 	};

@@ -142,7 +142,6 @@ export async function clearCacheAndReload(): Promise<number> {
 		songsById: {},
 		albumsById: {},
 		artistsByName: {},
-		isLibraryLoading: true,
 		isLibraryIndexing: false,
 	});
 
@@ -153,11 +152,9 @@ export async function clearCacheAndReload(): Promise<number> {
 			store.getState().setTracks(tracks);
 			await saveLibraryToCache();
 		}
-		store.setState({ isLibraryLoading: false });
 		return tracks.length;
 	} catch (err) {
 		console.error('Failed to reload library:', err);
-		store.setState({ isLibraryLoading: false });
 		return 0;
 	}
 }

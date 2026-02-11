@@ -5,7 +5,6 @@ import { normalizeArtist } from '@/utils';
 import { performanceMonitor } from '@/utils/performance';
 
 interface LibraryState {
-	isLibraryLoading: boolean;
 	isLibraryIndexing: boolean;
 	tracks: Song[];
 	songsById: Record<string, Song>;
@@ -15,11 +14,9 @@ interface LibraryState {
 	playlistsById: Record<string, Playlist>;
 	setTracks: (songs: Song[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
-	setLibraryLoading: (loading: boolean) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
-	isLibraryLoading: false,
 	isLibraryIndexing: false,
 	tracks: [],
 	songsById: {},
@@ -27,8 +24,6 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 	artistsByName: {},
 	playlists: [],
 	playlistsById: {},
-
-	setLibraryLoading: (loading: boolean) => set({ isLibraryLoading: loading }),
 
 	setPlaylists: (playlists: Playlist[]) => {
 		const playlistsById: Record<string, Playlist> = {};

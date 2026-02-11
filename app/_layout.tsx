@@ -62,13 +62,11 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks, setLibraryLoading } = useLibraryStore();
+	const { setTracks } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 
 	useEffect(() => {
 		const init = async () => {
-			setLibraryLoading(true);
-
 			try {
 				// Initialize audio player first
 				await initializePlayer();
@@ -130,8 +128,6 @@ export default function RootLayout() {
 			} catch (error) {
 				console.error('Failed to initialize app:', error);
 				// Don't block app startup - user can authenticate in Settings
-			} finally {
-				setLibraryLoading(false);
 			}
 		};
 

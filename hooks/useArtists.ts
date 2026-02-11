@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchAllArtists } from '@/utils/plex';
-import { useLibraryStore } from './useLibraryStore';
 
 export interface ArtistData {
 	key: string;
@@ -10,29 +9,30 @@ export interface ArtistData {
 }
 
 export const useArtists = () => {
-	const { isLibraryLoading, setLibraryLoading } = useLibraryStore();
 	const [artists, setArtists] = useState<ArtistData[]>([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const hasFetched = useRef(false);
 
 	const loadArtists = useCallback(async () => {
-		if (artists.length === 0 && !isLibraryLoading) {
-			setLibraryLoading(true);
-			try {
-				const fetchedArtists = await fetchAllArtists();
-				// Format artists from Plex response
-				const formatted = fetchedArtists.map((artist: any) => ({
-					key: artist.ratingKey,
-					title: artist.title,
-					artwork: artist.thumb,
-					thumb: artist.thumb,
-				}));
-				setArtists(formatted);
-			} catch (error) {
-				console.error('Failed to load artists:', error);
-			} finally {
-				setLibraryLoading(false);
-			}
+		if (hasFetched.current || isLoading) return;
+		setIsLoading(true);
+		try {
+			const fetchedArtists = await fetchAllArtists();
+			// Format artists from Plex response
+			const formatted = fetchedArtists.map((artist: any) => ({
+				key: artist.ratingKey,
+				title: artist.title,
+				artwork: artist.thumb,
+				thumb: artist.thumb,
+			}));
+			setArtists(formatted);
+			hasFetched.current = true;
+		} catch (error) {
+			console.error('Failed to load artists:', error);
+		} finally {
+			setIsLoading(false);
 		}
-	}, [artists.length, isLibraryLoading, setLibraryLoading]);
+	}, [isLoading]);
 
 	// Auto-load artists on mount
 	useEffect(() => {
@@ -41,7 +41,7 @@ export const useArtists = () => {
 
 	return {
 		artists,
-		isLoading: isLibraryLoading,
+		isLoading,
 		loadArtists,
 	};
 };
