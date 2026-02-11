@@ -37,9 +37,11 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 		);
 	};
 
+	const artworkUri = album.thumb || album.artwork;
+
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
-			<Image source={{ uri: album.artwork }} style={styles.albumArtwork} />
+			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
 			<ThemedView style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
 				<ThemedView style={styles.albumInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
@@ -48,9 +50,11 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 					<ThemedText type='subtitle' numberOfLines={1} style={styles.albumArtist}>
 						{highlightText(album.artist, query)}
 					</ThemedText>
-					<ThemedText type='subtitle' numberOfLines={1} style={styles.albumCount}>
-						{album.songIds.length} song{album.songIds.length !== 1 ? 's' : ''}
-					</ThemedText>
+					{album.year && (
+						<ThemedText type='subtitle' numberOfLines={1} style={styles.albumYear}>
+							{album.year}
+						</ThemedText>
+					)}
 				</ThemedView>
 			</ThemedView>
 		</Pressable>
@@ -91,7 +95,7 @@ const styles = StyleSheet.create({
 		fontWeight: '400',
 		opacity: 0.6,
 	},
-	albumCount: {
+	albumYear: {
 		fontSize: 12,
 		fontWeight: '400',
 		opacity: 0.5,

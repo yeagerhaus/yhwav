@@ -1,7 +1,11 @@
 export interface Artist {
-	name: string;
 	key: string;
-	albumIds: string[];
-	artwork?: string;
-	genres?: string[];
+	name: string;
+	thumb?: string;
+	art?: string;
+	summary?: string;
+	genres: string[];
+	country?: string;
+	addedAt?: number;
+	viewCount?: number;
 }

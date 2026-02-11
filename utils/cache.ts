@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Album, Artist, Song } from '@/types';
+import type { Song } from '@/types';
 
 // Import store directly to avoid circular dependency
 let useLibraryStore: any;
@@ -18,64 +18,10 @@ function getStore() {
 	return useLibraryStore;
 }
 
-/**
- * Build songsById / albumsById / artistsByName indexes from a tracks array.
- * Runs synchronously — fast enough for startup (42k tracks ~50-100ms).
- */
-function buildIndexes(tracks: Song[]) {
-	const { normalizeArtist } = require('@/utils');
-
-	const songsById: Record<string, Song> = {};
-	const albumsById: Record<string, Album> = {};
-	const artistsByName: Record<string, Artist> = {};
-
-	for (const song of tracks) {
-		if (!song?.id) continue;
-
-		// Backfill lowercase fields for older cached data
-		if (!song.titleLower) song.titleLower = song.title.toLowerCase();
-		if (!song.artistLower) song.artistLower = song.artist.toLowerCase();
-		if (!song.albumLower) song.albumLower = song.album.toLowerCase();
-
-		songsById[song.id] = song;
-
-		const artistKey = normalizeArtist(song.artist || '');
-		const albumName = (song.album || '').trim();
-		const albumId = albumName ? `${artistKey}-${albumName.toLowerCase()}` : `${artistKey}-unknown`;
-
-		if (albumName && !albumsById[albumId]) {
-			albumsById[albumId] = {
-				id: albumId,
-				title: albumName,
-				artist: song.artist || '',
-				artistKey,
-				artwork: song.artworkUrl || song.artwork || '',
-				songIds: [],
-			};
-		}
-		if (albumsById[albumId]) {
-			albumsById[albumId].songIds.push(song.id);
-		}
-
-		if (!artistsByName[artistKey]) {
-			artistsByName[artistKey] = {
-				key: artistKey,
-				name: song.artist || 'Unknown Artist',
-				albumIds: [],
-			};
-		}
-		if (albumId && !artistsByName[artistKey].albumIds.includes(albumId)) {
-			artistsByName[artistKey].albumIds.push(albumId);
-		}
-	}
-
-	return { songsById, albumsById, artistsByName };
-}
-
 export async function saveLibraryToCache() {
 	try {
 		const state = getStore().getState();
-		// Only persist tracks — indexes are rebuilt on rehydration
+		// Only persist tracks — songsById is rebuilt on rehydration
 		await AsyncStorage.setItem(STORAGE_LIBRARY_KEY, JSON.stringify(state.tracks));
 	} catch (err) {
 		console.error('Failed to save library state:', err);
@@ -106,12 +52,20 @@ export async function rehydrateLibraryStore(): Promise<boolean> {
 	}
 
 	const store = getStore();
-	const indexes = buildIndexes(tracks);
+
+	// Build songsById index and backfill lowercase fields
+	const songsById: Record<string, Song> = {};
+	for (const song of tracks) {
+		if (!song?.id) continue;
+		if (!song.titleLower) song.titleLower = song.title.toLowerCase();
+		if (!song.artistLower) song.artistLower = song.artist.toLowerCase();
+		if (!song.albumLower) song.albumLower = song.album.toLowerCase();
+		songsById[song.id] = song;
+	}
 
 	store.setState({
 		tracks,
-		...indexes,
-		isLibraryIndexing: false,
+		songsById,
 	});
 
 	return true;
@@ -140,9 +94,6 @@ export async function clearCacheAndReload(): Promise<number> {
 	store.setState({
 		tracks: [],
 		songsById: {},
-		albumsById: {},
-		artistsByName: {},
-		isLibraryIndexing: false,
 	});
 
 	// 3. Fresh fetch from server

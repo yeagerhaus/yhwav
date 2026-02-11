@@ -89,7 +89,7 @@ export async function testTrackSwitching(trackCount: number = 100) {
 export function testSearchPerformance(query: string) {
 	console.log(`🧪 Testing search with query: "${query}"...`);
 
-	const { tracks, songsById, albumsById, artistsByName } = useLibraryStore.getState();
+	const { tracks, songsById } = useLibraryStore.getState();
 
 	const start = performance.now();
 

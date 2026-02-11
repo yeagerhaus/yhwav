@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { performanceMonitor } from '@/utils/performance';
 import { Colors } from '@/constants/Colors';
+import { Div } from './Div';
 
 export function PerformanceDebugger() {
 	const [visible, setVisible] = useState(false);
@@ -30,15 +31,16 @@ export function PerformanceDebugger() {
 
 	return (
 		<>
-			<Pressable
-				style={styles.toggleButton}
-				onPress={() => setVisible(!visible)}
-			>
-				<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
-			</Pressable>
+		<Div useGlass style={styles.toggleButton}>
+				<Pressable
+					onPress={() => setVisible(!visible)}
+				>
+					<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
+				</Pressable>
+			</Div>
 
 			{visible && (
-				<View style={styles.container}>
+				<Div useGlass style={styles.container}>
 					<ScrollView style={styles.scrollView}>
 						<Text style={styles.title}>Performance Monitor</Text>
 
@@ -87,7 +89,7 @@ export function PerformanceDebugger() {
 							<Text style={styles.buttonText}>Export for Analysis</Text>
 						</Pressable>
 					</ScrollView>
-				</View>
+				</Div>
 			)}
 		</>
 	);
@@ -96,9 +98,8 @@ export function PerformanceDebugger() {
 const styles = StyleSheet.create({
 	toggleButton: {
 		position: 'absolute',
-		top: 50,
+		top: 64,
 		right: 10,
-		backgroundColor: 'rgba(0, 0, 0, 0.7)',
 		padding: 8,
 		borderRadius: 8,
 		zIndex: 9999,
@@ -110,11 +111,11 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		position: 'absolute',
-		top: 80,
+		top: 94,
 		right: 10,
 		width: 300,
 		maxHeight: 400,
-		backgroundColor: 'rgba(0, 0, 0, 0.9)',
+		backgroundColor: 'rgba(0, 0, 0, 0.7)',
 		borderRadius: 8,
 		padding: 12,
 		zIndex: 9998,

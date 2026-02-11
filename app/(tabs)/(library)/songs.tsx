@@ -12,7 +12,7 @@ const ITEM_HEIGHT = 70;
 export default function SongsScreen() {
 	// Use selector to prevent unnecessary re-renders
 	const tracks = useLibraryStore((s) => s.tracks);
-	const isIndexing = useLibraryStore((s) => s.isLibraryIndexing);
+	const isIndexing = false; // Track indexing is now synchronous
 	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
 	const [refreshing, setRefreshing] = useState(false);
 

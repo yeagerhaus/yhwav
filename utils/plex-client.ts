@@ -1,4 +1,6 @@
 import { fetch } from 'expo/fetch';
+import type { Album } from '@/types/album';
+import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
@@ -432,7 +434,7 @@ export class PlexClient {
 	/**
 	 * Fetch all artists from the music library (type 8)
 	 */
-	async fetchAllArtists(): Promise<any[]> {
+	async fetchAllArtists(): Promise<Artist[]> {
 		await this.initialize();
 
 		// Auto-discover music section if not set
@@ -450,13 +452,15 @@ export class PlexClient {
 		});
 
 		const data = response.data as any;
-		return data?.MediaContainer?.Metadata || [];
+		const raw = data?.MediaContainer?.Metadata || [];
+		const rawArray = Array.isArray(raw) ? raw : [raw];
+		return rawArray.map((item) => this.formatArtist(item));
 	}
 
 	/**
 	 * Fetch all albums from the music library (type 9)
 	 */
-	async fetchAllAlbums(): Promise<any[]> {
+	async fetchAllAlbums(): Promise<Album[]> {
 		await this.initialize();
 
 		// Auto-discover music section if not set
@@ -474,7 +478,9 @@ export class PlexClient {
 		});
 
 		const data = response.data as any;
-		return data?.MediaContainer?.Metadata || [];
+		const raw = data?.MediaContainer?.Metadata || [];
+		const rawArray = Array.isArray(raw) ? raw : [raw];
+		return rawArray.map((item) => this.formatAlbum(item));
 	}
 
 	/**
@@ -516,6 +522,40 @@ export class PlexClient {
 			titleLower: title.toLowerCase(),
 			artistLower: artist.toLowerCase(),
 			albumLower: album.toLowerCase(),
+		};
+	}
+
+	/**
+	 * Format a Plex artist into our Artist type
+	 */
+	private formatArtist(raw: any): Artist {
+		return {
+			key: raw.ratingKey,
+			name: raw.title || 'Unknown Artist',
+			thumb: raw.thumb ? this.buildURL(raw.thumb) : undefined,
+			art: raw.art ? this.buildURL(raw.art) : undefined,
+			summary: raw.summary,
+			genres: (raw.Genre || []).map((g: any) => g.tag),
+			country: raw.Country?.[0]?.tag,
+			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
+			viewCount: raw.viewCount ? parseInt(raw.viewCount) : undefined,
+		};
+	}
+
+	/**
+	 * Format a Plex album into our Album type
+	 */
+	private formatAlbum(raw: any): Album {
+		const thumb = raw.thumb ? this.buildURL(raw.thumb) : undefined;
+		return {
+			id: raw.ratingKey,
+			title: raw.title || '',
+			artist: raw.parentTitle || '',
+			artistKey: raw.parentRatingKey || '',
+			thumb,
+			artwork: thumb || '',
+			year: raw.year ? parseInt(raw.year) : undefined,
+			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
 		};
 	}
 

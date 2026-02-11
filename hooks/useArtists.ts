@@ -1,15 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Artist } from '@/types';
 import { fetchAllArtists } from '@/utils/plex';
 
-export interface ArtistData {
-	key: string;
-	title: string;
-	artwork?: string;
-	thumb?: string;
-}
-
 export const useArtists = () => {
-	const [artists, setArtists] = useState<ArtistData[]>([]);
+	const [artists, setArtists] = useState<Artist[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const hasFetched = useRef(false);
 
@@ -17,15 +11,8 @@ export const useArtists = () => {
 		if (hasFetched.current || isLoading) return;
 		setIsLoading(true);
 		try {
-			const fetchedArtists = await fetchAllArtists();
-			// Format artists from Plex response
-			const formatted = fetchedArtists.map((artist: any) => ({
-				key: artist.ratingKey,
-				title: artist.title,
-				artwork: artist.thumb,
-				thumb: artist.thumb,
-			}));
-			setArtists(formatted);
+			const fetched = await fetchAllArtists();
+			setArtists(fetched);
 			hasFetched.current = true;
 		} catch (error) {
 			console.error('Failed to load artists:', error);
@@ -39,10 +26,18 @@ export const useArtists = () => {
 		loadArtists();
 	}, [loadArtists]);
 
+	const artistsById = useMemo(() => {
+		const map: Record<string, Artist> = {};
+		for (const artist of artists) {
+			map[artist.key] = artist;
+		}
+		return map;
+	}, [artists]);
+
 	return {
 		artists,
+		artistsById,
 		isLoading,
 		loadArtists,
 	};
 };
-

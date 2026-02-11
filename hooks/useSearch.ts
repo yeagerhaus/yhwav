@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Album, Artist, Song } from '@/types';
+import { useAlbums } from './useAlbums';
+import { useArtists } from './useArtists';
 import { useLibraryStore } from './useLibraryStore';
 
 export interface SearchResult {
@@ -40,7 +42,9 @@ export function useSearch() {
 		artists: [],
 		totalResults: 0,
 	});
-	const { tracks, songsById, albumsById, artistsByName } = useLibraryStore();
+	const tracks = useLibraryStore((s) => s.tracks);
+	const { albums } = useAlbums();
+	const { artists } = useArtists();
 
 	// Debounce the query to avoid searching on every keystroke
 	const debouncedQuery = useDebounce(query, 300);
@@ -110,9 +114,9 @@ export function useSearch() {
 			}
 		}
 
-		// Search albums - optimized
+		// Search albums
 		const MAX_ALBUM_RESULTS = 10;
-		for (const album of Object.values(albumsById)) {
+		for (const album of albums) {
 			const titleLower = album.title.toLowerCase();
 			const artistLower = album.artist.toLowerCase();
 
@@ -138,16 +142,18 @@ export function useSearch() {
 			}
 		}
 
-		// Search artists - optimized
+		// Search artists (including genres)
 		const MAX_ARTIST_RESULTS = 10;
-		for (const artist of Object.values(artistsByName)) {
+		for (const artist of artists) {
 			const nameLower = artist.name.toLowerCase();
 			const nameMatch = nameLower.includes(normalizedQuery);
+			const genreMatch = artist.genres.some((g) => g.toLowerCase().includes(normalizedQuery));
 
-			if (nameMatch) {
+			if (nameMatch || genreMatch) {
 				let score = 0;
 				if (nameLower.startsWith(normalizedQuery)) score += 100;
 				else if (nameMatch) score += 50;
+				if (genreMatch) score += 30;
 
 				results.artists.push({
 					type: 'artist',
@@ -174,7 +180,7 @@ export function useSearch() {
 		results.totalResults = results.songs.length + results.albums.length + results.artists.length;
 
 		setSearchResults(results);
-	}, [debouncedQuery, tracks, songsById, albumsById, artistsByName]);
+	}, [debouncedQuery, tracks, albums, artists]);
 
 	return {
 		query,

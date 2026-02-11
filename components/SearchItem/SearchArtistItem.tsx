@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Artist } from '@/types/artist';
 
 interface SearchArtistItemProps {
@@ -13,13 +12,12 @@ interface SearchArtistItemProps {
 
 export default function SearchArtistItem({ artist, query, onPress }: SearchArtistItemProps) {
 	const colorScheme = useColorScheme();
-	const { albumsById } = useLibraryStore();
 
 	const handlePress = () => {
 		router.push({
 			// @ts-expect-error
-			pathname: '(library)/(artists)/[artistKey]',
-			params: { artistKey: artist.key },
+			pathname: '(library)/(artists)/[artistId]',
+			params: { artistId: artist.key },
 		});
 		onPress?.();
 	};
@@ -39,24 +37,24 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 		);
 	};
 
-	const albumCount = artist.albumIds.length;
-	const totalSongs = artist.albumIds.reduce((total, albumId) => {
-		const album = albumsById[albumId];
-		return total + (album?.songIds.length || 0);
-	}, 0);
+	const genreText = artist.genres.length > 0 ? artist.genres.slice(0, 2).join(', ') : 'Artist';
 
 	return (
 		<Pressable onPress={handlePress} style={styles.artistItem}>
-			<ThemedView style={styles.artistIconContainer}>
-				<ThemedText style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</ThemedText>
-			</ThemedView>
+			{artist.thumb ? (
+				<Image source={{ uri: artist.thumb }} style={styles.artistImage} />
+			) : (
+				<ThemedView style={styles.artistIconContainer}>
+					<ThemedText style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</ThemedText>
+				</ThemedView>
+			)}
 			<ThemedView style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
 				<ThemedView style={styles.artistInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
 						{highlightText(artist.name, query)}
 					</ThemedText>
 					<ThemedText type='subtitle' numberOfLines={1} style={styles.artistStats}>
-						{albumCount} album{albumCount !== 1 ? 's' : ''} • {totalSongs} song{totalSongs !== 1 ? 's' : ''}
+						{genreText}
 					</ThemedText>
 				</ThemedView>
 			</ThemedView>
@@ -70,6 +68,12 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		marginBottom: 6,
 		gap: 12,
+	},
+	artistImage: {
+		width: 50,
+		height: 50,
+		borderRadius: 25,
+		backgroundColor: '#ddd',
 	},
 	artistIconContainer: {
 		width: 50,

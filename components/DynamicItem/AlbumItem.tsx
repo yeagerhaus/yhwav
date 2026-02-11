@@ -6,10 +6,11 @@ const itemSize = screenWidth / 2 - 24;
 
 interface AlbumItemProps {
 	item: {
+		id: string;
 		album: string;
 		artwork: string;
-		count: number;
 		artist: string;
+		count?: number;
 	};
 }
 
@@ -21,7 +22,7 @@ export default function AlbumItem({ item }: AlbumItemProps) {
 				router.push({
 					// @ts-expect-error
 					pathname: '(library)/(albums)/[albumId]',
-					params: { albumId: encodeURIComponent(item.album) },
+					params: { albumId: item.id },
 				})
 			}
 		>
@@ -32,7 +33,6 @@ export default function AlbumItem({ item }: AlbumItemProps) {
 			<Text style={styles.artist} numberOfLines={1}>
 				{item.artist}
 			</Text>
-			<Text style={styles.count}>{item.count} songs</Text>
 		</Pressable>
 	);
 }

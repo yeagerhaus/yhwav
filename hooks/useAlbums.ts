@@ -1,17 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Album } from '@/types';
 import { fetchAllAlbums } from '@/utils/plex';
 
-export interface AlbumData {
-	key: string;
-	title: string;
-	artist: string;
-	artwork?: string;
-	thumb?: string;
-	year?: number;
-}
-
 export const useAlbums = () => {
-	const [albums, setAlbums] = useState<AlbumData[]>([]);
+	const [albums, setAlbums] = useState<Album[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const hasFetched = useRef(false);
 
@@ -19,17 +11,8 @@ export const useAlbums = () => {
 		if (hasFetched.current || isLoading) return;
 		setIsLoading(true);
 		try {
-			const fetchedAlbums = await fetchAllAlbums();
-			// Format albums from Plex response
-			const formatted = fetchedAlbums.map((album: any) => ({
-				key: album.ratingKey,
-				title: album.title,
-				artist: album.parentTitle || '',
-				artwork: album.thumb,
-				thumb: album.thumb,
-				year: album.year ? parseInt(album.year, 10) : undefined,
-			}));
-			setAlbums(formatted);
+			const fetched = await fetchAllAlbums();
+			setAlbums(fetched);
 			hasFetched.current = true;
 		} catch (error) {
 			console.error('Failed to load albums:', error);
@@ -43,10 +26,26 @@ export const useAlbums = () => {
 		loadAlbums();
 	}, [loadAlbums]);
 
+	const albumsById = useMemo(() => {
+		const map: Record<string, Album> = {};
+		for (const album of albums) {
+			map[album.id] = album;
+		}
+		return map;
+	}, [albums]);
+
+	const getAlbumsByArtist = useCallback(
+		(artistKey: string) => {
+			return albums.filter((album) => album.artistKey === artistKey);
+		},
+		[albums],
+	);
+
 	return {
 		albums,
+		albumsById,
+		getAlbumsByArtist,
 		isLoading,
 		loadAlbums,
 	};
 };
-

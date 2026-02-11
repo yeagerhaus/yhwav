@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { libraryStore } from '@/utils/library-store';
-import type { Album, Artist, Song } from '@/types';
+import type { Song } from '@/types';
 
 /**
  * Hook to access library store with automatic subscription
@@ -27,17 +27,12 @@ export function useExternalLibrary() {
 		// Direct access methods (no React state)
 		getTracks: () => libraryStore.getTracks(),
 		getTrack: (id: string) => libraryStore.getTrack(id),
-		getAlbums: () => libraryStore.getAlbums(),
-		getAlbum: (id: string) => libraryStore.getAlbum(id),
-		getArtists: () => libraryStore.getArtists(),
-		getArtist: (name: string) => libraryStore.getArtist(name),
 		getIndexes: () => libraryStore.getIndexes(),
 		searchTracks: (query: string, limit?: number) => libraryStore.searchTracks(query, limit),
-		
+
 		// Reactive values (trigger re-renders)
 		trackCount: libraryStore.getTrackCount(),
-		isIndexing: libraryStore.getIsIndexing(),
-		
+
 		// Actions
 		setTracks: (songs: Song[]) => libraryStore.setTracks(songs),
 	};
@@ -48,18 +43,16 @@ export function useExternalLibrary() {
  */
 export function useTrackCount() {
 	const [count, setCount] = useState(libraryStore.getTrackCount());
-	const [isIndexing, setIsIndexing] = useState(libraryStore.getIsIndexing());
 
 	useEffect(() => {
 		const unsubscribe = libraryStore.subscribe(() => {
 			setCount(libraryStore.getTrackCount());
-			setIsIndexing(libraryStore.getIsIndexing());
 		});
 
 		return unsubscribe;
 	}, []);
 
-	return { count, isIndexing };
+	return { count };
 }
 
 /**
@@ -85,4 +78,3 @@ export function useTracksSelector<T>(selector: (tracks: Song[]) => T): T {
 
 	return value;
 }
-

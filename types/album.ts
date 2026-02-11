@@ -3,7 +3,8 @@ export interface Album {
 	title: string;
 	artist: string;
 	artistKey: string;
-	songIds: string[];
 	artwork: string;
+	thumb?: string;
 	year?: number;
+	addedAt?: number;
 }
