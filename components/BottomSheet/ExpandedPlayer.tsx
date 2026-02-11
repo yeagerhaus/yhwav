@@ -5,7 +5,7 @@ import { StyleSheet, View as ThemedView } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { hexWithOpacity } from '@/utils';
+import { useUltraBlurColors } from '@/hooks/useUltraBlurColors';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
 import { PlaybackControls } from '../Player/PlaybackControls';
@@ -20,37 +20,57 @@ interface ExpandedPlayerProps {
 export const ExpandedPlayer = React.memo(
 	({ scrollComponent }: ExpandedPlayerProps) => {
 		const ScrollComponentToUse = scrollComponent || ScrollView;
+		const { colors: ultraBlur, hasColors } = useUltraBlurColors();
 		const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
 
 		const insets = useSafeAreaInsets();
-		const colorToUse = artworkBgColor || '#000000';
-		const colors: [string, string] = [colorToUse, hexWithOpacity(colorToUse, 0.9)];
+
+		// Fallback: single-color gradient using artworkBgColor
+		const fallbackColor = artworkBgColor || '#000000';
 
 		const MemoizedScrollComponent = React.useMemo(() => {
 			return ScrollComponentToUse;
 		}, [ScrollComponentToUse]);
 
 		return (
-			<BlurView intensity={20} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
-				<LinearGradient colors={colors} style={[styles.rootContainer]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}>
-					<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
-						<Div style={styles.dragHandleContainer}>
-							<ThemedView style={styles.dragHandle} />
-						</Div>
-
-						<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-							<Div style={styles.container}>
-								<SongInfo />
-
-								<Div style={styles.controls}>
-									<SongProgressBar />
-									<TimeDisplay />
-									<PlaybackControls />
-									<ExtraControls />
-								</Div>
+			<BlurView intensity={100} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
+				{/* Layer 1: top-left → bottom-right diagonal */}
+				<LinearGradient
+					colors={hasColors
+						? [ultraBlur.topLeft, ultraBlur.bottomRight]
+						: [fallbackColor, fallbackColor]}
+					style={styles.rootContainer}
+					start={{ x: 0, y: 0 }}
+					end={{ x: 1, y: 1 }}
+				>
+					{/* Layer 2: top-right → bottom-left diagonal, semi-transparent overlay */}
+					<LinearGradient
+						colors={hasColors
+							? [ultraBlur.topRight + 'CC', ultraBlur.bottomLeft + 'CC']
+							: ['transparent', 'transparent']}
+						style={styles.rootContainer}
+						start={{ x: 1, y: 0 }}
+						end={{ x: 0, y: 1 }}
+					>
+						<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
+							<Div style={styles.dragHandleContainer}>
+								<ThemedView style={styles.dragHandle} />
 							</Div>
-						</MemoizedScrollComponent>
-					</Div>
+
+							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+								<Div style={styles.container}>
+									<SongInfo />
+
+									<Div style={styles.controls}>
+										<SongProgressBar />
+										<TimeDisplay />
+										<PlaybackControls />
+										<ExtraControls />
+									</Div>
+								</Div>
+							</MemoizedScrollComponent>
+						</Div>
+					</LinearGradient>
 				</LinearGradient>
 			</BlurView>
 		);

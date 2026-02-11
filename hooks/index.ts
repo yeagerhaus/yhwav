@@ -6,3 +6,4 @@ export { useArtists } from './useArtists';
 export { useAlbums } from './useAlbums';
 export { useSearch } from './useSearch';
 export { useThemeColor } from './useThemeColor';
+export { useUltraBlurColors } from './useUltraBlurColors';

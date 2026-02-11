@@ -560,6 +560,51 @@ export class PlexClient {
 	}
 
 	/**
+	 * Fetch ultrablur colors from Plex for a given artwork thumb path.
+	 * Returns an array of hex color strings, or null on failure.
+	 */
+	async fetchUltraBlurColors(thumbUrl: string): Promise<string[] | null> {
+		await this.initialize();
+
+		// Extract just the path portion from a full authenticated URL
+		// e.g. "https://server:32400/library/metadata/123/thumb/456?X-Plex-Token=..." → "/library/metadata/123/thumb/456"
+		let thumbPath: string;
+		try {
+			const parsed = new URL(thumbUrl);
+			thumbPath = parsed.pathname;
+		} catch {
+			// Already a plain path
+			thumbPath = thumbUrl;
+		}
+
+		try {
+			const response = await this.request<any>(
+				'/services/ultrablur/colors',
+				{ url: thumbPath },
+				{ timeout: 5000, retries: 1 },
+			);
+
+			const data = response.data;
+
+			// Response shape: { MediaContainer: { UltraBlurColors: [{ topLeft, topRight, bottomRight, bottomLeft }] } }
+			const entry = data?.MediaContainer?.UltraBlurColors?.[0];
+			if (!entry) return null;
+
+			const colors: string[] = [];
+			for (const key of ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'] as const) {
+				const hex = entry[key];
+				if (typeof hex === 'string' && hex.length === 6) {
+					colors.push(`#${hex}`);
+				}
+			}
+
+			return colors.length > 0 ? colors : null;
+		} catch (err) {
+			return null;
+		}
+	}
+
+	/**
 	 * Get library sections
 	 */
 	async getLibrarySections(): Promise<any[]> {
@@ -679,6 +724,7 @@ export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
 export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
 export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
+export const fetchUltraBlurColors = (thumbUrl: string) => plexClient.fetchUltraBlurColors(thumbUrl);
 export const buildPlexURL = async (path: string, params: Record<string, string> = {}) => {
 	await plexClient.initialize();
 	return (plexClient as any).buildURL(path, params);
