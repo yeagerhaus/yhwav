@@ -124,15 +124,33 @@ class PlexDiscoveryService {
 					// Test connections: try local first, then remote
 					const sorted = [...allConnections].sort((a, b) => (a.local === b.local ? 0 : a.local ? -1 : 1));
 					let best = sorted[0];
+					let found = false;
 
 					for (const conn of sorted) {
 						const reachable = await this.testConnectionUri(conn.uri, plexToken);
 						if (reachable) {
 							best = conn;
+							found = true;
 							console.log(`      ✅ Reachable: ${conn.uri}`);
 							break;
 						}
 						console.log(`      ❌ Unreachable: ${conn.uri}`);
+					}
+
+					// Fallback: try plain http://address:port if *.plex.direct URIs failed
+					if (!found) {
+						const triedUris = new Set(sorted.map((c) => c.uri));
+						for (const conn of sorted) {
+							if (!conn.address) continue;
+							const directUri = `http://${conn.address}:${conn.port}`;
+							if (triedUris.has(directUri)) continue;
+							console.log(`      🔗 Trying direct HTTP: ${directUri}`);
+							if (await this.testConnectionUri(directUri, plexToken)) {
+								best = { uri: directUri, address: conn.address, port: conn.port, local: true };
+								console.log(`      ✅ Reachable via direct HTTP: ${directUri}`);
+								break;
+							}
+						}
 					}
 
 					const server: PlexServer = {
@@ -240,15 +258,33 @@ class PlexDiscoveryService {
 					// Test connections: try local first, then remote
 					const sorted = [...allConnections].sort((a, b) => (a.local === b.local ? 0 : a.local ? -1 : 1));
 					let best = sorted[0];
+					let found = false;
 
 					for (const conn of sorted) {
 						const reachable = await this.testConnectionUri(conn.uri, plexToken);
 						if (reachable) {
 							best = conn;
+							found = true;
 							console.log(`      ✅ Reachable: ${conn.uri}`);
 							break;
 						}
 						console.log(`      ❌ Unreachable: ${conn.uri}`);
+					}
+
+					// Fallback: try plain http://address:port if *.plex.direct URIs failed
+					if (!found) {
+						const triedUris = new Set(sorted.map((c) => c.uri));
+						for (const conn of sorted) {
+							if (!conn.address) continue;
+							const directUri = `http://${conn.address}:${conn.port}`;
+							if (triedUris.has(directUri)) continue;
+							console.log(`      🔗 Trying direct HTTP: ${directUri}`);
+							if (await this.testConnectionUri(directUri, plexToken)) {
+								best = { uri: directUri, address: conn.address, port: conn.port, local: true };
+								console.log(`      ✅ Reachable via direct HTTP: ${directUri}`);
+								break;
+							}
+						}
 					}
 
 					const server: PlexServer = {
@@ -332,6 +368,24 @@ class PlexDiscoveryService {
 					server.address = conn.address;
 					server.port = conn.port;
 					server.local = conn.local;
+					return true;
+				}
+			}
+
+			// Last resort: try plain http://address:port for local connections
+			// (*.plex.direct DNS may not resolve for new/local-only servers)
+			const triedUris = new Set([server.uri, ...server.connections.map((c) => c.uri)]);
+			for (const conn of server.connections) {
+				if (!conn.address) continue;
+				const directUri = `http://${conn.address}:${conn.port}`;
+				if (triedUris.has(directUri)) continue;
+				console.log(`🔗 Trying direct HTTP fallback: ${directUri}`);
+				if (await this.testConnectionUri(directUri, plexToken)) {
+					console.log(`✅ Server ${server.name}: Connected via direct HTTP ${directUri}`);
+					server.uri = directUri;
+					server.address = conn.address;
+					server.port = conn.port;
+					server.local = true;
 					return true;
 				}
 			}
