@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { InteractionManager } from 'react-native';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
-import TrackPlayer, { Capability, Event, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
+import TrackPlayer, { Capability, Event, IOSCategory, IOSCategoryMode, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
 import { create } from 'zustand';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
@@ -121,6 +120,15 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 	return [currentSong, ...shuffled];
 }
 
+// Track which song URL has been pre-warmed to avoid duplicate fetches
+let prewarmedUrl: string | null = null;
+
+// Natural advance (track ended → next started): latency tracking (excludes skips)
+let naturalAdvanceEnd: ((metadata?: Record<string, unknown>) => void) | null = null;
+let naturalAdvanceEndSongId: string | null = null;
+let lastUserSkipAt = 0;
+const SKIP_DEBOUNCE_MS = 2000;
+
 // Debounced position save (max once per 2 seconds)
 let positionSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 const debouncedSavePosition = (position: number) => {
@@ -213,7 +221,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		try {
 			// Try to setup player, but ignore if already initialized
 			try {
-				await TrackPlayer.setupPlayer();
+				await TrackPlayer.setupPlayer({
+					iosCategory: IOSCategory.Playback,
+					iosCategoryMode: IOSCategoryMode.Default,
+					autoHandleInterruptions: true,
+					minBuffer: 120,
+					maxBuffer: 300,
+					playBuffer: 1,
+					waitForBuffer: false,
+				});
 			} catch (setupError: any) {
 				// If player is already initialized, that's fine - just continue
 				if (setupError?.message?.includes('already been initialized')) {
@@ -353,75 +369,58 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Play sound
 	playSound: async (song: Song, newQueue?: Song[]) => {
+		lastUserSkipAt = Date.now(); // user-initiated track change, not natural advance
 		return performanceMonitor.trackAsync('playSound', async () => {
 			try {
-				set({ error: null });
+				// Update UI immediately — don't wait for TrackPlayer
+				set({ error: null, currentSong: song });
+				saveCurrentSongId(song);
+				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
-			const state = get();
-			const currentQueue = await TrackPlayer.getQueue();
-
-			// Optimized queue comparison - check if queue IDs match
-			const currentQueueIds = currentQueue.map((t) => t.id);
-			const newQueueIds = newQueue?.map((s) => s.id.toString()) || [];
-			const isNewQueue =
-				!newQueue ||
-				currentQueue.length === 0 ||
-				newQueue.length !== currentQueue.length ||
-				!newQueueIds.every((id, idx) => id === currentQueueIds[idx]);
-
-			if (isNewQueue && newQueue) {
-				await TrackPlayer.reset();
-
-				// Store the queue
-				const queueToUse = state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
-
-				await TrackPlayer.add(queueToUse.map(songToTrack));
-
-				const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-				if (trackIndex !== -1) {
-					await TrackPlayer.skip(trackIndex);
-				}
-
-				saveQueueState(queueToUse, newQueue, song);
-
-				set({
-					queue: queueToUse,
-					originalQueue: newQueue,
-				});
-			} else if (newQueue) {
-				// Same queue, just skip to the song - much faster path
-				const trackIndex = currentQueue.findIndex((t) => t.id === song.id);
-				if (trackIndex !== -1) {
-					await TrackPlayer.skip(trackIndex);
-				}
-			} else {
-				// Single song
-				await TrackPlayer.reset();
-				await TrackPlayer.add(songToTrack(song));
-				set({ queue: [song], originalQueue: [song] });
-			}
-
-			// Update current song immediately for UI responsiveness
-			set({ currentSong: song });
-			
-			saveCurrentSongId(song);
-			AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
-
-			// Extract artwork color asynchronously (non-blocking)
-			// Use InteractionManager to defer until after interactions complete
-			InteractionManager.runAfterInteractions(() => {
+				// Fire-and-forget artwork color extraction
 				extractArtworkColor(song)
-					.then((color) => {
-						set({ artworkBgColor: color });
-					})
-					.catch((err) => {
-						console.warn('Failed to extract artwork color:', err);
-						set({ artworkBgColor: '#000' });
-					});
-			});
+					.then((color) => set({ artworkBgColor: color }))
+					.catch(() => set({ artworkBgColor: '#000' }));
 
-			// Start playback
-			await TrackPlayer.play();
+				const state = get();
+
+				// Compare queues using Zustand state — no bridge call needed
+				const isSameQueue = newQueue
+					&& state.queue.length === newQueue.length
+					&& state.queue.length > 0
+					&& state.queue[0]?.id === newQueue[0]?.id
+					&& state.queue[state.queue.length - 1]?.id === newQueue[newQueue.length - 1]?.id;
+
+				if (isSameQueue) {
+					// Same queue — just skip to the song (fastest path)
+					const trackIndex = state.queue.findIndex((s) => s.id === song.id);
+					if (trackIndex !== -1) {
+						await TrackPlayer.skip(trackIndex);
+					}
+					await TrackPlayer.play();
+				} else if (newQueue) {
+					// New queue — reset and load
+					const queueToUse = state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
+
+					await TrackPlayer.reset();
+					await TrackPlayer.add(queueToUse.map(songToTrack));
+
+					const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
+					if (trackIndex !== -1) {
+						await TrackPlayer.skip(trackIndex);
+					}
+
+					saveQueueState(queueToUse, newQueue, song);
+					set({ queue: queueToUse, originalQueue: newQueue });
+
+					await TrackPlayer.play();
+				} else {
+					// Single song
+					await TrackPlayer.reset();
+					await TrackPlayer.add(songToTrack(song));
+					set({ queue: [song], originalQueue: [song] });
+					await TrackPlayer.play();
+				}
 			} catch (error) {
 				console.error('Error in playSound:', error);
 				set({
@@ -451,6 +450,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Skip to next
 	skipToNext: async () => {
+		lastUserSkipAt = Date.now();
 		return performanceMonitor.trackAsync('skipToNext', async () => {
 			try {
 			const state = get();
@@ -479,6 +479,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Skip to previous
 	skipToPrevious: async () => {
+		lastUserSkipAt = Date.now();
 		return performanceMonitor.trackAsync('skipToPrevious', async () => {
 			try {
 			const state = get();
@@ -645,6 +646,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	},
 
 	// Toggle shuffle — swaps upcoming tracks without interrupting current playback
+	// Toggle shuffle — reorders queue around the current track without interrupting playback
 	toggleShuffle: async () => {
 		const state = get();
 		const newShuffleState = !state.isShuffled;
@@ -659,25 +661,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 		set({ isShuffled: newShuffleState, queue: newQueue });
 
-		// Swap upcoming tracks in TrackPlayer without resetting the current track
+		// Rebuild TrackPlayer queue around the current track without interrupting it
 		try {
 			const activeIndex = await TrackPlayer.getActiveTrackIndex();
 			if (activeIndex != null) {
-				// Remove everything after the current track
+				// Remove tracks BEFORE the current one (so current becomes index 0)
+				if (activeIndex > 0) {
+					const beforeIndices = Array.from({ length: activeIndex }, (_, i) => i);
+					await TrackPlayer.remove(beforeIndices);
+				}
+				// Now current track is at index 0 — remove everything after it
 				await TrackPlayer.removeUpcomingTracks();
 
-				// Find the current song in the new queue order
+				// Build the rest of the queue: everything except current song
 				const currentId = state.currentSong?.id;
-				const newCurrentIdx = newQueue.findIndex((s) => s.id === currentId);
+				const rest = newQueue.filter((s) => s.id !== currentId);
 
-				// Add tracks that come after the current song in the new order
-				const upcoming = newQueue.slice(newCurrentIdx + 1);
-				// Also wrap around: tracks before the current song (for repeat-queue)
-				const wrapped = newQueue.slice(0, newCurrentIdx);
-				const tracksToAdd = [...upcoming, ...wrapped];
-
-				if (tracksToAdd.length > 0) {
-					await TrackPlayer.add(tracksToAdd.map(songToTrack));
+				if (rest.length > 0) {
+					await TrackPlayer.add(rest.map(songToTrack));
 				}
 			}
 		} catch (err) {
@@ -753,6 +754,27 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				state._setPosition(event.position);
 				state._setDuration(event.duration);
+
+				const remaining = event.duration - event.position;
+
+				// Start latency timer when current track is about to end (natural advance only)
+				if (remaining > 0 && remaining < 0.5 && state.currentSong && naturalAdvanceEndSongId !== state.currentSong.id) {
+					naturalAdvanceEnd = performanceMonitor.startTimer('playback-natural-advance-latency');
+					naturalAdvanceEndSongId = state.currentSong.id;
+				}
+
+				// Pre-warm HTTP connection for next track when nearing end of current
+				if (remaining > 0 && remaining < 30 && state.queue.length > 1 && state.currentSong) {
+					const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					if (currentIndex !== -1) {
+						const nextIndex = (currentIndex + 1) % state.queue.length;
+						const nextSong = state.queue[nextIndex];
+						if (nextSong && nextSong.uri !== prewarmedUrl) {
+							prewarmedUrl = nextSong.uri;
+							fetch(nextSong.uri, { method: 'HEAD' }).catch(() => {});
+						}
+					}
+				}
 			}
 
 			if (event.type === Event.PlaybackQueueEnded) {
@@ -768,6 +790,32 @@ export function useTrackPlayerSync() {
 
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
+
+				const previousSongId = state.currentSong?.id ?? null;
+				const isNaturalAdvance =
+					naturalAdvanceEnd != null &&
+					naturalAdvanceEndSongId != null &&
+					naturalAdvanceEndSongId === previousSongId &&
+					Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
+				if (isNaturalAdvance && naturalAdvanceEnd) {
+					naturalAdvanceEnd({
+						fromSongId: previousSongId,
+						toSongId: newCurrentSong.id,
+						fromIndex: state.queue.findIndex((s) => s.id === previousSongId),
+						toIndex: trackIndex,
+					});
+					if (__DEV__) {
+						const latencyMs = performanceMonitor.getMetricsByName('playback-natural-advance-latency').slice(-1)[0]?.duration;
+						console.log(
+							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id}${latencyMs != null ? ` (${latencyMs.toFixed(0)}ms latency)` : ''}`,
+						);
+					}
+					naturalAdvanceEnd = null;
+					naturalAdvanceEndSongId = null;
+				}
+
+				// Reset pre-warm tracker for the new track
+				prewarmedUrl = null;
 
 				state._setCurrentSong(newCurrentSong);
 
@@ -798,10 +846,12 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.RemoteNext) {
+				lastUserSkipAt = Date.now();
 				await state.skipToNext();
 			}
 
 			if (event.type === Event.RemotePrevious) {
+				lastUserSkipAt = Date.now();
 				await state.skipToPrevious();
 			}
 		},
