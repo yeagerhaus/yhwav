@@ -1,10 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '../Div';
 import { HeaderBackButton } from './HeaderBackButton';
 
 export function InternalHeader() {
-	const insets = useSafeAreaInsets();
 
 	return (
 		<Div
@@ -16,12 +13,6 @@ export function InternalHeader() {
 				width: '100%',
 			}}
 		>
-			{/* <LinearGradient
-				colors={['#000000', 'transparent']}
-				style={{ paddingTop: insets.top }}
-				start={{ x: 0, y: 0 }}
-				end={{ x: 1, y: 0 }}
-			> */}
 			<Div
 				style={{
 					width: '100%',
@@ -33,7 +24,6 @@ export function InternalHeader() {
 			>
 				<HeaderBackButton />
 			</Div>
-			{/* </LinearGradient> */}
 		</Div>
 	);
 }

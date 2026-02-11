@@ -1,8 +1,12 @@
-import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
+import { Main } from '@/components/Main';
+import { Div } from '@/components/Div';
+import { ThemedText } from '@/components';
+import { Colors } from '@/constants/Colors';
+import { hexWithOpacity } from '@/utils/styles';
 
 export default function SettingsScreen() {
 	const [plexToken, setPlexToken] = useState('');
@@ -106,6 +110,35 @@ export default function SettingsScreen() {
 		}
 	};
 
+	const handleClearCache = async () => {
+		Alert.alert(
+			'Clear Cache & Reload',
+			'This will clear all cached library data and re-fetch everything from the server. This may take a moment for large libraries.',
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Clear & Reload',
+					style: 'destructive',
+					onPress: async () => {
+						setIsLoading(true);
+						try {
+							const count = await clearCacheAndReload();
+							if (count > 0) {
+								Alert.alert('Success', `Reloaded ${count.toLocaleString()} tracks from server.`);
+							} else {
+								Alert.alert('Error', 'Failed to reload library. Check your server connection.');
+							}
+						} catch (error: any) {
+							Alert.alert('Error', error.message);
+						} finally {
+							setIsLoading(false);
+						}
+					},
+				},
+			],
+		);
+	};
+
 	const handleRefreshServers = async () => {
 		setIsLoading(true);
 		try {
@@ -163,31 +196,36 @@ export default function SettingsScreen() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container}>
-			<ScrollView style={styles.scrollView}>
-				<View style={styles.header}>
-					<TouchableOpacity onPress={() => router.back()}>
-						<Text style={styles.backButton}>← Back</Text>
-					</TouchableOpacity>
-					<Text style={styles.title}>Plex Settings</Text>
-				</View>
+			<Main style={{ backgroundColor: '#000', paddingHorizontal: 16 }}>
+				<Div>
+					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Settings</ThemedText>
+				</Div>
 
 				{authState.isAuthenticated ? (
-					<>
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>Connected as</Text>
-							<Text style={styles.userInfo}>{authState.username}</Text>
-							<Text style={styles.userEmail}>{authState.email}</Text>
-						</View>
+					<Div style={{ flex: 1, gap: 24 }}>
+						<Div style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+							<ThemedText style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Connected as: </ThemedText>
+							<ThemedText style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>{authState.username}</ThemedText>
+						</Div>
 
 						{renderServerList()}
 
-						<View style={styles.section}>
-							<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-								<Text style={styles.logoutButtonText}>Logout</Text>
-							</TouchableOpacity>
-						</View>
-					</>
+						<TouchableOpacity
+							style={[styles.clearCacheButton, isLoading && styles.disabledButton]}
+							onPress={handleClearCache}
+							disabled={isLoading}
+						>
+							{isLoading ? (
+								<ActivityIndicator color='#fff' size='small' />
+							) : (
+								<Text style={styles.clearCacheButtonText}>Clear Cache & Reload Library</Text>
+							)}
+						</TouchableOpacity>
+
+						<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+							<Text style={styles.logoutButtonText}>Logout</Text>
+						</TouchableOpacity>
+					</Div>
 				) : (
 					<>
 						<View style={styles.section}>
@@ -314,8 +352,7 @@ export default function SettingsScreen() {
 						</View>
 					</>
 				)}
-			</ScrollView>
-		</SafeAreaView>
+		</Main>
 	);
 }
 
@@ -384,8 +421,8 @@ const styles = StyleSheet.create({
 		borderColor: '#333',
 	},
 	selectedServerItem: {
-		borderColor: '#007AFF',
-		backgroundColor: '#001a33',
+		borderColor: Colors.brand.primary,
+		backgroundColor: hexWithOpacity(Colors.brand.primary, 0.1),
 	},
 	serverInfo: {
 		flex: 1,
@@ -407,12 +444,12 @@ const styles = StyleSheet.create({
 		fontFamily: 'monospace',
 	},
 	selectedIndicator: {
-		color: '#007AFF',
+		color: Colors.brand.primary,
 		fontSize: 20,
 		fontWeight: 'bold',
 	},
 	refreshButton: {
-		color: '#007AFF',
+		color: Colors.brand.primary,
 		fontSize: 14,
 		fontWeight: '600',
 	},
@@ -437,7 +474,7 @@ const styles = StyleSheet.create({
 		gap: 10,
 	},
 	connectButton: {
-		backgroundColor: '#007AFF',
+		backgroundColor: Colors.brand.primary,
 		padding: 15,
 		borderRadius: 8,
 		alignItems: 'center',
@@ -448,7 +485,7 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 	},
 	loginButton: {
-		backgroundColor: '#007AFF',
+		backgroundColor: Colors.brand.primary,
 		padding: 12,
 		borderRadius: 8,
 		flex: 1,
@@ -467,6 +504,19 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	cancelButtonText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '600',
+	},
+	clearCacheButton: {
+		backgroundColor: '#333',
+		padding: 15,
+		borderRadius: 8,
+		alignItems: 'center',
+		borderWidth: 1,
+		borderColor: '#555',
+	},
+	clearCacheButtonText: {
 		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
@@ -516,13 +566,13 @@ const styles = StyleSheet.create({
 		padding: 20,
 		borderRadius: 8,
 		borderWidth: 2,
-		borderColor: '#007AFF',
+		borderColor: Colors.brand.primary,
 		marginBottom: 15,
 		minWidth: 120,
 		alignItems: 'center',
 	},
 	pinCode: {
-		color: '#007AFF',
+		color: Colors.brand.primary,
 		fontSize: 32,
 		fontWeight: 'bold',
 		letterSpacing: 4,

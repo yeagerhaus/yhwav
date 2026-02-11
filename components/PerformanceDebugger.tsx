@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { performanceMonitor } from '@/utils/performance';
+import { Colors } from '@/constants/Colors';
 
 export function PerformanceDebugger() {
 	const [visible, setVisible] = useState(false);
@@ -33,7 +34,7 @@ export function PerformanceDebugger() {
 				style={styles.toggleButton}
 				onPress={() => setVisible(!visible)}
 			>
-				<Text style={styles.toggleButtonText}>📊 Perf</Text>
+				<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
 			</Pressable>
 
 			{visible && (
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	sectionTitle: {
-		color: '#4CAF50',
+		color: Colors.brand.primary,
 		fontSize: 14,
 		fontWeight: 'bold',
 		marginBottom: 8,
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 	},
 	button: {
-		backgroundColor: '#2196F3',
+		backgroundColor: Colors.brand.primary,
 		padding: 10,
 		borderRadius: 6,
 		marginTop: 8,
