@@ -1,6 +1,5 @@
 export * from './BottomSheet/ExpandedPlayer';
 export * from './BottomSheet/MiniPlayer';
-export * from './CategoryCard';
 export * from './ContextMenu';
 export * from './DynamicItem';
 export * from './MusicVisualizer';

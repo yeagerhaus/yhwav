@@ -3,9 +3,9 @@
  * Run these tests to identify bottlenecks
  */
 
-import { performanceMonitor } from './performance';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { performanceMonitor } from './performance';
 
 /**
  * Generate mock library data for testing
@@ -38,11 +38,15 @@ export async function testLibraryLoading(trackCount: number = 10000) {
 
 	const mockTracks = generateMockLibrary(trackCount);
 
-	await performanceMonitor.trackAsync('library-load', async () => {
-		useLibraryStore.getState().setTracks(mockTracks);
-		// Wait for processing to complete
-		await new Promise((resolve) => setTimeout(resolve, 2000));
-	}, { trackCount });
+	await performanceMonitor.trackAsync(
+		'library-load',
+		async () => {
+			useLibraryStore.getState().setTracks(mockTracks);
+			// Wait for processing to complete
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+		},
+		{ trackCount },
+	);
 
 	const metrics = performanceMonitor.getMetricsByName('library-load');
 	if (metrics.length > 0) {
@@ -89,7 +93,7 @@ export async function testTrackSwitching(trackCount: number = 100) {
 export function testSearchPerformance(query: string) {
 	console.log(`🧪 Testing search with query: "${query}"...`);
 
-	const { tracks, songsById } = useLibraryStore.getState();
+	const { tracks } = useLibraryStore.getState();
 
 	const start = performance.now();
 
@@ -121,14 +125,14 @@ export function testSearchPerformance(query: string) {
 export function testFlatListRendering(itemCount: number = 1000) {
 	console.log(`🧪 Testing FlatList rendering with ${itemCount} items...`);
 
-	const mockTracks = generateMockLibrary(itemCount);
+	const _mockTracks = generateMockLibrary(itemCount);
 	const start = performance.now();
 
 	// Simulate rendering (this is just a rough estimate)
 	// In real testing, you'd measure actual render times
 	const renderTime = itemCount * 0.1; // Estimated 0.1ms per item
 
-	const duration = performance.now() - start;
+	const _duration = performance.now() - start;
 
 	console.log(`✅ FlatList rendering test:`);
 	console.log(`   Estimated render time: ${renderTime.toFixed(2)}ms`);
@@ -166,7 +170,7 @@ if (__DEV__) {
 	(global as any).testLibraryLoading = testLibraryLoading;
 	(global as any).testTrackSwitching = testTrackSwitching;
 	(global as any).testSearchPerformance = testSearchPerformance;
-	
+
 	// Helper functions for analysis
 	(global as any).exportPerformanceData = () => {
 		console.log('📊 Performance Summary:');
@@ -175,9 +179,8 @@ if (__DEV__) {
 		console.log(performanceMonitor.exportMetrics());
 		return performanceMonitor.exportMetrics();
 	};
-	
+
 	(global as any).getPerformanceSummary = () => {
 		return performanceMonitor.generateSummary();
 	};
 }
-

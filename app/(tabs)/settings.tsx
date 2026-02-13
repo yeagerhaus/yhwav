@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ThemedText } from '@/components';
+import { Div } from '@/components/Div';
+import { Main } from '@/components/Main';
+import { Colors } from '@/constants/Colors';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
-import { Main } from '@/components/Main';
-import { Div } from '@/components/Div';
-import { ThemedText } from '@/components';
-import { Colors } from '@/constants/Colors';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function SettingsScreen() {
@@ -196,170 +196,160 @@ export default function SettingsScreen() {
 	};
 
 	return (
-			<Main style={{ backgroundColor: '#000', paddingHorizontal: 16 }}>
-				<Div>
-					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Settings</ThemedText>
-				</Div>
+		<Main style={{ backgroundColor: '#000', paddingHorizontal: 16 }}>
+			<Div>
+				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Settings</ThemedText>
+			</Div>
 
-				{authState.isAuthenticated ? (
-					<Div style={{ flex: 1, gap: 24 }}>
-						<Div style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-							<ThemedText style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Connected as: </ThemedText>
-							<ThemedText style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>{authState.username}</ThemedText>
-						</Div>
-
-						{renderServerList()}
-
-						<TouchableOpacity
-							style={[styles.clearCacheButton, isLoading && styles.disabledButton]}
-							onPress={handleClearCache}
-							disabled={isLoading}
-						>
-							{isLoading ? (
-								<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-									<ActivityIndicator size='large' color={Colors.brand.primary} />
-								</Div>
-							) : (
-								<Text style={styles.clearCacheButtonText}>Clear Cache & Reload Library</Text>
-							)}
-						</TouchableOpacity>
-
-						<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-							<Text style={styles.logoutButtonText}>Logout</Text>
-						</TouchableOpacity>
+			{authState.isAuthenticated ? (
+				<Div style={{ flex: 1, gap: 24 }}>
+					<Div style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+						<ThemedText style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Connected as: </ThemedText>
+						<ThemedText style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>{authState.username}</ThemedText>
 					</Div>
-				) : (
-					<>
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>Connect to Plex</Text>
-							<Text style={styles.sectionDescription}>
-								Sign in with your Plex account to access your media servers.
-							</Text>
-						</View>
 
-						{/* PIN-based authentication */}
-						{!pinCode ? (
-							<View style={styles.section}>
-								<TouchableOpacity
-									style={[styles.connectButton, isLoading && styles.disabledButton]}
-									onPress={handlePinLogin}
-									disabled={isLoading}
-								>
-									{isLoading ? (
-										<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-											<ActivityIndicator size='large' color={Colors.brand.primary} />
-										</Div>
-									) : (
-										<Text style={styles.connectButtonText}>Sign in with Plex</Text>
-									)}
-								</TouchableOpacity>
-							</View>
+					{renderServerList()}
+
+					<TouchableOpacity
+						style={[styles.clearCacheButton, isLoading && styles.disabledButton]}
+						onPress={handleClearCache}
+						disabled={isLoading}
+					>
+						{isLoading ? (
+							<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+								<ActivityIndicator size='large' color={Colors.brand.primary} />
+							</Div>
 						) : (
-							<View style={styles.section}>
-								<View style={styles.pinContainer}>
-									<Text style={styles.pinLabel}>Enter this code on plex.tv/activate</Text>
-									<View style={styles.pinCodeContainer}>
-										<Text style={styles.pinCode}>{pinCode}</Text>
-									</View>
-									{pinStatus && (
-										<Text style={styles.pinStatus}>{pinStatus}</Text>
-									)}
-									{isLoading && (
-										<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-											<ActivityIndicator size='large' color={Colors.brand.primary} />
-										</Div>
-									)}
-								</View>
-								<TouchableOpacity
-									style={styles.cancelButton}
-									onPress={() => {
-										setPinCode(null);
-										setPinStatus('');
-										setIsLoading(false);
-									}}
-								>
-									<Text style={styles.cancelButtonText}>Cancel</Text>
-								</TouchableOpacity>
-							</View>
+							<Text style={styles.clearCacheButtonText}>Clear Cache & Reload Library</Text>
 						)}
+					</TouchableOpacity>
 
-						{/* Advanced: Manual token entry */}
+					<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+						<Text style={styles.logoutButtonText}>Logout</Text>
+					</TouchableOpacity>
+				</Div>
+			) : (
+				<>
+					<View style={styles.section}>
+						<Text style={styles.sectionTitle}>Connect to Plex</Text>
+						<Text style={styles.sectionDescription}>Sign in with your Plex account to access your media servers.</Text>
+					</View>
+
+					{/* PIN-based authentication */}
+					{!pinCode ? (
 						<View style={styles.section}>
 							<TouchableOpacity
-								style={styles.advancedToggle}
-								onPress={() => setShowAdvanced(!showAdvanced)}
+								style={[styles.connectButton, isLoading && styles.disabledButton]}
+								onPress={handlePinLogin}
+								disabled={isLoading}
 							>
-								<Text style={styles.advancedToggleText}>
-									{showAdvanced ? '▼' : '▶'} Advanced: Manual Token Entry
-								</Text>
+								{isLoading ? (
+									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+										<ActivityIndicator size='large' color={Colors.brand.primary} />
+									</Div>
+								) : (
+									<Text style={styles.connectButtonText}>Sign in with Plex</Text>
+								)}
 							</TouchableOpacity>
-
-							{showAdvanced && (
-								<View style={styles.advancedSection}>
-									<Text style={styles.sectionDescription}>
-										If PIN authentication doesn't work, you can manually enter your Plex token.
-									</Text>
-
-									{showTokenInput ? (
-										<View style={styles.tokenInputSection}>
-											<Text style={styles.inputLabel}>Plex Token</Text>
-											<TextInput
-												style={styles.textInput}
-												value={plexToken}
-												onChangeText={setPlexToken}
-												placeholder='Enter your Plex token'
-												secureTextEntry
-												autoCapitalize='none'
-												autoCorrect={false}
-											/>
-											<View style={styles.buttonRow}>
-												<TouchableOpacity
-													style={styles.cancelButton}
-													onPress={() => {
-														setShowTokenInput(false);
-														setPlexToken('');
-													}}
-												>
-													<Text style={styles.cancelButtonText}>Cancel</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													style={[styles.loginButton, isLoading && styles.disabledButton]}
-													onPress={handleTokenLogin}
-													disabled={isLoading}
-												>
-													{isLoading ? (
-														<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-															<ActivityIndicator size='large' color={Colors.brand.primary} />
-														</Div>
-													) : (
-														<Text style={styles.loginButtonText}>Connect</Text>
-													)}
-												</TouchableOpacity>
-											</View>
-										</View>
-									) : (
-										<TouchableOpacity
-											style={styles.tokenButton}
-											onPress={() => setShowTokenInput(true)}
-										>
-											<Text style={styles.tokenButtonText}>Enter Token Manually</Text>
-										</TouchableOpacity>
-									)}
-
-									<View style={styles.helpSection}>
-										<Text style={styles.helpTitle}>How to get your Plex token:</Text>
-										<Text style={styles.helpText}>
-											1. Go to plex.tv and sign in{'\n'}
-											2. Go to Settings → Network → Advanced{'\n'}
-											3. Click "Show Advanced" and find "Plex Token"{'\n'}
-											4. Copy the token and paste it above
-										</Text>
-									</View>
-								</View>
-							)}
 						</View>
-					</>
-				)}
+					) : (
+						<View style={styles.section}>
+							<View style={styles.pinContainer}>
+								<Text style={styles.pinLabel}>Enter this code on plex.tv/activate</Text>
+								<View style={styles.pinCodeContainer}>
+									<Text style={styles.pinCode}>{pinCode}</Text>
+								</View>
+								{pinStatus && <Text style={styles.pinStatus}>{pinStatus}</Text>}
+								{isLoading && (
+									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+										<ActivityIndicator size='large' color={Colors.brand.primary} />
+									</Div>
+								)}
+							</View>
+							<TouchableOpacity
+								style={styles.cancelButton}
+								onPress={() => {
+									setPinCode(null);
+									setPinStatus('');
+									setIsLoading(false);
+								}}
+							>
+								<Text style={styles.cancelButtonText}>Cancel</Text>
+							</TouchableOpacity>
+						</View>
+					)}
+
+					{/* Advanced: Manual token entry */}
+					<View style={styles.section}>
+						<TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvanced(!showAdvanced)}>
+							<Text style={styles.advancedToggleText}>{showAdvanced ? '▼' : '▶'} Advanced: Manual Token Entry</Text>
+						</TouchableOpacity>
+
+						{showAdvanced && (
+							<View style={styles.advancedSection}>
+								<Text style={styles.sectionDescription}>
+									If PIN authentication doesn't work, you can manually enter your Plex token.
+								</Text>
+
+								{showTokenInput ? (
+									<View style={styles.tokenInputSection}>
+										<Text style={styles.inputLabel}>Plex Token</Text>
+										<TextInput
+											style={styles.textInput}
+											value={plexToken}
+											onChangeText={setPlexToken}
+											placeholder='Enter your Plex token'
+											secureTextEntry
+											autoCapitalize='none'
+											autoCorrect={false}
+										/>
+										<View style={styles.buttonRow}>
+											<TouchableOpacity
+												style={styles.cancelButton}
+												onPress={() => {
+													setShowTokenInput(false);
+													setPlexToken('');
+												}}
+											>
+												<Text style={styles.cancelButtonText}>Cancel</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={[styles.loginButton, isLoading && styles.disabledButton]}
+												onPress={handleTokenLogin}
+												disabled={isLoading}
+											>
+												{isLoading ? (
+													<Div
+														style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}
+													>
+														<ActivityIndicator size='large' color={Colors.brand.primary} />
+													</Div>
+												) : (
+													<Text style={styles.loginButtonText}>Connect</Text>
+												)}
+											</TouchableOpacity>
+										</View>
+									</View>
+								) : (
+									<TouchableOpacity style={styles.tokenButton} onPress={() => setShowTokenInput(true)}>
+										<Text style={styles.tokenButtonText}>Enter Token Manually</Text>
+									</TouchableOpacity>
+								)}
+
+								<View style={styles.helpSection}>
+									<Text style={styles.helpTitle}>How to get your Plex token:</Text>
+									<Text style={styles.helpText}>
+										1. Go to plex.tv and sign in{'\n'}
+										2. Go to Settings → Network → Advanced{'\n'}
+										3. Click "Show Advanced" and find "Plex Token"{'\n'}
+										4. Copy the token and paste it above
+									</Text>
+								</View>
+							</View>
+						)}
+					</View>
+				</>
+			)}
 		</Main>
 	);
 }

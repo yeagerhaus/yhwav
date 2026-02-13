@@ -36,18 +36,14 @@ export const ExpandedPlayer = React.memo(
 			<BlurView intensity={100} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
 				{/* Layer 1: top-left → bottom-right diagonal */}
 				<LinearGradient
-					colors={hasColors
-						? [ultraBlur.topLeft, ultraBlur.bottomRight]
-						: [fallbackColor, fallbackColor]}
+					colors={hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor]}
 					style={styles.rootContainer}
 					start={{ x: 0, y: 0 }}
 					end={{ x: 1, y: 1 }}
 				>
 					{/* Layer 2: top-right → bottom-left diagonal, semi-transparent overlay */}
 					<LinearGradient
-						colors={hasColors
-							? [ultraBlur.topRight + 'CC', ultraBlur.bottomLeft + 'CC']
-							: ['transparent', 'transparent']}
+						colors={hasColors ? [`${ultraBlur.topRight}CC`, `${ultraBlur.bottomLeft}CC`] : ['transparent', 'transparent']}
 						style={styles.rootContainer}
 						start={{ x: 1, y: 0 }}
 						end={{ x: 0, y: 1 }}

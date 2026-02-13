@@ -95,14 +95,14 @@ export class PlexClient {
 
 		// Validate and clean the server URI
 		let serverUri = selectedServer.uri.trim();
-		
+
 		// Remove any existing API paths and ensure we have just the base server URL
 		serverUri = serverUri
 			.replace(/\/playlists.*$/, '')
 			.replace(/\/library.*$/, '')
 			.replace(/\/status.*$/, '')
 			.replace(/\/$/, '');
-		
+
 		// Validate URI format - must have protocol and hostname
 		if (!serverUri.match(/^https?:\/\/.+/)) {
 			// If URI is missing hostname, try to construct it from address and port
@@ -115,7 +115,7 @@ export class PlexClient {
 				);
 			}
 		}
-		
+
 		this.baseURL = serverUri;
 		this.token = plexAuthService.getAccessToken() || '';
 
@@ -147,16 +147,12 @@ export class PlexClient {
 	 * Auto-discover music section ID from library
 	 */
 	private async discoverMusicSection(): Promise<void> {
-		try {
-			const sections = await this.getLibrarySections();
-			const musicSection = sections.find((section: any) => section.type === 'artist' || section.type === 'music');
-			if (musicSection) {
-				this.musicSectionId = musicSection.key;
-			} else {
-				throw new Error('No music section found in library');
-			}
-		} catch (error) {
-			throw error;
+		const sections = await this.getLibrarySections();
+		const musicSection = sections.find((section: any) => section.type === 'artist' || section.type === 'music');
+		if (musicSection) {
+			this.musicSectionId = musicSection.key;
+		} else {
+			throw new Error('No music section found in library');
 		}
 	}
 
@@ -178,9 +174,7 @@ export class PlexClient {
 	private buildURL(path: string, params: Record<string, string> = {}): string {
 		// Validate baseURL before using it
 		if (!this.baseURL || !this.baseURL.match(/^https?:\/\/.+/)) {
-			throw new Error(
-				`Invalid baseURL: "${this.baseURL}". Please ensure you are authenticated and have selected a valid server.`,
-			);
+			throw new Error(`Invalid baseURL: "${this.baseURL}". Please ensure you are authenticated and have selected a valid server.`);
 		}
 
 		// Ensure path starts with /
@@ -432,7 +426,8 @@ export class PlexClient {
 		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
 			type: '10', // 10 = track
 			sort: 'titleSort:asc',
-			includeFields: 'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+			includeFields:
+				'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
 		});
 
 		const data = response.data as any;
@@ -526,7 +521,7 @@ export class PlexClient {
 		const streamUrl = part?.key ? this.buildTrackURL(part.key) : '';
 
 		// Build artwork URL (prefer thumb, fallback to art)
-		const artworkUrl = track.thumb ? this.buildTrackURL(track.thumb) : (track.art ? this.buildTrackURL(track.art) : undefined);
+		const artworkUrl = track.thumb ? this.buildTrackURL(track.thumb) : track.art ? this.buildTrackURL(track.art) : undefined;
 
 		const title = track.title || 'Unknown Title';
 		const artist = track.grandparentTitle || 'Unknown Artist';
@@ -605,11 +600,7 @@ export class PlexClient {
 		}
 
 		try {
-			const response = await this.request<any>(
-				'/services/ultrablur/colors',
-				{ url: thumbPath },
-				{ timeout: 5000, retries: 1 },
-			);
+			const response = await this.request<any>('/services/ultrablur/colors', { url: thumbPath }, { timeout: 5000, retries: 1 });
 
 			const data = response.data;
 
@@ -626,7 +617,7 @@ export class PlexClient {
 			}
 
 			return colors.length > 0 ? colors : null;
-		} catch (err) {
+		} catch (_err) {
 			return null;
 		}
 	}

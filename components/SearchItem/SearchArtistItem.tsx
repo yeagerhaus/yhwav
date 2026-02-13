@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import type { Artist } from '@/types/artist';
 import { Colors } from '@/constants/Colors';
+import type { Artist } from '@/types/artist';
 
 interface SearchArtistItemProps {
 	artist: Artist;

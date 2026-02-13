@@ -27,9 +27,7 @@ export default function LibraryScreen() {
 	}, []);
 
 	return (
-		<Main
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
-		>
+		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}>
 			<Div style={{ paddingHorizontal: 16, marginBottom: 16 }}>
 				<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
 					{Number(trackCount).toLocaleString()} {trackCount === 1 ? 'Song' : 'Songs'} in Library
@@ -38,9 +36,7 @@ export default function LibraryScreen() {
 					scrollEnabled={false}
 					data={SECTIONS}
 					keyExtractor={(item) => item.title}
-					renderItem={({ item }) => (
-						<DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />
-					)}
+					renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
 				/>
 			</Div>
 			<ThemedText style={styles.title}>Recent Plays</ThemedText>

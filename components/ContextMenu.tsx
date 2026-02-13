@@ -51,7 +51,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 
 			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
 				<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
-					<Div useGlass
+					<Div
+						useGlass
 						style={[
 							styles.menuContainer,
 							{

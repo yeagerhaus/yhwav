@@ -4,8 +4,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { libraryStore } from '@/utils/library-store';
 import type { Song } from '@/types';
+import { libraryStore } from '@/utils/library-store';
 
 /**
  * Hook to access library store with automatic subscription

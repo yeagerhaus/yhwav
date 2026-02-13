@@ -23,9 +23,7 @@ export const SongInfo = React.memo(() => {
 
 	// Find matching artist/album by name to get their ratingKey for navigation
 	const matchedArtist = artists.find((a) => a.name === currentSong.artist);
-	const matchedAlbum = albums.find(
-		(a) => a.title === currentSong.album && a.artist === currentSong.artist,
-	);
+	const matchedAlbum = albums.find((a) => a.title === currentSong.album && a.artist === currentSong.artist);
 
 	const menuItems: ContextMenuItem[] = [
 		{

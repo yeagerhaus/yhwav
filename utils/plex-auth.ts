@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
 import { fetch } from 'expo/fetch';
+import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { type PlexServer, plexDiscoveryService } from './plex-discovery';
 
 export interface PlexAuthState {
@@ -65,7 +65,7 @@ export class PlexAuthService {
 
 			// Generate a new client identifier
 			const platform = Platform.OS;
-			const deviceId = Device.modelId || 'unknown';
+			const _deviceId = Device.modelId || 'unknown';
 			const timestamp = Date.now();
 			const random = Math.random().toString(36).substring(2, 10);
 			const identifier = `yhplayer-${platform}-${timestamp}-${random}`;
@@ -89,7 +89,7 @@ export class PlexAuthService {
 		// For immediate use, generate a deterministic identifier
 		const platform = Platform.OS;
 		const deviceId = Device.modelId || 'unknown';
-		const timestamp = Date.now();
+		const _timestamp = Date.now();
 		const random = Math.random().toString(36).substring(2, 10);
 		this.clientIdentifier = `yhplayer-${platform}-${deviceId}-${random}`;
 		return this.clientIdentifier;
@@ -104,7 +104,7 @@ export class PlexAuthService {
 			console.log('🔐 Requesting Plex PIN...');
 
 			const clientId = await this.getOrCreateClientIdentifierAsync();
-			
+
 			// Use the v2 API endpoint for PIN-based OAuth
 			const response = await fetch('https://plex.tv/api/v2/pins', {
 				method: 'POST',
@@ -121,7 +121,7 @@ export class PlexAuthService {
 			if (!response.ok) {
 				const errorText = await response.text().catch(() => 'Unknown error');
 				console.error(`❌ PIN request failed: ${response.status} - ${errorText}`);
-				
+
 				return {
 					success: false,
 					error: `Failed to request PIN: ${response.status} ${errorText}`,
@@ -202,10 +202,7 @@ export class PlexAuthService {
 	/**
 	 * Login with PIN-based OAuth flow
 	 */
-	async loginWithPin(
-		onPinReceived?: (pinCode: string) => void,
-		onStatusUpdate?: (status: string) => void,
-	): Promise<PlexLoginResult> {
+	async loginWithPin(onPinReceived?: (pinCode: string) => void, onStatusUpdate?: (status: string) => void): Promise<PlexLoginResult> {
 		try {
 			onStatusUpdate?.('Requesting PIN...');
 			const pinResult = await this.requestPlexPin();

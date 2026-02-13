@@ -6,13 +6,13 @@ import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-nati
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MiniPlayer } from '@/components';
+import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllTracks, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
-import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 
 function AudioSync() {
 	useTrackPlayerSync();
@@ -123,21 +123,24 @@ export default function RootLayout() {
 						fetchAlbumsAndArtists();
 						// Fetch fresh track data in background much later (5 minutes)
 						// This prevents the double-loading issue
-						setTimeout(() => {
-							fetchAllTracks()
-								.then((fetchedTracks) => {
-									if (fetchedTracks.length > 0) {
-										console.log(`🔄 Background refresh: Fetched ${fetchedTracks.length} tracks`);
-										setTracks(fetchedTracks);
-										InteractionManager.runAfterInteractions(() => {
-											saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-										});
-									}
-								})
-								.catch((error) => {
-									console.warn('⚠️ Background refresh failed (using cache):', error);
-								});
-						}, 5 * 60 * 1000); // 5 minutes - user won't notice
+						setTimeout(
+							() => {
+								fetchAllTracks()
+									.then((fetchedTracks) => {
+										if (fetchedTracks.length > 0) {
+											console.log(`🔄 Background refresh: Fetched ${fetchedTracks.length} tracks`);
+											setTracks(fetchedTracks);
+											InteractionManager.runAfterInteractions(() => {
+												saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+											});
+										}
+									})
+									.catch((error) => {
+										console.warn('⚠️ Background refresh failed (using cache):', error);
+									});
+							},
+							5 * 60 * 1000,
+						); // 5 minutes - user won't notice
 					}
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');

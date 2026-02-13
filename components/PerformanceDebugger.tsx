@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { performanceMonitor } from '@/utils/performance';
 import { Colors } from '@/constants/Colors';
+import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
 
 export function PerformanceDebugger() {
@@ -31,10 +31,8 @@ export function PerformanceDebugger() {
 
 	return (
 		<>
-		<Div useGlass style={styles.toggleButton}>
-				<Pressable
-					onPress={() => setVisible(!visible)}
-				>
+			<Div useGlass style={styles.toggleButton}>
+				<Pressable onPress={() => setVisible(!visible)}>
 					<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
 				</Pressable>
 			</Div>
@@ -155,4 +153,3 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 });
-

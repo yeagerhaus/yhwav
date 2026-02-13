@@ -86,9 +86,7 @@ class LibraryStore {
 			const artist = (song.artist || '').toLowerCase();
 			const album = (song.album || '').toLowerCase();
 
-			if (title.includes(normalizedQuery) ||
-			    artist.includes(normalizedQuery) ||
-			    album.includes(normalizedQuery)) {
+			if (title.includes(normalizedQuery) || artist.includes(normalizedQuery) || album.includes(normalizedQuery)) {
 				results.push(song);
 			}
 		}

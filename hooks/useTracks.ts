@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
+import { saveLibraryToCache } from '@/utils/cache';
 import { fetchAllTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
-import { saveLibraryToCache } from '@/utils/cache';
 
 export const useTracks = () => {
 	const { tracks, setTracks } = useLibraryStore();
@@ -38,4 +38,3 @@ export const useTracks = () => {
 		loadTracks,
 	};
 };
-

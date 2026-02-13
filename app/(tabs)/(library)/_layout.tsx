@@ -1,6 +1,5 @@
-import { useFocusEffect, usePathname, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { Stack } from 'expo-router';
 import { InternalHeader } from '@/components/navigation/InternalHeader';
 
 export default function LibraryLayout() {
@@ -28,7 +27,7 @@ export default function LibraryLayout() {
 				}, 200);
 				return () => clearTimeout(timeoutId);
 			}
-			
+
 			// Reset ref when we're on the home screen
 			if (isHomeScreen) {
 				lastPathnameRef.current = '';

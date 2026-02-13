@@ -3,9 +3,9 @@ import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
+import { Colors } from '@/constants/Colors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
-import { Colors } from '@/constants/Colors';
 
 // Estimated item height for getItemLayout optimization
 const ITEM_HEIGHT = 70;
@@ -44,9 +44,9 @@ export default function SongsScreen() {
 					const chunk = tracks.slice(start, end);
 					const sortedChunk = chunk.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
 					sorted.push(...sortedChunk);
-					
+
 					chunkIndex++;
-					
+
 					if (end < tracks.length) {
 						// Update with what we have so far (no copy - use reference)
 						setSortedSongs(sorted);
@@ -83,7 +83,7 @@ export default function SongsScreen() {
 	const songs = sortedSongs;
 
 	const renderItem = useCallback(
-		({ item }: { item: typeof songs[0] }) => <DynamicItem item={item} type='song' queue={songs} />,
+		({ item }: { item: (typeof songs)[0] }) => <DynamicItem item={item} type='song' queue={songs} />,
 		[songs],
 	);
 
@@ -96,7 +96,7 @@ export default function SongsScreen() {
 		[],
 	);
 
-	const keyExtractor = useCallback((item: typeof songs[0]) => item.id.toString(), []);
+	const keyExtractor = useCallback((item: (typeof songs)[0]) => item.id.toString(), []);
 
 	const listHeaderComponent = useMemo(
 		() => (

@@ -32,22 +32,18 @@ export default function ArtistDetailScreen() {
 
 	return (
 		<Main>
-			<Div style={{ paddingTop: 64,paddingHorizontal: 16 }}>
-				{artist.art && (
-					<Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />
-				)}
+			<Div style={{ paddingTop: 64, paddingHorizontal: 16 }}>
+				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
 				<Div>
 					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 4 }}>{artist.name}</ThemedText>
-					{artist.genres.length > 0 && (
-						<ThemedText style={styles.genres}>{artist.genres.join(', ')}</ThemedText>
-					)}
-					{artist.country && (
-						<ThemedText style={styles.country}>{artist.country}</ThemedText>
-					)}
+					{artist.genres.length > 0 && <ThemedText style={styles.genres}>{artist.genres.join(', ')}</ThemedText>}
+					{artist.country && <ThemedText style={styles.country}>{artist.country}</ThemedText>}
 				</Div>
 				{artist.summary ? (
 					<View style={styles.bioContainer}>
-						<ThemedText style={styles.bio} numberOfLines={4}>{artist.summary}</ThemedText>
+						<ThemedText style={styles.bio} numberOfLines={4}>
+							{artist.summary}
+						</ThemedText>
 					</View>
 				) : null}
 				<FlatList

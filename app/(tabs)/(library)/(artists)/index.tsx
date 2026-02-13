@@ -4,18 +4,15 @@ import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, View } from 
 import { ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
+import { Colors } from '@/constants/Colors';
 import { useArtists } from '@/hooks/useArtists';
 import type { Artist } from '@/types';
-import { Colors } from '@/constants/Colors';
 
 export default function ArtistsScreen() {
 	const router = useRouter();
 	const { artists } = useArtists();
 
-	const sorted = useMemo(
-		() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-		[artists],
-	);
+	const sorted = useMemo(() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })), [artists]);
 
 	const keyExtractor = useCallback((item: Artist) => item.key, []);
 
@@ -40,9 +37,7 @@ export default function ArtistsScreen() {
 				)}
 				<View style={{ flex: 1 }}>
 					<ThemedText style={styles.name}>{item.name}</ThemedText>
-					{item.genres.length > 0 && (
-						<ThemedText style={styles.genres}>{item.genres.slice(0, 3).join(', ')}</ThemedText>
-					)}
+					{item.genres.length > 0 && <ThemedText style={styles.genres}>{item.genres.slice(0, 3).join(', ')}</ThemedText>}
 				</View>
 			</Pressable>
 		),

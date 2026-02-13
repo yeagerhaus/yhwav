@@ -25,9 +25,9 @@ export default function PlaylistsScreen() {
 		[playlists],
 	);
 
-	const keyExtractor = useCallback((item: typeof formattedPlaylists[0]) => item.id.toString(), [formattedPlaylists]);
+	const keyExtractor = useCallback((item: (typeof formattedPlaylists)[0]) => item.id.toString(), [formattedPlaylists]);
 
-	const renderItem = useCallback(({ item }: { item: typeof formattedPlaylists[0] }) => <DynamicItem item={item} type='playlist' />, []);
+	const renderItem = useCallback(({ item }: { item: (typeof formattedPlaylists)[0] }) => <DynamicItem item={item} type='playlist' />, []);
 
 	const listHeaderComponent = useMemo(
 		() => (

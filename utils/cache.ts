@@ -103,11 +103,7 @@ export async function clearCacheAndReload(): Promise<number> {
 
 	// 3. Fresh fetch from server
 	try {
-		const [tracks, albums, artists] = await Promise.all([
-			fetchAllTracks(),
-			fetchAllAlbums(),
-			fetchAllArtists(),
-		]);
+		const [tracks, albums, artists] = await Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists()]);
 
 		if (tracks.length > 0) {
 			store.getState().setTracks(tracks);

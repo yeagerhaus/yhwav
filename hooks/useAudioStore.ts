@@ -1,7 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
-import TrackPlayer, { Capability, Event, IOSCategory, IOSCategoryMode, RepeatMode, State, usePlaybackState, useTrackPlayerEvents } from 'react-native-track-player';
+import TrackPlayer, {
+	Capability,
+	Event,
+	IOSCategory,
+	IOSCategoryMode,
+	RepeatMode,
+	State,
+	usePlaybackState,
+	useTrackPlayerEvents,
+} from 'react-native-track-player';
 import { create } from 'zustand';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
@@ -303,9 +312,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				if (savedQueueStr && savedSongStr) {
 					const parsed = JSON.parse(savedQueueStr);
 					// Handle both old format (Song[]) and new format (string[])
-					const queueIds: string[] = Array.isArray(parsed) && typeof parsed[0] === 'string'
-						? parsed
-						: Array.isArray(parsed) ? parsed.map((s: any) => s.id) : [];
+					const queueIds: string[] =
+						Array.isArray(parsed) && typeof parsed[0] === 'string'
+							? parsed
+							: Array.isArray(parsed)
+								? parsed.map((s: any) => s.id)
+								: [];
 
 					const queue = resolveIdsToSongs(queueIds);
 
@@ -330,9 +342,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						// Restore original queue if available
 						if (savedOriginalQueueStr) {
 							const origParsed = JSON.parse(savedOriginalQueueStr);
-							const origIds: string[] = Array.isArray(origParsed) && typeof origParsed[0] === 'string'
-								? origParsed
-								: Array.isArray(origParsed) ? origParsed.map((s: any) => s.id) : [];
+							const origIds: string[] =
+								Array.isArray(origParsed) && typeof origParsed[0] === 'string'
+									? origParsed
+									: Array.isArray(origParsed)
+										? origParsed.map((s: any) => s.id)
+										: [];
 							set({ originalQueue: resolveIdsToSongs(origIds) });
 						}
 
@@ -370,68 +385,73 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	// Play sound
 	playSound: async (song: Song, newQueue?: Song[]) => {
 		lastUserSkipAt = Date.now(); // user-initiated track change, not natural advance
-		return performanceMonitor.trackAsync('playSound', async () => {
-			try {
-				// Update UI immediately — don't wait for TrackPlayer
-				set({ error: null, currentSong: song });
-				saveCurrentSongId(song);
-				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+		return performanceMonitor.trackAsync(
+			'playSound',
+			async () => {
+				try {
+					// Update UI immediately — don't wait for TrackPlayer
+					set({ error: null, currentSong: song });
+					saveCurrentSongId(song);
+					AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
-				// Fire-and-forget artwork color extraction
-				extractArtworkColor(song)
-					.then((color) => set({ artworkBgColor: color }))
-					.catch(() => set({ artworkBgColor: '#000' }));
+					// Fire-and-forget artwork color extraction
+					extractArtworkColor(song)
+						.then((color) => set({ artworkBgColor: color }))
+						.catch(() => set({ artworkBgColor: '#000' }));
 
-				const state = get();
+					const state = get();
 
-				// Compare queues using Zustand state — no bridge call needed
-				const isSameQueue = newQueue
-					&& state.queue.length === newQueue.length
-					&& state.queue.length > 0
-					&& state.queue[0]?.id === newQueue[0]?.id
-					&& state.queue[state.queue.length - 1]?.id === newQueue[newQueue.length - 1]?.id;
+					// Compare queues using Zustand state — no bridge call needed
+					const isSameQueue =
+						newQueue &&
+						state.queue.length === newQueue.length &&
+						state.queue.length > 0 &&
+						state.queue[0]?.id === newQueue[0]?.id &&
+						state.queue[state.queue.length - 1]?.id === newQueue[newQueue.length - 1]?.id;
 
-				if (isSameQueue) {
-					// Same queue — just skip to the song (fastest path)
-					const trackIndex = state.queue.findIndex((s) => s.id === song.id);
-					if (trackIndex !== -1) {
-						await TrackPlayer.skip(trackIndex);
+					if (isSameQueue) {
+						// Same queue — just skip to the song (fastest path)
+						const trackIndex = state.queue.findIndex((s) => s.id === song.id);
+						if (trackIndex !== -1) {
+							await TrackPlayer.skip(trackIndex);
+						}
+						await TrackPlayer.play();
+					} else if (newQueue) {
+						// New queue — reset and load
+						const queueToUse = state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
+
+						await TrackPlayer.reset();
+						await TrackPlayer.add(queueToUse.map(songToTrack));
+
+						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
+						if (trackIndex !== -1) {
+							await TrackPlayer.skip(trackIndex);
+						}
+
+						saveQueueState(queueToUse, newQueue, song);
+						set({ queue: queueToUse, originalQueue: newQueue });
+
+						await TrackPlayer.play();
+					} else {
+						// Single song
+						await TrackPlayer.reset();
+						await TrackPlayer.add(songToTrack(song));
+						set({ queue: [song], originalQueue: [song] });
+						await TrackPlayer.play();
 					}
-					await TrackPlayer.play();
-				} else if (newQueue) {
-					// New queue — reset and load
-					const queueToUse = state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
-
-					await TrackPlayer.reset();
-					await TrackPlayer.add(queueToUse.map(songToTrack));
-
-					const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-					if (trackIndex !== -1) {
-						await TrackPlayer.skip(trackIndex);
-					}
-
-					saveQueueState(queueToUse, newQueue, song);
-					set({ queue: queueToUse, originalQueue: newQueue });
-
-					await TrackPlayer.play();
-				} else {
-					// Single song
-					await TrackPlayer.reset();
-					await TrackPlayer.add(songToTrack(song));
-					set({ queue: [song], originalQueue: [song] });
-					await TrackPlayer.play();
+				} catch (error) {
+					console.error('Error in playSound:', error);
+					set({
+						error: 'Failed to play song',
+						currentSong: null,
+						isPlaying: false,
+						artworkBgColor: null,
+					});
+					AsyncStorage.removeItem(STORAGE_SONG_KEY).catch(() => {});
 				}
-			} catch (error) {
-				console.error('Error in playSound:', error);
-				set({
-					error: 'Failed to play song',
-					currentSong: null,
-					isPlaying: false,
-					artworkBgColor: null,
-				});
-				AsyncStorage.removeItem(STORAGE_SONG_KEY).catch(() => {});
-			}
-		}, { songId: song.id, queueLength: newQueue?.length || 0 });
+			},
+			{ songId: song.id, queueLength: newQueue?.length || 0 },
+		);
 	},
 
 	// Toggle play/pause
@@ -453,24 +473,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		lastUserSkipAt = Date.now();
 		return performanceMonitor.trackAsync('skipToNext', async () => {
 			try {
-			const state = get();
-			if (!state.currentSong || state.queue.length === 0) return;
+				const state = get();
+				if (!state.currentSong || state.queue.length === 0) return;
 
-			const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
-			if (currentIndex === -1) return;
+				const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+				if (currentIndex === -1) return;
 
-			const nextIndex = (currentIndex + 1) % state.queue.length;
-			const nextSong = state.queue[nextIndex];
+				const nextIndex = (currentIndex + 1) % state.queue.length;
+				const nextSong = state.queue[nextIndex];
 
-			await TrackPlayer.skip(nextIndex);
-			set({ currentSong: nextSong });
+				await TrackPlayer.skip(nextIndex);
+				set({ currentSong: nextSong });
 
-			saveCurrentSongId(nextSong);
-			AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				saveCurrentSongId(nextSong);
+				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
-			extractArtworkColor(nextSong)
-				.then((color) => set({ artworkBgColor: color }))
-				.catch(() => set({ artworkBgColor: '#000' }));
+				extractArtworkColor(nextSong)
+					.then((color) => set({ artworkBgColor: color }))
+					.catch(() => set({ artworkBgColor: '#000' }));
 			} catch (error) {
 				console.error('Error skipping to next:', error);
 			}
@@ -482,30 +502,30 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		lastUserSkipAt = Date.now();
 		return performanceMonitor.trackAsync('skipToPrevious', async () => {
 			try {
-			const state = get();
-			if (!state.currentSong || state.queue.length === 0) return;
+				const state = get();
+				if (!state.currentSong || state.queue.length === 0) return;
 
-			// If position >= 3s, restart current song
-			if (state.position >= 3) {
-				await TrackPlayer.seekTo(0);
-				return;
-			}
+				// If position >= 3s, restart current song
+				if (state.position >= 3) {
+					await TrackPlayer.seekTo(0);
+					return;
+				}
 
-			const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
-			if (currentIndex === -1) return;
+				const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+				if (currentIndex === -1) return;
 
-			const prevIndex = currentIndex === 0 ? state.queue.length - 1 : currentIndex - 1;
-			const prevSong = state.queue[prevIndex];
+				const prevIndex = currentIndex === 0 ? state.queue.length - 1 : currentIndex - 1;
+				const prevSong = state.queue[prevIndex];
 
-			await TrackPlayer.skip(prevIndex);
-			set({ currentSong: prevSong });
+				await TrackPlayer.skip(prevIndex);
+				set({ currentSong: prevSong });
 
-			saveCurrentSongId(prevSong);
-			AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				saveCurrentSongId(prevSong);
+				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
-			extractArtworkColor(prevSong)
-				.then((color) => set({ artworkBgColor: color }))
-				.catch(() => set({ artworkBgColor: '#000' }));
+				extractArtworkColor(prevSong)
+					.then((color) => set({ artworkBgColor: color }))
+					.catch(() => set({ artworkBgColor: '#000' }));
 			} catch (error) {
 				console.error('Error skipping to previous:', error);
 			}

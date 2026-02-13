@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import type { Album } from '@/types/album';
 import { Colors } from '@/constants/Colors';
+import type { Album } from '@/types/album';
 
 interface SearchAlbumItemProps {
 	album: Album;

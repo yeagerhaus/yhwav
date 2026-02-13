@@ -10,12 +10,14 @@ export default function AlbumsScreen() {
 
 	const sorted = useMemo(
 		() =>
-			albums.map((album) => ({
-				id: album.id,
-				album: album.title,
-				artist: album.artist,
-				artwork: album.thumb || album.artwork,
-			})).sort((a, b) => a.album.localeCompare(b.album)),
+			albums
+				.map((album) => ({
+					id: album.id,
+					album: album.title,
+					artist: album.artist,
+					artwork: album.thumb || album.artwork,
+				}))
+				.sort((a, b) => a.album.localeCompare(b.album)),
 		[albums],
 	);
 

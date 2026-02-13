@@ -2,7 +2,6 @@ import { Div } from '../Div';
 import { HeaderBackButton } from './HeaderBackButton';
 
 export function InternalHeader() {
-
 	return (
 		<Div
 			style={{

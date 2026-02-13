@@ -6,7 +6,7 @@ import { Div } from '../Div';
 
 export function HeaderBackButton() {
 	const router = useRouter();
-	
+
 	const handleBack = () => {
 		if (router.canGoBack()) {
 			router.back();
@@ -15,7 +15,7 @@ export function HeaderBackButton() {
 			router.replace('/(tabs)/(library)');
 		}
 	};
-	
+
 	return (
 		<Pressable
 			onPress={handleBack}

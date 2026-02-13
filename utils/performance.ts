@@ -68,11 +68,7 @@ class PerformanceMonitor {
 	/**
 	 * Track an async operation
 	 */
-	async trackAsync<T>(
-		name: string,
-		fn: () => Promise<T>,
-		metadata?: Record<string, any>,
-	): Promise<T> {
+	async trackAsync<T>(name: string, fn: () => Promise<T>, metadata?: Record<string, any>): Promise<T> {
 		if (!this.enabled) return fn();
 
 		const start = performance.now();
@@ -159,9 +155,7 @@ class PerformanceMonitor {
 	 * Get slowest operations
 	 */
 	getSlowestOperations(limit: number = 10): PerformanceMetric[] {
-		return [...this.metrics]
-			.sort((a, b) => b.duration - a.duration)
-			.slice(0, limit);
+		return [...this.metrics].sort((a, b) => b.duration - a.duration).slice(0, limit);
 	}
 
 	/**
@@ -269,7 +263,9 @@ class PerformanceMonitor {
 		const summary = ['📊 Performance Summary', '='.repeat(50)];
 
 		summary.push(`\nTotal Operations: ${this.metrics.length}`);
-		summary.push(`Time Range: ${new Date(this.metrics[0]?.timestamp || Date.now()).toLocaleTimeString()} - ${new Date(this.metrics[this.metrics.length - 1]?.timestamp || Date.now()).toLocaleTimeString()}`);
+		summary.push(
+			`Time Range: ${new Date(this.metrics[0]?.timestamp || Date.now()).toLocaleTimeString()} - ${new Date(this.metrics[this.metrics.length - 1]?.timestamp || Date.now()).toLocaleTimeString()}`,
+		);
 
 		summary.push('\n📈 Average Durations:');
 		Object.entries(averages)
@@ -286,10 +282,10 @@ class PerformanceMonitor {
 
 		// Performance insights
 		summary.push('\n💡 Insights:');
-		if (averages['playSound'] > 200) {
+		if (averages.playSound > 200) {
 			summary.push('  ⚠️ playSound is slow - check network/artwork extraction');
 		}
-		if (averages['skipToNext'] > 100) {
+		if (averages.skipToNext > 100) {
 			summary.push('  ⚠️ skipToNext is slow - verify fast path is being used');
 		}
 		if (averages['library-indexing'] > 5000) {
@@ -318,11 +314,7 @@ export const performanceMonitor = new PerformanceMonitor();
 /**
  * Convenience function to track performance
  */
-export function trackPerformance<T>(
-	name: string,
-	fn: () => T | Promise<T>,
-	metadata?: Record<string, any>,
-): T | Promise<T> {
+export function trackPerformance<T>(name: string, fn: () => T | Promise<T>, metadata?: Record<string, any>): T | Promise<T> {
 	return performanceMonitor.track(name, fn as () => void | Promise<void>, metadata) as T | Promise<T>;
 }
 
@@ -330,8 +322,6 @@ export function trackPerformance<T>(
  * React hook to track component render performance
  */
 export function usePerformanceTracking(componentName: string) {
-	if (!__DEV__) return;
-
 	const React = require('react');
 	const { useEffect, useRef } = React;
 
@@ -339,6 +329,8 @@ export function usePerformanceTracking(componentName: string) {
 	const renderCount = useRef(0);
 
 	useEffect(() => {
+		if (!__DEV__) return;
+
 		const duration = performance.now() - renderStart.current;
 		renderCount.current += 1;
 
@@ -348,4 +340,3 @@ export function usePerformanceTracking(componentName: string) {
 		}
 	});
 }
-

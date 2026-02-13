@@ -14,7 +14,7 @@ export default function AlbumDetailScreen() {
 	const allTracks = useLibraryStore((s) => s.tracks);
 	const { albumsById } = useAlbums();
 	const [songs, setSongs] = useState<Song[]>([]);
-	const [bgColor, setBgColor] = useState<string>('#FA2D48');
+	const [_bgColor, setBgColor] = useState<string>('#FA2D48');
 
 	const album = albumsById[albumId ?? ''];
 	const artwork = album?.thumb || album?.artwork || null;
@@ -28,9 +28,7 @@ export default function AlbumDetailScreen() {
 		let filtered: Song[];
 		if (album) {
 			// Try matching by parentKey (some tracks store "/library/metadata/<ratingKey>")
-			filtered = allTracks.filter(
-				(song) => song.album === album.title && song.artist === album.artist,
-			);
+			filtered = allTracks.filter((song) => song.album === album.title && song.artist === album.artist);
 		} else {
 			const decoded = decodeURIComponent(albumId);
 			filtered = allTracks.filter((song) => song.album === decoded);

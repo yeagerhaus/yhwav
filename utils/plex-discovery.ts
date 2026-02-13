@@ -56,20 +56,20 @@ class PlexDiscoveryService {
 
 			// Get response as text first to check format
 			const responseText = await response.text();
-			
+
 			// The /api/resources endpoint doesn't support JSON, it only returns XML
 			// So we need to parse XML for this specific endpoint
 			if (contentType.includes('xml') || responseText.trim().startsWith('<')) {
-				console.log('   ⚠️ /api/resources returned XML (this endpoint doesn\'t support JSON)');
+				console.log("   ⚠️ /api/resources returned XML (this endpoint doesn't support JSON)");
 				return this.parseResourcesXML(responseText, plexToken);
 			}
 
 			// Parse JSON response (for other endpoints that support it)
 			const data = JSON.parse(responseText);
 			console.log(`   ✅ Successfully parsed JSON response`);
-			
+
 			// Handle array response (Plex returns array of resources)
-			const resources = Array.isArray(data) ? data : (data.MediaContainer?.Device || []);
+			const resources = Array.isArray(data) ? data : data.MediaContainer?.Device || [];
 			console.log(`   Found ${resources.length} resources`);
 
 			const servers: PlexServer[] = [];
