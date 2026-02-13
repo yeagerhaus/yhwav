@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 	android: {
 		adaptiveIcon: {
 			foregroundImage: './assets/images/adaptive-icon.png',
-			backgroundColor: '#ffffff',
+			backgroundColor: '#000',
 		},
 		package: 'com.alpineiq.yhplayer',
 	},
@@ -40,7 +40,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 				image: './assets/images/splash-icon.png',
 				imageWidth: 200,
 				resizeMode: 'contain',
-				backgroundColor: '#ffffff',
+				backgroundColor: '#000',
 				preventAutoHide: true,
 			},
 		],

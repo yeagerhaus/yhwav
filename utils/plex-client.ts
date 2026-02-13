@@ -454,6 +454,33 @@ export class PlexClient {
 	}
 
 	/**
+	 * Fetch recently played tracks (type 10, sorted by lastViewedAt desc)
+	 */
+	async fetchRecentlyPlayed(limit = 25): Promise<Song[]> {
+		await this.initialize();
+
+		if (!this.musicSectionId) {
+			await this.discoverMusicSection();
+		}
+
+		if (!this.musicSectionId) {
+			throw new Error('Music section ID not found. Please ensure your library has a music section.');
+		}
+
+		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
+			type: '10',
+			sort: 'lastViewedAt:desc',
+			'X-Plex-Container-Start': '0',
+			'X-Plex-Container-Size': String(limit),
+		});
+
+		const data = response.data as any;
+		const rawTracks = data?.MediaContainer?.Metadata || [];
+		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
+		return tracksArray.map((track) => this.formatTrack(track));
+	}
+
+	/**
 	 * Fetch all artists from the music library (type 8)
 	 */
 	async fetchAllArtists(): Promise<Artist[]> {
@@ -737,6 +764,7 @@ export const plexClient = new PlexClient();
 // Export convenience functions for backward compatibility
 export const testPlexServer = () => plexClient.testConnectivity();
 export const fetchAllTracks = () => plexClient.fetchAllTracks();
+export const fetchRecentlyPlayed = (limit?: number) => plexClient.fetchRecentlyPlayed(limit);
 export const fetchAllArtists = () => plexClient.fetchAllArtists();
 export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
