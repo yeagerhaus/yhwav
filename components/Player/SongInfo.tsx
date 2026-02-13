@@ -4,18 +4,28 @@ import React from 'react';
 import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { ThemedText } from '@/components/ThemedText';
+import { useAlbums } from '@/hooks/useAlbums';
+import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
 const { width } = Dimensions.get('window');
 
 export const SongInfo = React.memo(() => {
 	const currentSong = useAudioStore((state) => state.currentSong);
+	const { artists } = useArtists();
+	const { albums } = useAlbums();
 
 	if (!currentSong) return null;
 
 	const artwork = currentSong.artworkUrl || currentSong.artwork;
 	const title = currentSong.title;
 	const artist = currentSong.artist;
+
+	// Find matching artist/album by name to get their ratingKey for navigation
+	const matchedArtist = artists.find((a) => a.name === currentSong.artist);
+	const matchedAlbum = albums.find(
+		(a) => a.title === currentSong.album && a.artist === currentSong.artist,
+	);
 
 	const menuItems: ContextMenuItem[] = [
 		{
@@ -27,11 +37,10 @@ export const SongInfo = React.memo(() => {
 			label: 'Go to Album',
 			systemImage: 'square.stack',
 			onPress: () => {
-				if (currentSong.album) {
+				if (matchedAlbum) {
 					router.back();
-					// Small delay to allow the modal to dismiss before navigation
 					setTimeout(() => {
-						router.push(`/(tabs)/(library)/(albums)/${encodeURIComponent(currentSong.album)}`);
+						router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
 					}, 100);
 				}
 			},
@@ -40,11 +49,10 @@ export const SongInfo = React.memo(() => {
 			label: 'Go to Artist',
 			systemImage: 'person.circle',
 			onPress: () => {
-				if (currentSong.artist) {
+				if (matchedArtist) {
 					router.back();
-					// Small delay to allow the modal to dismiss before navigation
 					setTimeout(() => {
-						router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(currentSong.artist)}`);
+						router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
 					}, 100);
 				}
 			},

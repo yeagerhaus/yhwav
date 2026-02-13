@@ -60,13 +60,13 @@ export default function DetailScreen() {
 		[],
 	);
 
-	return (
-		<Main>
-			<Div style={{ paddingHorizontal: 16 }}>
+	const listHeaderComponent = useMemo(
+		() => (
+			<Div style={{ alignItems: 'center', paddingTop: 64 }}>
 				{artwork && (
 					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1 }} resizeMode='contain' />
 				)}
-				<Div style={{ paddingVertical: 16 }}>
+				<Div style={{ paddingVertical: 16, alignItems: 'flex-start', width: '100%' }}>
 					{playlist && (
 						<Div style={{ marginBottom: 16 }}>
 							<ThemedText style={{ fontSize: 24, fontWeight: 'bold' }}>{playlist.title}</ThemedText>
@@ -75,20 +75,27 @@ export default function DetailScreen() {
 							</ThemedText>
 						</Div>
 					)}
-					<FlatList
-						data={songs}
-						keyExtractor={keyExtractor}
-						renderItem={renderItem}
-						getItemLayout={getItemLayout}
-						removeClippedSubviews={true}
-						maxToRenderPerBatch={10}
-						windowSize={10}
-						initialNumToRender={15}
-						updateCellsBatchingPeriod={50}
-						contentContainerStyle={{ paddingBottom: 300 }}
-					/>
 				</Div>
 			</Div>
+		),
+		[artwork, playlist],
+	);
+
+	return (
+		<Main scrollEnabled={false}>
+			<FlatList
+				data={songs}
+				keyExtractor={keyExtractor}
+				renderItem={renderItem}
+				getItemLayout={getItemLayout}
+				ListHeaderComponent={listHeaderComponent}
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={10}
+				windowSize={10}
+				initialNumToRender={15}
+				updateCellsBatchingPeriod={50}
+				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+			/>
 		</Main>
 	);
 }

@@ -54,6 +54,22 @@ target 'yhplayer' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
+    # Apply gapless playback patches to SwiftAudioEx
+    patches_dir = File.join(__dir__, 'patches', 'SwiftAudioEx')
+    if File.directory?(patches_dir)
+      swift_audio_dir = File.join(__dir__, 'Pods', 'SwiftAudioEx', 'Sources', 'SwiftAudioEx')
+      if File.directory?(swift_audio_dir)
+        require 'fileutils'
+        Dir.glob(File.join(patches_dir, '**', '*.swift')).each do |patch_file|
+          relative_path = patch_file.sub("#{patches_dir}/", '')
+          target = File.join(swift_audio_dir, relative_path)
+          FileUtils.chmod(0644, target) if File.exist?(target)
+          FileUtils.cp(patch_file, target)
+          puts "  ✅ Applied gapless patch: #{relative_path}"
+        end
+      end
+    end
+
     # Fix Hermes script phase to avoid running on every build
     installer.pods_project.targets.each do |target|
       target.build_phases.each do |phase|

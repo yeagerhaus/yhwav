@@ -1,7 +1,10 @@
 import { fetch } from 'expo/fetch';
+import type { Album } from '@/types/album';
+import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
+import { plexDiscoveryService } from './plex-discovery';
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -116,6 +119,15 @@ export class PlexClient {
 		this.baseURL = serverUri;
 		this.token = plexAuthService.getAccessToken() || '';
 
+		// Verify the stored URI is reachable; if not, try alternative connections
+		const reachable = await plexDiscoveryService.testServerConnection(selectedServer, this.token);
+		if (reachable) {
+			// testServerConnection may have updated the server URI to a working one
+			this.baseURL = selectedServer.uri.replace(/\/$/, '');
+		} else {
+			console.warn('⚠️ No reachable connection found — using stored URI as fallback');
+		}
+
 		// Music section ID will be auto-discovered when needed
 		this.musicSectionId = null;
 	}
@@ -146,6 +158,18 @@ export class PlexClient {
 		} catch (error) {
 			throw error;
 		}
+	}
+
+	/**
+	 * Fast-path URL builder for track formatting.
+	 * Uses string concatenation instead of `new URL()` — avoids ~86k URL object
+	 * constructions when formatting a 43k-track library.
+	 */
+	private buildTrackURL(path: string): string {
+		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+		return this.token
+			? `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}`
+			: `${this.baseURL}${normalizedPath}`;
 	}
 
 	/**
@@ -413,26 +437,31 @@ export class PlexClient {
 
 		const data = response.data as any;
 		const rawTracks = data?.MediaContainer?.Metadata || [];
-
-		// Process tracks in parallel batches for better performance
-		// Large libraries can block if processed all at once
 		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
-		const BATCH_SIZE = 100; // Process 100 tracks at a time
-		const tracks: Song[] = [];
+
+		// Process in batches, yielding between chunks so the JS thread
+		// can service UI events (scrolling, animations) during large fetches.
+		const BATCH_SIZE = 5000;
+		const results: Song[] = new Array(tracksArray.length);
 
 		for (let i = 0; i < tracksArray.length; i += BATCH_SIZE) {
-			const batch = tracksArray.slice(i, i + BATCH_SIZE);
-			const batchTracks = await Promise.all(batch.map((track) => this.formatTrack(track)));
-			tracks.push(...batchTracks);
+			const end = Math.min(i + BATCH_SIZE, tracksArray.length);
+			for (let j = i; j < end; j++) {
+				results[j] = this.formatTrack(tracksArray[j]);
+			}
+			// Yield to the event loop between batches
+			if (end < tracksArray.length) {
+				await new Promise<void>((r) => setTimeout(r, 0));
+			}
 		}
 
-		return tracks;
+		return results;
 	}
 
 	/**
 	 * Fetch all artists from the music library (type 8)
 	 */
-	async fetchAllArtists(): Promise<any[]> {
+	async fetchAllArtists(): Promise<Artist[]> {
 		await this.initialize();
 
 		// Auto-discover music section if not set
@@ -450,13 +479,15 @@ export class PlexClient {
 		});
 
 		const data = response.data as any;
-		return data?.MediaContainer?.Metadata || [];
+		const raw = data?.MediaContainer?.Metadata || [];
+		const rawArray = Array.isArray(raw) ? raw : [raw];
+		return rawArray.map((item) => this.formatArtist(item));
 	}
 
 	/**
 	 * Fetch all albums from the music library (type 9)
 	 */
-	async fetchAllAlbums(): Promise<any[]> {
+	async fetchAllAlbums(): Promise<Album[]> {
 		await this.initialize();
 
 		// Auto-discover music section if not set
@@ -474,13 +505,15 @@ export class PlexClient {
 		});
 
 		const data = response.data as any;
-		return data?.MediaContainer?.Metadata || [];
+		const raw = data?.MediaContainer?.Metadata || [];
+		const rawArray = Array.isArray(raw) ? raw : [raw];
+		return rawArray.map((item) => this.formatAlbum(item));
 	}
 
 	/**
 	 * Format a Plex track into our Song type
 	 */
-	private async formatTrack(track: any, playlistIndex?: number): Promise<Song> {
+	private formatTrack(track: any, playlistIndex?: number): Song {
 		if (!track || !track.ratingKey) {
 			throw new Error('Invalid track data');
 		}
@@ -489,19 +522,23 @@ export class PlexClient {
 		const part = media?.Part?.[0];
 		const duration = parseInt(track.duration || part?.duration || '0', 10);
 
-		// Build stream URL
-		const streamUrl = part?.key ? this.buildURL(part.key) : '';
+		// Build stream URL (fast path — no URL parsing overhead)
+		const streamUrl = part?.key ? this.buildTrackURL(part.key) : '';
 
 		// Build artwork URL (prefer thumb, fallback to art)
-		const artworkUrl = track.thumb ? this.buildURL(track.thumb) : (track.art ? this.buildURL(track.art) : undefined);
+		const artworkUrl = track.thumb ? this.buildTrackURL(track.thumb) : (track.art ? this.buildTrackURL(track.art) : undefined);
+
+		const title = track.title || 'Unknown Title';
+		const artist = track.grandparentTitle || 'Unknown Artist';
+		const album = track.parentTitle || '';
 
 		return {
 			id: track.ratingKey,
-			title: track.title || 'Unknown Title',
-			artist: track.grandparentTitle || 'Unknown Artist',
-			album: track.parentTitle || '',
+			title,
+			artist,
+			album,
 			artworkUrl,
-			artwork: '', // Will be populated by image loading
+			artwork: '',
 			streamUrl,
 			uri: streamUrl,
 			duration,
@@ -509,7 +546,89 @@ export class PlexClient {
 			discNumber: parseInt(track.parentIndex || '0', 10),
 			playlistIndex,
 			artistKey: track.grandparentKey || '',
+			titleLower: title.toLowerCase(),
+			artistLower: artist.toLowerCase(),
+			albumLower: album.toLowerCase(),
 		};
+	}
+
+	/**
+	 * Format a Plex artist into our Artist type
+	 */
+	private formatArtist(raw: any): Artist {
+		return {
+			key: raw.ratingKey,
+			name: raw.title || 'Unknown Artist',
+			thumb: raw.thumb ? this.buildURL(raw.thumb) : undefined,
+			art: raw.art ? this.buildURL(raw.art) : undefined,
+			summary: raw.summary,
+			genres: (raw.Genre || []).map((g: any) => g.tag),
+			country: raw.Country?.[0]?.tag,
+			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
+			viewCount: raw.viewCount ? parseInt(raw.viewCount) : undefined,
+		};
+	}
+
+	/**
+	 * Format a Plex album into our Album type
+	 */
+	private formatAlbum(raw: any): Album {
+		const thumb = raw.thumb ? this.buildURL(raw.thumb) : undefined;
+		return {
+			id: raw.ratingKey,
+			title: raw.title || '',
+			artist: raw.parentTitle || '',
+			artistKey: raw.parentRatingKey || '',
+			thumb,
+			artwork: thumb || '',
+			year: raw.year ? parseInt(raw.year) : undefined,
+			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
+		};
+	}
+
+	/**
+	 * Fetch ultrablur colors from Plex for a given artwork thumb path.
+	 * Returns an array of hex color strings, or null on failure.
+	 */
+	async fetchUltraBlurColors(thumbUrl: string): Promise<string[] | null> {
+		await this.initialize();
+
+		// Extract just the path portion from a full authenticated URL
+		// e.g. "https://server:32400/library/metadata/123/thumb/456?X-Plex-Token=..." → "/library/metadata/123/thumb/456"
+		let thumbPath: string;
+		try {
+			const parsed = new URL(thumbUrl);
+			thumbPath = parsed.pathname;
+		} catch {
+			// Already a plain path
+			thumbPath = thumbUrl;
+		}
+
+		try {
+			const response = await this.request<any>(
+				'/services/ultrablur/colors',
+				{ url: thumbPath },
+				{ timeout: 5000, retries: 1 },
+			);
+
+			const data = response.data;
+
+			// Response shape: { MediaContainer: { UltraBlurColors: [{ topLeft, topRight, bottomRight, bottomLeft }] } }
+			const entry = data?.MediaContainer?.UltraBlurColors?.[0];
+			if (!entry) return null;
+
+			const colors: string[] = [];
+			for (const key of ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'] as const) {
+				const hex = entry[key];
+				if (typeof hex === 'string' && hex.length === 6) {
+					colors.push(`#${hex}`);
+				}
+			}
+
+			return colors.length > 0 ? colors : null;
+		} catch (err) {
+			return null;
+		}
 	}
 
 	/**
@@ -549,12 +668,8 @@ export class PlexClient {
 		const data = response.data as any;
 		const rawPlaylists = data?.MediaContainer?.Metadata || [];
 
-		// Process playlists in parallel for better performance
-		const playlists = await Promise.all(
-			(Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists]).map((playlist) => this.formatPlaylist(playlist)),
-		);
-
-		return playlists;
+		const playlistsArray = Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists];
+		return playlistsArray.map((playlist) => this.formatPlaylist(playlist));
 	}
 
 	/**
@@ -590,12 +705,8 @@ export class PlexClient {
 			const data = response.data as any;
 			const rawTracks = data?.MediaContainer?.Metadata || [];
 
-			// Process tracks in parallel for better performance, preserving order
-			const tracks = await Promise.all(
-				(Array.isArray(rawTracks) ? rawTracks : [rawTracks]).map((track, index) => this.formatTrack(track, index)),
-			);
-
-			return tracks;
+			const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
+			return tracksArray.map((track, index) => this.formatTrack(track, index));
 		} catch (error) {
 			console.error('Failed to fetch playlist tracks:', error);
 			return [];
@@ -605,7 +716,7 @@ export class PlexClient {
 	/**
 	 * Format a Plex playlist into our Playlist type
 	 */
-	private async formatPlaylist(playlist: any): Promise<Playlist> {
+	private formatPlaylist(playlist: any): Playlist {
 		// Build artwork URL
 		const artworkUrl = playlist.thumb ? this.buildURL(playlist.thumb) : undefined;
 
@@ -640,6 +751,7 @@ export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
 export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
 export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
+export const fetchUltraBlurColors = (thumbUrl: string) => plexClient.fetchUltraBlurColors(thumbUrl);
 export const buildPlexURL = async (path: string, params: Record<string, string> = {}) => {
 	await plexClient.initialize();
 	return (plexClient as any).buildURL(path, params);

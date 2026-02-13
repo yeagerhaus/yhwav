@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { Album, Artist, Song } from '@/types';
+import { useAlbums } from './useAlbums';
+import { useArtists } from './useArtists';
 import { useLibraryStore } from './useLibraryStore';
+import { useSearchStore } from './useSearchStore';
 
 export interface SearchResult {
 	type: 'song' | 'album' | 'artist';
@@ -33,14 +36,16 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export function useSearch() {
-	const [query, setQuery] = useState('');
+	const query = useSearchStore((s) => s.query);
 	const [searchResults, setSearchResults] = useState<SearchResults>({
 		songs: [],
 		albums: [],
 		artists: [],
 		totalResults: 0,
 	});
-	const { tracks, songsById, albumsById, artistsByName } = useLibraryStore();
+	const tracks = useLibraryStore((s) => s.tracks);
+	const { albums } = useAlbums();
+	const { artists } = useArtists();
 
 	// Debounce the query to avoid searching on every keystroke
 	const debouncedQuery = useDebounce(query, 300);
@@ -77,16 +82,13 @@ export function useSearch() {
 			totalResults: 0,
 		};
 
-		// Optimized search with early termination and pre-normalized strings
-		// Search songs - increased limit and better performance
-		const MAX_SONG_RESULTS = 50; // Increased from 20 to allow better matching
-		const songsToSearch = tracks; // Search all tracks, but limit results
+		// Search songs using pre-computed lowercase fields (zero allocations per iteration)
+		const MAX_SONG_RESULTS = 50;
 
-		for (const song of songsToSearch) {
-			// Pre-normalize once
-			const titleLower = song.title.toLowerCase();
-			const artistLower = song.artist.toLowerCase();
-			const albumLower = song.album.toLowerCase();
+		for (const song of tracks) {
+			const titleLower = song.titleLower || song.title.toLowerCase();
+			const artistLower = song.artistLower || song.artist.toLowerCase();
+			const albumLower = song.albumLower || song.album.toLowerCase();
 
 			const titleMatch = titleLower.includes(normalizedQuery);
 			const artistMatch = artistLower.includes(normalizedQuery);
@@ -107,16 +109,15 @@ export function useSearch() {
 					score,
 				});
 
-				// Early termination if we have enough high-scoring results
 				if (results.songs.length >= MAX_SONG_RESULTS * 2) {
 					break;
 				}
 			}
 		}
 
-		// Search albums - optimized
+		// Search albums
 		const MAX_ALBUM_RESULTS = 10;
-		for (const album of Object.values(albumsById)) {
+		for (const album of albums) {
 			const titleLower = album.title.toLowerCase();
 			const artistLower = album.artist.toLowerCase();
 
@@ -142,16 +143,18 @@ export function useSearch() {
 			}
 		}
 
-		// Search artists - optimized
+		// Search artists (including genres)
 		const MAX_ARTIST_RESULTS = 10;
-		for (const artist of Object.values(artistsByName)) {
+		for (const artist of artists) {
 			const nameLower = artist.name.toLowerCase();
 			const nameMatch = nameLower.includes(normalizedQuery);
+			const genreMatch = artist.genres.some((g) => g.toLowerCase().includes(normalizedQuery));
 
-			if (nameMatch) {
+			if (nameMatch || genreMatch) {
 				let score = 0;
 				if (nameLower.startsWith(normalizedQuery)) score += 100;
 				else if (nameMatch) score += 50;
+				if (genreMatch) score += 30;
 
 				results.artists.push({
 					type: 'artist',
@@ -178,11 +181,10 @@ export function useSearch() {
 		results.totalResults = results.songs.length + results.albums.length + results.artists.length;
 
 		setSearchResults(results);
-	}, [debouncedQuery, tracks, songsById, albumsById, artistsByName]);
+	}, [debouncedQuery, tracks, albums, artists]);
 
 	return {
 		query,
-		setQuery,
 		searchResults,
 		isSearching: query.length > 0,
 	};

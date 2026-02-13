@@ -3,8 +3,7 @@ import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
 import { Modal, Pressable, type StyleProp, StyleSheet, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-
+import { Div } from './Div';
 export interface ContextMenuItem {
 	label: string;
 	systemImage?: SFSymbol;
@@ -52,7 +51,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 
 			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
 				<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
-					<ThemedView
+					<Div useGlass
 						style={[
 							styles.menuContainer,
 							{
@@ -100,7 +99,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 								</View>
 							</TouchableOpacity>
 						))}
-					</ThemedView>
+					</Div>
 				</TouchableOpacity>
 			</Modal>
 		</>

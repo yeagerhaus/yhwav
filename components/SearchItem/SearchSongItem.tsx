@@ -26,15 +26,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	}, [song.id, currentSong?.id]);
 
 	const playSong = async () => {
-		const formattedSong = {
-			id: song.id,
-			title: song.title || 'Unknown Title',
-			artist: song.artist || 'Unknown Artist',
-			artwork: song.artworkUrl || song.artwork || '',
-			uri: song.uri || song.streamUrl || '',
-		};
-
-		await playSound(formattedSong);
+		await playSound(song);
 		onPress?.();
 	};
 

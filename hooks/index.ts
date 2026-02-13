@@ -5,4 +5,6 @@ export { useTracks } from './useTracks';
 export { useArtists } from './useArtists';
 export { useAlbums } from './useAlbums';
 export { useSearch } from './useSearch';
+export { useSearchStore } from './useSearchStore';
 export { useThemeColor } from './useThemeColor';
+export { useUltraBlurColors } from './useUltraBlurColors';

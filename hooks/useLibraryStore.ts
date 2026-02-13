@@ -1,31 +1,53 @@
-import { InteractionManager } from 'react-native';
 import { create } from 'zustand';
 import type { Album, Artist, Playlist, Song } from '@/types';
-import { normalizeArtist } from '@/utils';
+import { performanceMonitor } from '@/utils/performance';
 
 interface LibraryState {
-	isLibraryLoading: boolean;
 	tracks: Song[];
 	songsById: Record<string, Song>;
+	albums: Album[];
 	albumsById: Record<string, Album>;
-	artistsByName: Record<string, Artist>;
+	artists: Artist[];
+	artistsById: Record<string, Artist>;
 	playlists: Playlist[];
 	playlistsById: Record<string, Playlist>;
 	setTracks: (songs: Song[]) => void;
+	setAlbums: (albums: Album[]) => void;
+	setArtists: (artists: Artist[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
-	setLibraryLoading: (loading: boolean) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
-	isLibraryLoading: false,
 	tracks: [],
 	songsById: {},
+	albums: [],
 	albumsById: {},
-	artistsByName: {},
+	artists: [],
+	artistsById: {},
 	playlists: [],
 	playlistsById: {},
 
-	setLibraryLoading: (loading: boolean) => set({ isLibraryLoading: loading }),
+	setAlbums: (albums: Album[]) => {
+		const albumsById: Record<string, Album> = {};
+		for (const album of albums) {
+			if (album?.id) {
+				albumsById[album.id] = album;
+			}
+		}
+		set({ albums, albumsById });
+		console.log(`✅ Library indexed: ${albums.length} albums`);
+	},
+
+	setArtists: (artists: Artist[]) => {
+		const artistsById: Record<string, Artist> = {};
+		for (const artist of artists) {
+			if (artist?.key) {
+				artistsById[artist.key] = artist;
+			}
+		}
+		set({ artists, artistsById });
+		console.log(`✅ Library indexed: ${artists.length} artists`);
+	},
 
 	setPlaylists: (playlists: Playlist[]) => {
 		const playlistsById: Record<string, Playlist> = {};
@@ -41,77 +63,22 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 	},
 
 	setTracks: (songs: Song[]) => {
-		// For immediate UI update, set tracks first
-		set({ tracks: songs });
+		if (songs.length === 0) {
+			set({ tracks: [], songsById: {} });
+			return;
+		}
 
-		// Process indexing asynchronously to avoid blocking UI
-		InteractionManager.runAfterInteractions(() => {
-			// Accumulate results across batches
-			const songsById: Record<string, Song> = {};
-			const albumsById: Record<string, Album> = {};
-			const artistsByName: Record<string, Artist> = {};
+		const endTimer = performanceMonitor.startTimer('library-indexing');
 
-			// Process songs in smaller batches with yields to keep UI responsive
-			const BATCH_SIZE = 500; // Smaller batches for better responsiveness
-			let currentIndex = 0;
+		const songsById: Record<string, Song> = {};
+		for (const song of songs) {
+			if (song?.id) {
+				songsById[song.id] = song;
+			}
+		}
 
-			const processBatch = () => {
-				const endIndex = Math.min(currentIndex + BATCH_SIZE, songs.length);
-
-				for (let i = currentIndex; i < endIndex; i++) {
-					const song = songs[i];
-					if (!song || !song.id) continue; // Skip invalid songs
-
-					const artistKey = normalizeArtist(song.artist || '');
-					const albumName = (song.album || '').trim();
-					const albumId = albumName ? `${artistKey}-${albumName.toLowerCase()}` : `${artistKey}-unknown`;
-
-					songsById[song.id] = song;
-
-					// Album
-					if (albumName && !albumsById[albumId]) {
-						albumsById[albumId] = {
-							id: albumId,
-							title: albumName,
-							artist: song.artist || '',
-							artistKey,
-							artwork: song.artworkUrl || song.artwork || '',
-							songIds: [],
-						};
-					}
-					if (albumsById[albumId]) {
-						albumsById[albumId].songIds.push(song.id);
-					}
-
-					// Artist
-					if (!artistsByName[artistKey]) {
-						artistsByName[artistKey] = {
-							key: artistKey,
-							name: song.artist || 'Unknown Artist',
-							albumIds: [],
-						};
-					}
-					if (albumId && !artistsByName[artistKey].albumIds.includes(albumId)) {
-						artistsByName[artistKey].albumIds.push(albumId);
-					}
-				}
-
-				currentIndex = endIndex;
-
-				if (currentIndex < songs.length) {
-					// Process next batch after a short delay to allow UI updates
-					setTimeout(processBatch, 0);
-				} else {
-					// All processing complete, update state
-					set({
-						songsById,
-						albumsById,
-						artistsByName,
-					});
-				}
-			};
-
-			processBatch();
-		});
+		set({ tracks: songs, songsById });
+		endTimer({ trackCount: songs.length });
+		console.log(`✅ Library indexed: ${songs.length} tracks`);
 	},
 }));

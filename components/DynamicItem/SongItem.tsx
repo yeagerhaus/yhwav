@@ -8,11 +8,17 @@ import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
+import { ContextMenu, ContextMenuItem } from '../ContextMenu';
+import { useArtists } from '@/hooks/useArtists';
+import { useAlbums } from '@/hooks/useAlbums';
+import { router } from 'expo-router';
 
 // Memoized component to prevent unnecessary re-renders
 const SongItem = React.memo(({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) => {
 	const colorScheme = useColorScheme();
 	const playbackState = usePlaybackState();
+	const { artists } = useArtists();
+	const { albums } = useAlbums();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const playSound = useAudioStore((state) => state.playSound);
 	const isCurrentSong = useMemo(() => {
@@ -22,6 +28,49 @@ const SongItem = React.memo(({ item, queue, listItem }: { item: Song; queue?: So
 	const playSong = useCallback(async (song: Song) => {
 		await playSound(song, queue);
 	}, [playSound, queue]);
+
+	// Find matching artist/album by name to get their ratingKey for navigation
+	const matchedArtist = artists.find((a) => a.name === item.artist);
+	const matchedAlbum = albums.find(
+		(a) => a.title === item.album && a.artist === item.artist,
+	);
+
+	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Add to Playlist',
+			systemImage: 'plus.circle',
+			onPress: () => console.log('Add to Playlist'),
+		},
+		{
+			label: 'Go to Album',
+			systemImage: 'square.stack',
+			onPress: () => {
+				if (matchedAlbum) {
+					router.back();
+					setTimeout(() => {
+						router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
+					}, 100);
+				}
+			},
+		},
+		{
+			label: 'Go to Artist',
+			systemImage: 'person.circle',
+			onPress: () => {
+				if (matchedArtist) {
+					router.back();
+					setTimeout(() => {
+						router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
+					}, 100);
+				}
+			},
+		},
+		{
+			label: 'Share',
+			systemImage: 'square.and.arrow.up',
+			onPress: () => console.log('Share'),
+		},
+	];
 
 	if (listItem) {
 		return (
@@ -49,9 +98,11 @@ const SongItem = React.memo(({ item, queue, listItem }: { item: Song; queue?: So
 							</ThemedText>
 						</Div>
 					</Div>
-					<Pressable style={styles.moreButton}>
-						<SymbolView name='ellipsis' size={20} tintColor='#222222' />
-					</Pressable>
+					<Div style={{ width: 32, height: 32, borderRadius: 20, backgroundColor: '', justifyContent: 'center', alignItems: 'center' }}>
+						<ContextMenu items={menuItems} style={{ width: 32, height: 32, borderRadius: 20, backgroundColor: '', justifyContent: 'center', alignItems: 'center' }}>
+							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+						</ContextMenu>
+					</Div>
 				</Div>
 			</Pressable>
 		);
@@ -79,9 +130,11 @@ const SongItem = React.memo(({ item, queue, listItem }: { item: Song; queue?: So
 						</ThemedText>
 					</Div>
 				</Div>
-				<Pressable style={styles.moreButton}>
-					<SymbolView name='ellipsis' size={20} tintColor='#222222' />
-				</Pressable>
+				<Div style={{ width: 32, height: 32, borderRadius: 20, backgroundColor: '', justifyContent: 'center', alignItems: 'center' }}>
+					<ContextMenu items={menuItems} style={{ width: 32, height: 32, borderRadius: 20, backgroundColor: '', justifyContent: 'center', alignItems: 'center' }}>
+						<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+					</ContextMenu>
+				</Div>
 			</Div>
 		</Pressable>
 	);
