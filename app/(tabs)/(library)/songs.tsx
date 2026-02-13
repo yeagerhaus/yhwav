@@ -5,6 +5,7 @@ import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
+import { Colors } from '@/constants/Colors';
 
 // Estimated item height for getItemLayout optimization
 const ITEM_HEIGHT = 70;
@@ -111,7 +112,7 @@ export default function SongsScreen() {
 		return (
 			<Main scrollEnabled={false}>
 				<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
-					<ActivityIndicator size='large' color='#FA2D48' />
+					<ActivityIndicator size='large' color={Colors.brand.primary} />
 					<ThemedText style={{ marginTop: 16, fontSize: 16, opacity: 0.7 }}>
 						{isIndexing ? 'Indexing library...' : 'Sorting songs...'}
 					</ThemedText>

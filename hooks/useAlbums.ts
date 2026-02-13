@@ -1,38 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Album } from '@/types';
-import { fetchAllAlbums } from '@/utils/plex';
+import { useCallback } from 'react';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 
 export const useAlbums = () => {
-	const [albums, setAlbums] = useState<Album[]>([]);
-	const [isLoading, setIsLoading] = useState(false);
-	const hasFetched = useRef(false);
-
-	const loadAlbums = useCallback(async () => {
-		if (hasFetched.current || isLoading) return;
-		setIsLoading(true);
-		try {
-			const fetched = await fetchAllAlbums();
-			setAlbums(fetched);
-			hasFetched.current = true;
-		} catch (error) {
-			console.error('Failed to load albums:', error);
-		} finally {
-			setIsLoading(false);
-		}
-	}, [isLoading]);
-
-	// Auto-load albums on mount
-	useEffect(() => {
-		loadAlbums();
-	}, [loadAlbums]);
-
-	const albumsById = useMemo(() => {
-		const map: Record<string, Album> = {};
-		for (const album of albums) {
-			map[album.id] = album;
-		}
-		return map;
-	}, [albums]);
+	const albums = useLibraryStore((s) => s.albums);
+	const albumsById = useLibraryStore((s) => s.albumsById);
 
 	const getAlbumsByArtist = useCallback(
 		(artistKey: string) => {
@@ -45,7 +16,5 @@ export const useAlbums = () => {
 		albums,
 		albumsById,
 		getAlbumsByArtist,
-		isLoading,
-		loadAlbums,
 	};
 };

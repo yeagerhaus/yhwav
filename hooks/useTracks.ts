@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { InteractionManager } from 'react-native';
 import { fetchAllTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
 import { saveLibraryToCache } from '@/utils/cache';
@@ -15,8 +16,10 @@ export const useTracks = () => {
 			const fetchedTracks = await fetchAllTracks();
 			setTracks(fetchedTracks);
 			hasFetched.current = true;
-			// Save to cache for faster subsequent loads
-			await saveLibraryToCache();
+			// Defer cache save so the UI renders before JSON.stringify blocks
+			InteractionManager.runAfterInteractions(() => {
+				saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+			});
 		} catch (error) {
 			console.error('Failed to load tracks:', error);
 		} finally {

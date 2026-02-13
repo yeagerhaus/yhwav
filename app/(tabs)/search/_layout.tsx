@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { useSearchStore } from '@/hooks';
 
 export default function SearchLayout() {
 	return (
@@ -10,7 +11,9 @@ export default function SearchLayout() {
 					headerSearchBarOptions: {
 						placement: 'automatic',
 						placeholder: 'Search',
-						onChangeText: () => {},
+						onChangeText: (event) => {
+							useSearchStore.getState().setQuery(event.nativeEvent.text);
+						},
 					},
 				}}
 			/>

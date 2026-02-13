@@ -1,21 +1,53 @@
 import { create } from 'zustand';
-import type { Playlist, Song } from '@/types';
+import type { Album, Artist, Playlist, Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 
 interface LibraryState {
 	tracks: Song[];
 	songsById: Record<string, Song>;
+	albums: Album[];
+	albumsById: Record<string, Album>;
+	artists: Artist[];
+	artistsById: Record<string, Artist>;
 	playlists: Playlist[];
 	playlistsById: Record<string, Playlist>;
 	setTracks: (songs: Song[]) => void;
+	setAlbums: (albums: Album[]) => void;
+	setArtists: (artists: Artist[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
 	tracks: [],
 	songsById: {},
+	albums: [],
+	albumsById: {},
+	artists: [],
+	artistsById: {},
 	playlists: [],
 	playlistsById: {},
+
+	setAlbums: (albums: Album[]) => {
+		const albumsById: Record<string, Album> = {};
+		for (const album of albums) {
+			if (album?.id) {
+				albumsById[album.id] = album;
+			}
+		}
+		set({ albums, albumsById });
+		console.log(`✅ Library indexed: ${albums.length} albums`);
+	},
+
+	setArtists: (artists: Artist[]) => {
+		const artistsById: Record<string, Artist> = {};
+		for (const artist of artists) {
+			if (artist?.key) {
+				artistsById[artist.key] = artist;
+			}
+		}
+		set({ artists, artistsById });
+		console.log(`✅ Library indexed: ${artists.length} artists`);
+	},
 
 	setPlaylists: (playlists: Playlist[]) => {
 		const playlistsById: Record<string, Playlist> = {};

@@ -161,6 +161,18 @@ export class PlexClient {
 	}
 
 	/**
+	 * Fast-path URL builder for track formatting.
+	 * Uses string concatenation instead of `new URL()` — avoids ~86k URL object
+	 * constructions when formatting a 43k-track library.
+	 */
+	private buildTrackURL(path: string): string {
+		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+		return this.token
+			? `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}`
+			: `${this.baseURL}${normalizedPath}`;
+	}
+
+	/**
 	 * Build a Plex URL with authentication and parameters
 	 */
 	private buildURL(path: string, params: Record<string, string> = {}): string {
@@ -425,10 +437,25 @@ export class PlexClient {
 
 		const data = response.data as any;
 		const rawTracks = data?.MediaContainer?.Metadata || [];
-
-		// formatTrack is synchronous — plain map, no Promise.all overhead
 		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
-		return tracksArray.map((track) => this.formatTrack(track));
+
+		// Process in batches, yielding between chunks so the JS thread
+		// can service UI events (scrolling, animations) during large fetches.
+		const BATCH_SIZE = 5000;
+		const results: Song[] = new Array(tracksArray.length);
+
+		for (let i = 0; i < tracksArray.length; i += BATCH_SIZE) {
+			const end = Math.min(i + BATCH_SIZE, tracksArray.length);
+			for (let j = i; j < end; j++) {
+				results[j] = this.formatTrack(tracksArray[j]);
+			}
+			// Yield to the event loop between batches
+			if (end < tracksArray.length) {
+				await new Promise<void>((r) => setTimeout(r, 0));
+			}
+		}
+
+		return results;
 	}
 
 	/**
@@ -495,11 +522,11 @@ export class PlexClient {
 		const part = media?.Part?.[0];
 		const duration = parseInt(track.duration || part?.duration || '0', 10);
 
-		// Build stream URL
-		const streamUrl = part?.key ? this.buildURL(part.key) : '';
+		// Build stream URL (fast path — no URL parsing overhead)
+		const streamUrl = part?.key ? this.buildTrackURL(part.key) : '';
 
 		// Build artwork URL (prefer thumb, fallback to art)
-		const artworkUrl = track.thumb ? this.buildURL(track.thumb) : (track.art ? this.buildURL(track.art) : undefined);
+		const artworkUrl = track.thumb ? this.buildTrackURL(track.thumb) : (track.art ? this.buildTrackURL(track.art) : undefined);
 
 		const title = track.title || 'Unknown Title';
 		const artist = track.grandparentTitle || 'Unknown Artist';

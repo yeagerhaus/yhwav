@@ -2,7 +2,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
+import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { MiniPlayer } from '@/components';
@@ -10,9 +10,8 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
-import { fetchAllTracks, testPlexServer } from '@/utils/plex';
+import { fetchAllAlbums, fetchAllArtists, fetchAllTracks, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
-import { performanceMonitor } from '@/utils/performance';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 
 function AudioSync() {
@@ -62,7 +61,7 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks } = useLibraryStore();
+	const { setTracks, setAlbums, setArtists } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 
 	useEffect(() => {
@@ -88,15 +87,29 @@ export default function RootLayout() {
 						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 					}
 
+					// Fetch albums & artists immediately (small payloads, no caching needed)
+					const fetchAlbumsAndArtists = () => {
+						fetchAllAlbums()
+							.then((albums) => setAlbums(albums))
+							.catch((err) => console.warn('⚠️ Failed to fetch albums:', err));
+						fetchAllArtists()
+							.then((artists) => setArtists(artists))
+							.catch((err) => console.warn('⚠️ Failed to fetch artists:', err));
+					};
+
 					// Only fetch fresh tracks if we don't have cache, or do it much later in background
 					if (!hydrated) {
 						// No cache - fetch immediately
+						fetchAlbumsAndArtists();
 						fetchAllTracks()
 							.then((fetchedTracks) => {
 								if (fetchedTracks.length > 0) {
 									console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
 									setTracks(fetchedTracks);
-									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+									// Defer cache save so the UI renders before JSON.stringify blocks
+									InteractionManager.runAfterInteractions(() => {
+										saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+									});
 								}
 							})
 							.catch((error) => {
@@ -106,7 +119,9 @@ export default function RootLayout() {
 								});
 							});
 					} else {
-						// We have cache - fetch fresh data in background much later (5 minutes)
+						// We have cache for tracks - but albums/artists aren't cached, fetch now
+						fetchAlbumsAndArtists();
+						// Fetch fresh track data in background much later (5 minutes)
 						// This prevents the double-loading issue
 						setTimeout(() => {
 							fetchAllTracks()
@@ -114,7 +129,9 @@ export default function RootLayout() {
 									if (fetchedTracks.length > 0) {
 										console.log(`🔄 Background refresh: Fetched ${fetchedTracks.length} tracks`);
 										setTracks(fetchedTracks);
-										saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+										InteractionManager.runAfterInteractions(() => {
+											saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+										});
 									}
 								})
 								.catch((error) => {

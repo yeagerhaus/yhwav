@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import type { Song } from '@/types';
 
 // Import store directly to avoid circular dependency
@@ -84,7 +85,7 @@ export async function clearLibraryCache() {
  * Returns the number of tracks fetched, or 0 on failure.
  */
 export async function clearCacheAndReload(): Promise<number> {
-	const { fetchAllTracks } = require('@/utils/plex');
+	const { fetchAllTracks, fetchAllAlbums, fetchAllArtists } = require('@/utils/plex');
 	const store = getStore();
 
 	// 1. Wipe persisted cache
@@ -94,15 +95,34 @@ export async function clearCacheAndReload(): Promise<number> {
 	store.setState({
 		tracks: [],
 		songsById: {},
+		albums: [],
+		albumsById: {},
+		artists: [],
+		artistsById: {},
 	});
 
 	// 3. Fresh fetch from server
 	try {
-		const tracks = await fetchAllTracks();
+		const [tracks, albums, artists] = await Promise.all([
+			fetchAllTracks(),
+			fetchAllAlbums(),
+			fetchAllArtists(),
+		]);
+
 		if (tracks.length > 0) {
 			store.getState().setTracks(tracks);
-			await saveLibraryToCache();
+			// Defer cache save so the UI renders before JSON.stringify blocks
+			InteractionManager.runAfterInteractions(() => {
+				saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+			});
 		}
+		if (albums.length > 0) {
+			store.getState().setAlbums(albums);
+		}
+		if (artists.length > 0) {
+			store.getState().setArtists(artists);
+		}
+
 		return tracks.length;
 	} catch (err) {
 		console.error('Failed to reload library:', err);

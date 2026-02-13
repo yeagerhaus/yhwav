@@ -216,7 +216,9 @@ export default function SettingsScreen() {
 							disabled={isLoading}
 						>
 							{isLoading ? (
-								<ActivityIndicator color='#fff' size='small' />
+								<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+									<ActivityIndicator size='large' color={Colors.brand.primary} />
+								</Div>
 							) : (
 								<Text style={styles.clearCacheButtonText}>Clear Cache & Reload Library</Text>
 							)}
@@ -244,7 +246,9 @@ export default function SettingsScreen() {
 									disabled={isLoading}
 								>
 									{isLoading ? (
-										<ActivityIndicator color='#fff' size='small' />
+										<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+											<ActivityIndicator size='large' color={Colors.brand.primary} />
+										</Div>
 									) : (
 										<Text style={styles.connectButtonText}>Sign in with Plex</Text>
 									)}
@@ -261,7 +265,9 @@ export default function SettingsScreen() {
 										<Text style={styles.pinStatus}>{pinStatus}</Text>
 									)}
 									{isLoading && (
-										<ActivityIndicator color='#007AFF' size='small' style={styles.pinLoader} />
+										<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+											<ActivityIndicator size='large' color={Colors.brand.primary} />
+										</Div>
 									)}
 								</View>
 								<TouchableOpacity
@@ -322,7 +328,9 @@ export default function SettingsScreen() {
 													disabled={isLoading}
 												>
 													{isLoading ? (
-														<ActivityIndicator color='#fff' size='small' />
+														<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+															<ActivityIndicator size='large' color={Colors.brand.primary} />
+														</Div>
 													) : (
 														<Text style={styles.loginButtonText}>Connect</Text>
 													)}

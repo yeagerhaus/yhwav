@@ -3,6 +3,7 @@ import type { Album, Artist, Song } from '@/types';
 import { useAlbums } from './useAlbums';
 import { useArtists } from './useArtists';
 import { useLibraryStore } from './useLibraryStore';
+import { useSearchStore } from './useSearchStore';
 
 export interface SearchResult {
 	type: 'song' | 'album' | 'artist';
@@ -35,7 +36,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export function useSearch() {
-	const [query, setQuery] = useState('');
+	const query = useSearchStore((s) => s.query);
 	const [searchResults, setSearchResults] = useState<SearchResults>({
 		songs: [],
 		albums: [],
@@ -184,7 +185,6 @@ export function useSearch() {
 
 	return {
 		query,
-		setQuery,
 		searchResults,
 		isSearching: query.length > 0,
 	};

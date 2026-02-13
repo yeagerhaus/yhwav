@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import type { Album } from '@/types/album';
+import { Colors } from '@/constants/Colors';
 
 interface SearchAlbumItemProps {
 	album: Album;
@@ -101,7 +102,7 @@ const styles = StyleSheet.create({
 		opacity: 0.5,
 	},
 	highlighted: {
-		backgroundColor: '#FA2D48',
+		backgroundColor: Colors.brand.primary,
 		color: 'white',
 		fontWeight: '600',
 	},

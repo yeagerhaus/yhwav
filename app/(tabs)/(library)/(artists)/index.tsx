@@ -6,10 +6,11 @@ import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
 import { useArtists } from '@/hooks/useArtists';
 import type { Artist } from '@/types';
+import { Colors } from '@/constants/Colors';
 
 export default function ArtistsScreen() {
 	const router = useRouter();
-	const { artists, isLoading } = useArtists();
+	const { artists } = useArtists();
 
 	const sorted = useMemo(
 		() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
@@ -60,7 +61,7 @@ export default function ArtistsScreen() {
 	const listEmptyComponent = useMemo(
 		() => (
 			<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-				<ActivityIndicator size='large' color='#FA2D48' />
+				<ActivityIndicator size='large' color={Colors.brand.primary} />
 			</Div>
 		),
 		[],
@@ -73,7 +74,7 @@ export default function ArtistsScreen() {
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				ListEmptyComponent={isLoading ? listEmptyComponent : undefined}
+				ListEmptyComponent={listEmptyComponent}
 				removeClippedSubviews={true}
 				maxToRenderPerBatch={10}
 				windowSize={10}
