@@ -13,12 +13,15 @@ interface PlaylistItemProps {
 		artwork: string;
 		count: number;
 	};
+	size?: number;
 }
 
-export default function PlaylistItem({ item }: PlaylistItemProps) {
+export default function PlaylistItem({ item, size }: PlaylistItemProps) {
+	const s = size ?? itemSize;
+	const iconSize = Math.round(60 * (s / itemSize));
 	return (
 		<Pressable
-			style={styles.gridItem}
+			style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]}
 			onPress={() =>
 				router.push({
 					// @ts-expect-error
@@ -27,15 +30,24 @@ export default function PlaylistItem({ item }: PlaylistItemProps) {
 				})
 			}
 		>
-			{item.artwork && <Image source={{ uri: item.artwork }} style={styles.artwork} resizeMode='cover' />}
-			{!item.artwork && (
-				<>
-					<Div style={{ ...styles.artwork, backgroundColor: '#666', justifyContent: 'center', alignItems: 'center' }}>
-						<SymbolView name='music.note' size={60} type='hierarchical' tintColor='#ddd' />
-					</Div>
-				</>
+			{item.artwork ? (
+				<Image
+					source={{ uri: item.artwork }}
+					style={[styles.artwork, size != null && { width: s, height: s }]}
+					resizeMode='cover'
+				/>
+			) : (
+				<Div
+					style={[
+						styles.artwork,
+						{ backgroundColor: '#666', justifyContent: 'center', alignItems: 'center' },
+						size != null && { width: s, height: s },
+					]}
+				>
+					<SymbolView name='music.note' size={iconSize} type='hierarchical' tintColor='#ddd' />
+				</Div>
 			)}
-			<Text style={styles.name} numberOfLines={1}>
+			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.title}
 			</Text>
 			<Text style={styles.count}>{item.count} songs</Text>

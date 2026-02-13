@@ -9,6 +9,7 @@ export {
 	fetchAllTracks,
 	fetchPlaylist,
 	fetchPlaylistTracks,
+	fetchRecentlyPlayed,
 	fetchUltraBlurColors,
 	plexClient,
 	testPlexServer,

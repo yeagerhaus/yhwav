@@ -65,7 +65,7 @@ function MusicScreen() {
 				router.back();
 			});
 		} else {
-			router.replace('/(tabs)/(library)');
+			router.replace('/(tabs)/home');
 		}
 	}, [router, handleHapticFeedback]);
 

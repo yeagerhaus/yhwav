@@ -11,7 +11,7 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
-import { fetchAllAlbums, fetchAllArtists, fetchAllTracks, testPlexServer } from '@/utils/plex';
+import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 
 function AudioSync() {
@@ -39,7 +39,7 @@ function AnimatedStack() {
 		<View style={{ flex: 1 }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
-					<Stack.Screen name='(tabs)' options={{ headerShown: false }} />
+					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }} />
 					<Stack.Screen
 						name='music/[id]'
 						options={{
@@ -61,7 +61,7 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks, setAlbums, setArtists } = useLibraryStore();
+	const { setTracks, setAlbums, setArtists, setPlaylists } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 
 	useEffect(() => {
@@ -95,6 +95,9 @@ export default function RootLayout() {
 						fetchAllArtists()
 							.then((artists) => setArtists(artists))
 							.catch((err) => console.warn('⚠️ Failed to fetch artists:', err));
+						fetchAllPlaylists()
+							.then((playlists) => setPlaylists(playlists))
+							.catch((err) => console.warn('⚠️ Failed to fetch playlists:', err));
 					};
 
 					// Only fetch fresh tracks if we don't have cache, or do it much later in background
