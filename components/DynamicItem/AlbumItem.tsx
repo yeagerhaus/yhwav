@@ -12,12 +12,14 @@ interface AlbumItemProps {
 		artist: string;
 		count?: number;
 	};
+	size?: number;
 }
 
-export default function AlbumItem({ item }: AlbumItemProps) {
+export default function AlbumItem({ item, size }: AlbumItemProps) {
+	const s = size ?? itemSize;
 	return (
 		<Pressable
-			style={styles.gridItem}
+			style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]}
 			onPress={() =>
 				router.push({
 					// @ts-expect-error
@@ -26,11 +28,11 @@ export default function AlbumItem({ item }: AlbumItemProps) {
 				})
 			}
 		>
-			<Image source={{ uri: item.artwork }} style={styles.artwork} />
-			<Text style={styles.name} numberOfLines={1}>
+			<Image source={{ uri: item.artwork }} style={[styles.artwork, size != null && { width: s, height: s }]} />
+			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.album}
 			</Text>
-			<Text style={styles.artist} numberOfLines={1}>
+			<Text style={[styles.artist, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.artist}
 			</Text>
 		</Pressable>

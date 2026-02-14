@@ -1,9 +1,9 @@
 import { ScrollView, StyleSheet } from 'react-native';
+import { Div } from '@/components/Div';
 import SearchAlbumItem from '@/components/SearchItem/SearchAlbumItem';
 import SearchArtistItem from '@/components/SearchItem/SearchArtistItem';
 import SearchSongItem from '@/components/SearchItem/SearchSongItem';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { useSearch } from '@/hooks';
 import type { Album, Artist, Song } from '@/types';
 
@@ -13,11 +13,11 @@ export default function SearchIndex() {
 	if (!isSearching) {
 		return (
 			<ScrollView contentInsetAdjustmentBehavior='automatic'>
-				<ThemedView style={styles.emptyState}>
+				<Div style={styles.emptyState}>
 					<ThemedText type='subtitle' style={styles.emptyText}>
 						Search your library
 					</ThemedText>
-				</ThemedView>
+				</Div>
 			</ScrollView>
 		);
 	}
@@ -27,20 +27,20 @@ export default function SearchIndex() {
 	if (!hasResults) {
 		return (
 			<ScrollView contentInsetAdjustmentBehavior='automatic'>
-				<ThemedView style={styles.emptyState}>
+				<Div style={styles.emptyState}>
 					<ThemedText type='subtitle' style={styles.emptyText}>
 						No results for "{query}"
 					</ThemedText>
-				</ThemedView>
+				</Div>
 			</ScrollView>
 		);
 	}
 
 	return (
 		<ScrollView contentInsetAdjustmentBehavior='automatic' keyboardDismissMode='on-drag'>
-			<ThemedView style={styles.container}>
+			<Div style={styles.container}>
 				{searchResults.artists.length > 0 && (
-					<ThemedView style={styles.section}>
+					<Div style={styles.section}>
 						<ThemedText type='defaultSemiBold' style={styles.sectionTitle}>
 							Artists
 						</ThemedText>
@@ -48,11 +48,11 @@ export default function SearchIndex() {
 							const artist = result.item as Artist;
 							return <SearchArtistItem key={artist.key} artist={artist} query={query} />;
 						})}
-					</ThemedView>
+					</Div>
 				)}
 
 				{searchResults.albums.length > 0 && (
-					<ThemedView style={styles.section}>
+					<Div style={styles.section}>
 						<ThemedText type='defaultSemiBold' style={styles.sectionTitle}>
 							Albums
 						</ThemedText>
@@ -60,11 +60,11 @@ export default function SearchIndex() {
 							const album = result.item as Album;
 							return <SearchAlbumItem key={album.id} album={album} query={query} />;
 						})}
-					</ThemedView>
+					</Div>
 				)}
 
 				{searchResults.songs.length > 0 && (
-					<ThemedView style={styles.section}>
+					<Div style={styles.section}>
 						<ThemedText type='defaultSemiBold' style={styles.sectionTitle}>
 							Songs
 						</ThemedText>
@@ -72,9 +72,9 @@ export default function SearchIndex() {
 							const song = result.item as Song;
 							return <SearchSongItem key={song.id} song={song} query={query} />;
 						})}
-					</ThemedView>
+					</Div>
 				)}
-			</ThemedView>
+			</Div>
 		</ScrollView>
 	);
 }

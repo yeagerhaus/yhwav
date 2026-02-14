@@ -11,12 +11,16 @@ interface ArtistItemProps {
 		thumb?: string;
 		genres?: string[];
 	};
+	size?: number;
 }
 
-export default function ArtistItem({ item }: ArtistItemProps) {
+export default function ArtistItem({ item, size }: ArtistItemProps) {
+	const s = size ?? itemSize;
+	const radius = s / 2;
+	const initialFontSize = Math.round(40 * (s / itemSize));
 	return (
 		<Pressable
-			style={styles.gridItem}
+			style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]}
 			onPress={() =>
 				router.push({
 					// @ts-expect-error
@@ -26,17 +30,20 @@ export default function ArtistItem({ item }: ArtistItemProps) {
 			}
 		>
 			{item.thumb ? (
-				<Image source={{ uri: item.thumb }} style={styles.artwork} />
+				<Image
+					source={{ uri: item.thumb }}
+					style={[styles.artwork, size != null && { width: s, height: s, borderRadius: radius }]}
+				/>
 			) : (
-				<View style={styles.placeholder}>
-					<Text style={styles.initial}>{item.name.charAt(0).toUpperCase()}</Text>
+				<View style={[styles.placeholder, size != null && { width: s, height: s, borderRadius: radius }]}>
+					<Text style={[styles.initial, size != null && { fontSize: initialFontSize }]}>{item.name.charAt(0).toUpperCase()}</Text>
 				</View>
 			)}
-			<Text style={styles.name} numberOfLines={1}>
+			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.name}
 			</Text>
 			{item.genres && item.genres.length > 0 && (
-				<Text style={styles.genre} numberOfLines={1}>
+				<Text style={[styles.genre, size != null && { maxWidth: s }]} numberOfLines={1}>
 					{item.genres.slice(0, 2).join(', ')}
 				</Text>
 			)}

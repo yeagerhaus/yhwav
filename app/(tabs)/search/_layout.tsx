@@ -15,6 +15,9 @@ export default function SearchLayout() {
 							useSearchStore.getState().setQuery(event.nativeEvent.text);
 						},
 					},
+					headerStyle: {
+						backgroundColor: 'transparent',
+					},
 				}}
 			/>
 		</Stack>

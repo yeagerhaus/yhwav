@@ -14,20 +14,24 @@ export default function TabLayout() {
 				}),
 			}}
 		>
+			<NativeTabs.Trigger name='index'>
+				<Label>Home</Label>
+				<Icon sf={{ default: 'music.note.house', selected: 'music.note.house.fill' }} selectedColor={Colors.brand.primary} />
+			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='(library)'>
 				<Label>Library</Label>
-				<Icon sf={{ default: 'music.note.house', selected: 'music.note.house.fill' }} selectedColor={Colors.brand.primary} />
+				<Icon
+					// @ts-ignore biome-ignore lint/suspicious/noExplicitAny: <these are valid icons, just not typed>
+					sf={{ default: 'music.note.square.stack', selected: 'music.note.square.stack.fill' }}
+					selectedColor={Colors.brand.primary}
+				/>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='settings'>
 				<Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} selectedColor={Colors.brand.primary} />
 				<Label>Settings</Label>
 			</NativeTabs.Trigger>
 
-			<NativeTabs.Trigger
-				name='search'
-				// biome-ignore lint/a11y/useSemanticElements: role is supported in NativeTabs
-				role='search'
-			>
+			<NativeTabs.Trigger name='search' role='search'>
 				<Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} selectedColor={Colors.brand.primary} />
 				<Label>Search</Label>
 			</NativeTabs.Trigger>

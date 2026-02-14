@@ -12,7 +12,7 @@ export function HeaderBackButton() {
 			router.back();
 		} else {
 			// Fallback to home screen if there's no route behind
-			router.replace('/(tabs)/(library)');
+			router.replace('/(tabs)/home');
 		}
 	};
 

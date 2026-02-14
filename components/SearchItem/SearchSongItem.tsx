@@ -1,11 +1,15 @@
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants';
+import { useAlbums } from '@/hooks/useAlbums';
+import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 
@@ -20,10 +24,36 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const playbackState = usePlaybackState();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const playSound = useAudioStore((state) => state.playSound);
+	const { artists } = useArtists();
+	const { albums } = useAlbums();
 
 	const isCurrentSong = useMemo(() => {
 		return song.id === String(currentSong?.id);
 	}, [song.id, currentSong?.id]);
+
+	const matchedArtist = artists.find((a) => a.name === song.artist);
+	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
+
+	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Go to Album',
+			systemImage: 'square.stack',
+			onPress: () => {
+				if (matchedAlbum) {
+					router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
+				}
+			},
+		},
+		{
+			label: 'Go to Artist',
+			systemImage: 'person.circle',
+			onPress: () => {
+				if (matchedArtist) {
+					router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
+				}
+			},
+		},
+	];
 
 	const playSong = async () => {
 		await playSound(song);
@@ -66,9 +96,9 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 						{highlightText(song.album, query)}
 					</ThemedText>
 				</ThemedView>
-				<Pressable style={styles.moreButton}>
-					<SymbolView name='ellipsis' size={20} tintColor='#222222' />
-				</Pressable>
+				<ContextMenu items={menuItems} style={styles.moreButton}>
+					<SymbolView name='ellipsis' size={20} tintColor='#999' />
+				</ContextMenu>
 			</ThemedView>
 		</Pressable>
 	);
