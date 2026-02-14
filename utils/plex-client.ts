@@ -566,6 +566,7 @@ export class PlexClient {
 			duration,
 			trackNumber: parseInt(track.index || '0', 10),
 			discNumber: parseInt(track.parentIndex || '0', 10),
+			playlistItemId: track.playlistItemID ? String(track.playlistItemID) : undefined,
 			playlistIndex,
 			artistKey: track.grandparentKey || '',
 			titleLower: title.toLowerCase(),
@@ -732,6 +733,89 @@ export class PlexClient {
 	}
 
 	/**
+	 * Build a Plex library URI for use in playlist operations
+	 */
+	private buildLibraryURI(ratingKeys: string[]): string {
+		const server = plexAuthService.getSelectedServer();
+		if (!server?.serverId) {
+			throw new Error('No server selected or missing serverId');
+		}
+		return `server://${server.serverId}/com.plexapp.plugins.library/library/metadata/${ratingKeys.join(',')}`;
+	}
+
+	/**
+	 * Create a new playlist
+	 */
+	async createPlaylist(title: string, ratingKeys?: string[]): Promise<Playlist | null> {
+		await this.initialize();
+
+		const params: Record<string, string> = {
+			title,
+			type: 'audio',
+			smart: '0',
+		};
+
+		if (ratingKeys?.length) {
+			params.uri = this.buildLibraryURI(ratingKeys);
+		}
+
+		const response = await this.request('/playlists', params, { method: 'POST' });
+		const data = response.data as any;
+		const playlist = data?.MediaContainer?.Metadata?.[0];
+		return playlist ? this.formatPlaylist(playlist) : null;
+	}
+
+	/**
+	 * Update playlist metadata (title, summary)
+	 */
+	async updatePlaylistMetadata(playlistId: string, fields: { title?: string; summary?: string }): Promise<void> {
+		await this.initialize();
+
+		const params: Record<string, string> = {};
+		if (fields.title !== undefined) params.title = fields.title;
+		if (fields.summary !== undefined) params.summary = fields.summary;
+
+		await this.request(`/playlists/${playlistId}`, params, { method: 'PUT' });
+	}
+
+	/**
+	 * Delete a playlist
+	 */
+	async deletePlaylist(playlistId: string): Promise<void> {
+		await this.initialize();
+		await this.request(`/playlists/${playlistId}`, {}, { method: 'DELETE' });
+	}
+
+	/**
+	 * Add items to a playlist
+	 */
+	async addToPlaylist(playlistId: string, ratingKeys: string[]): Promise<void> {
+		await this.initialize();
+		const uri = this.buildLibraryURI(ratingKeys);
+		await this.request(`/playlists/${playlistId}/items`, { uri }, { method: 'PUT' });
+	}
+
+	/**
+	 * Remove an item from a playlist
+	 */
+	async removeFromPlaylist(playlistId: string, playlistItemId: string): Promise<void> {
+		await this.initialize();
+		await this.request(`/playlists/${playlistId}/items/${playlistItemId}`, {}, { method: 'DELETE' });
+	}
+
+	/**
+	 * Move a playlist item to a new position
+	 */
+	async movePlaylistItem(playlistId: string, playlistItemId: string, afterPlaylistItemId?: string): Promise<void> {
+		await this.initialize();
+		const params: Record<string, string> = {};
+		if (afterPlaylistItemId) {
+			params.after = afterPlaylistItemId;
+		}
+		await this.request(`/playlists/${playlistId}/items/${playlistItemId}/move`, params, { method: 'PUT' });
+	}
+
+	/**
 	 * Format a Plex playlist into our Playlist type
 	 */
 	private formatPlaylist(playlist: any): Playlist {
@@ -775,3 +859,11 @@ export const buildPlexURL = async (path: string, params: Record<string, string> 
 	await plexClient.initialize();
 	return (plexClient as any).buildURL(path, params);
 };
+export const createPlaylist = (title: string, ratingKeys?: string[]) => plexClient.createPlaylist(title, ratingKeys);
+export const updatePlaylistMetadata = (playlistId: string, fields: { title?: string; summary?: string }) =>
+	plexClient.updatePlaylistMetadata(playlistId, fields);
+export const deletePlaylist = (playlistId: string) => plexClient.deletePlaylist(playlistId);
+export const addToPlaylist = (playlistId: string, ratingKeys: string[]) => plexClient.addToPlaylist(playlistId, ratingKeys);
+export const removeFromPlaylist = (playlistId: string, playlistItemId: string) => plexClient.removeFromPlaylist(playlistId, playlistItemId);
+export const movePlaylistItem = (playlistId: string, playlistItemId: string, afterPlaylistItemId?: string) =>
+	plexClient.movePlaylistItem(playlistId, playlistItemId, afterPlaylistItemId);

@@ -2,7 +2,10 @@
 
 export type { PlexError, PlexResponse } from './plex-client';
 export {
+	addToPlaylist,
 	buildPlexURL,
+	createPlaylist,
+	deletePlaylist,
 	fetchAllAlbums,
 	fetchAllArtists,
 	fetchAllPlaylists,
@@ -11,6 +14,9 @@ export {
 	fetchPlaylistTracks,
 	fetchRecentlyPlayed,
 	fetchUltraBlurColors,
+	movePlaylistItem,
 	plexClient,
+	removeFromPlaylist,
 	testPlexServer,
+	updatePlaylistMetadata,
 } from './plex-client';

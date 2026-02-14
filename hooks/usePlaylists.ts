@@ -21,6 +21,20 @@ export const usePlaylists = () => {
 		}
 	}, [isLoading, setPlaylists]);
 
+	const refreshPlaylists = useCallback(async () => {
+		hasFetched.current = false;
+		setIsLoading(true);
+		try {
+			const fetchedPlaylists = await fetchAllPlaylists();
+			setPlaylists(fetchedPlaylists);
+			hasFetched.current = true;
+		} catch (error) {
+			console.error('Failed to refresh playlists:', error);
+		} finally {
+			setIsLoading(false);
+		}
+	}, [setPlaylists]);
+
 	const loadPlaylistTracks = useCallback(async (playlistId: string) => {
 		try {
 			return await fetchPlaylistTracks(playlistId);
@@ -40,5 +54,6 @@ export const usePlaylists = () => {
 		isLoading,
 		loadPlaylists,
 		loadPlaylistTracks,
+		refreshPlaylists,
 	};
 };
