@@ -11,7 +11,7 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
-import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, testPlexServer } from '@/utils/plex';
+import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 
 function AudioSync() {
@@ -61,7 +61,7 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks, setAlbums, setArtists, setPlaylists } = useLibraryStore();
+	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 
 	useEffect(() => {
@@ -87,7 +87,7 @@ export default function RootLayout() {
 						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 					}
 
-					// Fetch albums & artists immediately (small payloads, no caching needed)
+					// Fetch albums, artists, playlists & recently played immediately (small payloads, no caching needed)
 					const fetchAlbumsAndArtists = () => {
 						fetchAllAlbums()
 							.then((albums) => setAlbums(albums))
@@ -98,6 +98,9 @@ export default function RootLayout() {
 						fetchAllPlaylists()
 							.then((playlists) => setPlaylists(playlists))
 							.catch((err) => console.warn('⚠️ Failed to fetch playlists:', err));
+						fetchRecentlyPlayed(25)
+							.then((songs) => setRecentlyPlayed(songs))
+							.catch((err) => console.warn('⚠️ Failed to fetch recently played:', err));
 					};
 
 					// Only fetch fresh tracks if we don't have cache, or do it much later in background

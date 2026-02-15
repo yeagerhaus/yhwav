@@ -30,14 +30,14 @@ export default function HomeScreen() {
 		[albums],
 	);
 
-	const mostPlayedArtists = useMemo(
-		() =>
-			artists
-				.filter((a) => a.viewCount != null && a.viewCount > 0)
-				.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
-				.slice(0, 25),
-		[artists],
-	);
+	// const mostPlayedArtists = useMemo(
+	// 	() =>
+	// 		artists
+	// 			.filter((a) => a.viewCount != null && a.viewCount > 0)
+	// 			.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
+	// 			.slice(0, 25),
+	// 	[artists],
+	// );
 
 	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio'), [playlists]);
 
@@ -79,12 +79,12 @@ export default function HomeScreen() {
 				)}
 			/>
 
-			<HomeSection
+			{/* <HomeSection
 				title='Most Played Artists'
 				data={mostPlayedArtists}
 				keyExtractor={(item) => item.key}
 				renderItem={(item) => <ArtistItem item={item} size={ITEM_SIZE} />}
-			/>
+			/> */}
 
 			<HomeSection
 				title='Your Playlists'
