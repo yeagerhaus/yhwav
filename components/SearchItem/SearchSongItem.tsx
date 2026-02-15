@@ -1,17 +1,18 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
+import { Div } from '../Div';
 
 interface SearchSongItemProps {
 	song: Song;
@@ -26,6 +27,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const playSound = useAudioStore((state) => state.playSound);
 	const { artists } = useArtists();
 	const { albums } = useAlbums();
+	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 
 	const isCurrentSong = useMemo(() => {
 		return song.id === String(currentSong?.id);
@@ -35,6 +37,11 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
 
 	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Add to Playlist',
+			systemImage: 'plus.circle',
+			onPress: () => openAddToPlaylist(`${song.title} — ${song.artist}`, [song.id]),
+		},
 		{
 			label: 'Go to Album',
 			systemImage: 'square.stack',
@@ -77,29 +84,29 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 
 	return (
 		<Pressable onPress={playSong} style={styles.songItem}>
-			<View style={styles.artworkContainer}>
+			<Div style={styles.artworkContainer}>
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
-			</View>
-			<ThemedView style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<ThemedView style={styles.songInfo}>
+			</Div>
+			<Div style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div style={styles.songInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}
 					</ThemedText>
-					<ThemedView style={styles.artistRow}>
+					<Div style={styles.artistRow}>
 						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />}
 						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{highlightText(song.artist, query)}
 						</ThemedText>
-					</ThemedView>
+					</Div>
 					<ThemedText type='subtitle' numberOfLines={1} style={styles.songAlbum}>
 						{highlightText(song.album, query)}
 					</ThemedText>
-				</ThemedView>
+				</Div>
 				<ContextMenu items={menuItems} style={styles.moreButton}>
 					<SymbolView name='ellipsis' size={20} tintColor='#999' />
 				</ContextMenu>
-			</ThemedView>
+			</Div>
 		</Pressable>
 	);
 }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import type { Album, Artist, Song } from '@/types';
+import type { Album, Artist, Playlist, Song } from '@/types';
 import { useAlbums } from './useAlbums';
 import { useArtists } from './useArtists';
 import { useLibraryStore } from './useLibraryStore';
 import { useSearchStore } from './useSearchStore';
 
 export interface SearchResult {
-	type: 'song' | 'album' | 'artist';
-	item: Song | Album | Artist;
+	type: 'song' | 'album' | 'artist' | 'playlist';
+	item: Song | Album | Artist | Playlist;
 	score: number;
 }
 
@@ -15,6 +15,7 @@ export interface SearchResults {
 	songs: SearchResult[];
 	albums: SearchResult[];
 	artists: SearchResult[];
+	playlists: SearchResult[];
 	totalResults: number;
 }
 
@@ -41,9 +42,11 @@ export function useSearch() {
 		songs: [],
 		albums: [],
 		artists: [],
+		playlists: [],
 		totalResults: 0,
 	});
 	const tracks = useLibraryStore((s) => s.tracks);
+	const playlists = useLibraryStore((s) => s.playlists);
 	const { albums } = useAlbums();
 	const { artists } = useArtists();
 
@@ -51,13 +54,10 @@ export function useSearch() {
 	const debouncedQuery = useDebounce(query, 300);
 
 	useEffect(() => {
+		const empty: SearchResults = { songs: [], albums: [], artists: [], playlists: [], totalResults: 0 };
+
 		if (!debouncedQuery.trim()) {
-			setSearchResults({
-				songs: [],
-				albums: [],
-				artists: [],
-				totalResults: 0,
-			});
+			setSearchResults(empty);
 			return;
 		}
 
@@ -66,21 +66,11 @@ export function useSearch() {
 
 		// Early exit for very short queries
 		if (queryLength < 1) {
-			setSearchResults({
-				songs: [],
-				albums: [],
-				artists: [],
-				totalResults: 0,
-			});
+			setSearchResults(empty);
 			return;
 		}
 
-		const results: SearchResults = {
-			songs: [],
-			albums: [],
-			artists: [],
-			totalResults: 0,
-		};
+		const results: SearchResults = { ...empty };
 
 		// Search songs using pre-computed lowercase fields (zero allocations per iteration)
 		const MAX_SONG_RESULTS = 50;
@@ -168,20 +158,46 @@ export function useSearch() {
 			}
 		}
 
+		// Search playlists
+		const MAX_PLAYLIST_RESULTS = 10;
+		const audioPlaylists = playlists.filter((p) => p.playlistType === 'audio');
+		for (const playlist of audioPlaylists) {
+			const titleLower = playlist.title.toLowerCase();
+			const titleMatch = titleLower.includes(normalizedQuery);
+
+			if (titleMatch) {
+				let score = 0;
+				if (titleLower.startsWith(normalizedQuery)) score += 100;
+				else score += 50;
+
+				results.playlists.push({
+					type: 'playlist',
+					item: playlist,
+					score,
+				});
+
+				if (results.playlists.length >= MAX_PLAYLIST_RESULTS * 2) {
+					break;
+				}
+			}
+		}
+
 		// Sort results by score (highest first)
 		results.songs.sort((a, b) => b.score - a.score);
 		results.albums.sort((a, b) => b.score - a.score);
 		results.artists.sort((a, b) => b.score - a.score);
+		results.playlists.sort((a, b) => b.score - a.score);
 
 		// Limit results
 		results.songs = results.songs.slice(0, 20);
 		results.albums = results.albums.slice(0, 10);
 		results.artists = results.artists.slice(0, 10);
+		results.playlists = results.playlists.slice(0, 10);
 
-		results.totalResults = results.songs.length + results.albums.length + results.artists.length;
+		results.totalResults = results.songs.length + results.albums.length + results.artists.length + results.playlists.length;
 
 		setSearchResults(results);
-	}, [debouncedQuery, tracks, albums, artists]);
+	}, [debouncedQuery, tracks, albums, artists, playlists]);
 
 	return {
 		query,

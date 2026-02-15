@@ -7,4 +7,7 @@ export interface Album {
 	thumb?: string;
 	year?: number;
 	addedAt?: number;
+	format?: string;
+	subformat?: string;
+	originallyAvailableAt?: string;
 }

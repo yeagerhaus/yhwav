@@ -1,18 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
 import { DynamicItem, ThemedText } from '@/components';
 import { Div } from '@/components/Div';
 import { Main } from '@/components/Main';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylists } from '@/hooks/usePlaylists';
+import { createPlaylist } from '@/utils/plex';
 
 export default function PlaylistsScreen() {
 	const { playlists, isLoading } = usePlaylists();
+	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
 	const hasNoPlaylists = useMemo(() => !playlists.length, [playlists]);
 
 	const formattedPlaylists = useMemo(
 		() =>
 			playlists
-				.filter((playlist) => playlist.playlistType === 'audio') // Only show audio playlists
+				.filter((playlist) => playlist.playlistType === 'audio')
 				.map((playlist) => ({
 					id: playlist.key || playlist.id,
 					title: playlist.title,
@@ -25,17 +30,39 @@ export default function PlaylistsScreen() {
 		[playlists],
 	);
 
+	const handleCreatePlaylist = useCallback(() => {
+		if (Platform.OS === 'ios') {
+			Alert.prompt('New Playlist', 'Enter a name for your playlist', async (name) => {
+				if (!name?.trim()) return;
+				const newPlaylist = await createPlaylist(name.trim());
+				if (newPlaylist) {
+					setPlaylists([...playlists, newPlaylist]);
+					router.push({
+						// @ts-expect-error
+						pathname: '(library)/(playlists)/[playlistId]',
+						params: { playlistId: newPlaylist.key },
+					});
+				}
+			});
+		} else {
+			Alert.alert('New Playlist', 'Enter a name for your playlist');
+		}
+	}, [playlists, setPlaylists]);
+
 	const keyExtractor = useCallback((item: (typeof formattedPlaylists)[0]) => item.id.toString(), [formattedPlaylists]);
 
 	const renderItem = useCallback(({ item }: { item: (typeof formattedPlaylists)[0] }) => <DynamicItem item={item} type='playlist' />, []);
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16, paddingTop: 64 }}>Playlists</ThemedText>
+			<Div style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}>
+				<ThemedText style={{ fontSize: 40, fontWeight: 'bold' }}>Playlists</ThemedText>
+				<Pressable onPress={handleCreatePlaylist} hitSlop={8}>
+					<Ionicons name='add-circle-outline' size={28} color='#7f62f5' />
+				</Pressable>
 			</Div>
 		),
-		[],
+		[handleCreatePlaylist],
 	);
 
 	if (isLoading) {
@@ -54,6 +81,9 @@ export default function PlaylistsScreen() {
 				<Div style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 					<ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8 }}>Playlists</ThemedText>
 					<ThemedText style={{ fontSize: 16, color: '#888' }}>No playlists found</ThemedText>
+					<Pressable onPress={handleCreatePlaylist} style={{ marginTop: 16 }}>
+						<ThemedText style={{ fontSize: 16, color: '#7f62f5' }}>Create Playlist</ThemedText>
+					</Pressable>
 				</Div>
 			</Main>
 		);

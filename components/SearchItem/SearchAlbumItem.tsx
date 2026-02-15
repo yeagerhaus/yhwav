@@ -1,9 +1,14 @@
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
+import { Div } from '../Div';
 
 interface SearchAlbumItemProps {
 	album: Album;
@@ -13,6 +18,13 @@ interface SearchAlbumItemProps {
 
 export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumItemProps) {
 	const colorScheme = useColorScheme();
+	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
+	const allTracks = useLibraryStore((s) => s.tracks);
+
+	const albumTrackIds = useMemo(
+		() => allTracks.filter((t) => t.album === album.title && t.artist === album.artist).map((t) => t.id),
+		[allTracks, album.title, album.artist],
+	);
 
 	const handlePress = () => {
 		router.push({
@@ -23,12 +35,21 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 		onPress?.();
 	};
 
-	const highlightText = (text: string, query: string) => {
-		if (!query) return text;
+	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Add to Playlist',
+			systemImage: 'plus.circle',
+			onPress: () => openAddToPlaylist(`${album.title} — ${album.artist}`, albumTrackIds),
+			disabled: albumTrackIds.length === 0,
+		},
+	];
 
-		const parts = text.split(new RegExp(`(${query})`, 'gi'));
+	const highlightText = (text: string, q: string) => {
+		if (!q) return text;
+
+		const parts = text.split(new RegExp(`(${q})`, 'gi'));
 		return parts.map((part, index) =>
-			part.toLowerCase() === query.toLowerCase() ? (
+			part.toLowerCase() === q.toLowerCase() ? (
 				<ThemedText key={index} style={styles.highlighted}>
 					{part}
 				</ThemedText>
@@ -43,8 +64,8 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<ThemedView style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<ThemedView style={styles.albumInfo}>
+			<Div style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div style={styles.albumInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}
 					</ThemedText>
@@ -56,8 +77,11 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 							{album.year}
 						</ThemedText>
 					)}
-				</ThemedView>
-			</ThemedView>
+				</Div>
+				<ContextMenu items={menuItems} style={styles.moreButton}>
+					<SymbolView name='ellipsis' size={20} tintColor='#999' />
+				</ContextMenu>
+			</Div>
 		</Pressable>
 	);
 }
@@ -100,6 +124,9 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: '400',
 		opacity: 0.5,
+	},
+	moreButton: {
+		padding: 8,
 	},
 	highlighted: {
 		backgroundColor: Colors.brand.primary,
