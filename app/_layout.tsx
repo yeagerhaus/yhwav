@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { MiniPlayer } from '@/components';
+import { AddToPlaylistModal, MiniPlayer } from '@/components';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
@@ -163,6 +163,7 @@ export default function RootLayout() {
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />
+					<AddToPlaylistModal />
 					<PerformanceDebugger />
 				</RootScaleProvider>
 			</ThemeProvider>

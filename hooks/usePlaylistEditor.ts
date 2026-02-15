@@ -2,7 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 import type { Song } from '@/types/song';
 import { fetchPlaylistTracks, movePlaylistItem, removeFromPlaylist } from '@/utils/plex';
 
-export function usePlaylistEditor(playlistId: string) {
+/**
+ * @param ratingKey - Numeric playlist ID used for CRUD API calls (e.g. "12345")
+ * @param playlistKey - Full key path used for fetching tracks (e.g. "/playlists/12345/items")
+ */
+export function usePlaylistEditor(ratingKey: string, playlistKey: string) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedTracks, setEditedTracks] = useState<Song[]>([]);
@@ -40,7 +44,7 @@ export function usePlaylistEditor(playlistId: string) {
 
 			for (const track of removals) {
 				if (track.playlistItemId) {
-					await removeFromPlaylist(playlistId, track.playlistItemId);
+					await removeFromPlaylist(ratingKey, track.playlistItemId);
 				}
 			}
 
@@ -52,26 +56,23 @@ export function usePlaylistEditor(playlistId: string) {
 			const orderChanged = originalOrder.length !== editedOrder.length || originalOrder.some((id, i) => id !== editedOrder[i]);
 
 			if (orderChanged) {
-				// Walk desired order top-to-bottom issuing MOVE calls
 				for (let i = 0; i < editedOrder.length; i++) {
 					const itemId = editedOrder[i];
 					if (!itemId) continue;
 
 					if (i === 0) {
-						// Move to beginning (no "after" parameter)
-						await movePlaylistItem(playlistId, itemId);
+						await movePlaylistItem(ratingKey, itemId);
 					} else {
-						// Move after the previous item
 						const afterId = editedOrder[i - 1];
 						if (afterId) {
-							await movePlaylistItem(playlistId, itemId, afterId);
+							await movePlaylistItem(ratingKey, itemId, afterId);
 						}
 					}
 				}
 			}
 
-			// 3. Refresh: fetch fresh tracks from server
-			const freshTracks = await fetchPlaylistTracks(playlistId);
+			// 3. Refresh using the key path (which fetchPlaylistTracks expects)
+			const freshTracks = await fetchPlaylistTracks(playlistKey);
 
 			setIsEditing(false);
 			setEditedTracks([]);
@@ -81,7 +82,7 @@ export function usePlaylistEditor(playlistId: string) {
 		} finally {
 			setIsSaving(false);
 		}
-	}, [playlistId, editedTracks]);
+	}, [ratingKey, playlistKey, editedTracks]);
 
 	return {
 		isEditing,

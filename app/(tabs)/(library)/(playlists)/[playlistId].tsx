@@ -24,7 +24,10 @@ export default function DetailScreen() {
 	const [artwork, setArtwork] = useState<string | null>(null);
 	const [editTitle, setEditTitle] = useState('');
 
-	const editor = usePlaylistEditor(playlistId);
+	// playlistId from route is the key path (e.g. "/playlists/12345/items")
+	// ratingKey is the numeric ID needed for CRUD API calls
+	const ratingKey = playlist?.ratingKey ?? '';
+	const editor = usePlaylistEditor(ratingKey, playlistId);
 
 	useEffect(() => {
 		if (!playlistId) return;

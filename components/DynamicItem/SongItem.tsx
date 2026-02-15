@@ -6,6 +6,7 @@ import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -20,6 +21,7 @@ const SongItem = React.memo(
 		const playbackState = usePlaybackState();
 		const { artists } = useArtists();
 		const { albums } = useAlbums();
+		const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
 		const isCurrentSong = useMemo(() => {
@@ -41,7 +43,7 @@ const SongItem = React.memo(
 			{
 				label: 'Add to Playlist',
 				systemImage: 'plus.circle',
-				onPress: () => console.log('Add to Playlist'),
+				onPress: () => openAddToPlaylist(`${item.title} — ${item.artist}`, [item.id]),
 			},
 			{
 				label: 'Go to Album',

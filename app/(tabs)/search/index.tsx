@@ -2,10 +2,11 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { Div } from '@/components/Div';
 import SearchAlbumItem from '@/components/SearchItem/SearchAlbumItem';
 import SearchArtistItem from '@/components/SearchItem/SearchArtistItem';
+import SearchPlaylistItem from '@/components/SearchItem/SearchPlaylistItem';
 import SearchSongItem from '@/components/SearchItem/SearchSongItem';
 import { ThemedText } from '@/components/ThemedText';
 import { useSearch } from '@/hooks';
-import type { Album, Artist, Song } from '@/types';
+import type { Album, Artist, Playlist, Song } from '@/types';
 
 export default function SearchIndex() {
 	const { query, searchResults, isSearching } = useSearch();
@@ -39,6 +40,18 @@ export default function SearchIndex() {
 	return (
 		<ScrollView contentInsetAdjustmentBehavior='automatic' keyboardDismissMode='on-drag'>
 			<Div style={styles.container}>
+				{searchResults.playlists.length > 0 && (
+					<Div style={styles.section}>
+						<ThemedText type='defaultSemiBold' style={styles.sectionTitle}>
+							Playlists
+						</ThemedText>
+						{searchResults.playlists.map((result) => {
+							const playlist = result.item as Playlist;
+							return <SearchPlaylistItem key={playlist.id} playlist={playlist} query={query} />;
+						})}
+					</Div>
+				)}
+
 				{searchResults.artists.length > 0 && (
 					<Div style={styles.section}>
 						<ThemedText type='defaultSemiBold' style={styles.sectionTitle}>

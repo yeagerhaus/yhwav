@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import type { Artist } from '@/types/artist';
+import { Div } from '../Div';
 
 interface SearchArtistItemProps {
 	artist: Artist;
@@ -45,20 +45,20 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 			{artist.thumb ? (
 				<Image source={{ uri: artist.thumb }} style={styles.artistImage} />
 			) : (
-				<ThemedView style={styles.artistIconContainer}>
+				<Div style={styles.artistIconContainer}>
 					<ThemedText style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</ThemedText>
-				</ThemedView>
+				</Div>
 			)}
-			<ThemedView style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<ThemedView style={styles.artistInfo}>
+			<Div style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div style={styles.artistInfo}>
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
 						{highlightText(artist.name, query)}
 					</ThemedText>
 					<ThemedText type='subtitle' numberOfLines={1} style={styles.artistStats}>
 						{genreText}
 					</ThemedText>
-				</ThemedView>
-			</ThemedView>
+				</Div>
+			</Div>
 		</Pressable>
 	);
 }
@@ -93,6 +93,8 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 4,
 		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
 		borderBottomWidth: StyleSheet.hairlineWidth,
 		paddingBottom: 14,
 		paddingRight: 14,

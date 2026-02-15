@@ -311,7 +311,7 @@ export class PlexClient {
 				// Handle HTTP errors
 				if (!response.ok) {
 					const errorText = await response.text().catch(() => 'Unknown error');
-					const error: PlexError = new Error(`HTTP ${response.status}: ${errorText}`);
+					const error: PlexError = new Error(`[${requestUrl}] - ${response.status}: ${errorText}`);
 					error.status = response.status;
 					error.code = `HTTP_${response.status}`;
 					error.retryable = response.status >= 500;
@@ -606,6 +606,9 @@ export class PlexClient {
 			artwork: thumb || '',
 			year: raw.year ? parseInt(raw.year) : undefined,
 			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
+			format: raw.Format?.[0]?.tag,
+			subformat: raw.Subformat?.[0]?.tag,
+			originallyAvailableAt: raw.originallyAvailableAt,
 		};
 	}
 
@@ -753,11 +756,8 @@ export class PlexClient {
 			title,
 			type: 'audio',
 			smart: '0',
+			uri: ratingKeys?.length ? this.buildLibraryURI(ratingKeys) : '',
 		};
-
-		if (ratingKeys?.length) {
-			params.uri = this.buildLibraryURI(ratingKeys);
-		}
 
 		const response = await this.request('/playlists', params, { method: 'POST' });
 		const data = response.data as any;

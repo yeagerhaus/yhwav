@@ -1,3 +1,4 @@
+export * from './AddToPlaylistModal';
 export * from './BottomSheet/ExpandedPlayer';
 export * from './BottomSheet/MiniPlayer';
 export * from './ContextMenu';

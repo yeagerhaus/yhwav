@@ -4,6 +4,7 @@ import React from 'react';
 import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { ThemedText } from '@/components/ThemedText';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -14,6 +15,7 @@ export const SongInfo = React.memo(() => {
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const { artists } = useArtists();
 	const { albums } = useAlbums();
+	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 
 	if (!currentSong) return null;
 
@@ -29,7 +31,10 @@ export const SongInfo = React.memo(() => {
 		{
 			label: 'Add to Playlist',
 			systemImage: 'plus.circle',
-			onPress: () => console.log('Add to Playlist'),
+			onPress: () => {
+				if (!currentSong) return;
+				openAddToPlaylist(`${currentSong.title} — ${currentSong.artist}`, [currentSong.id]);
+			},
 		},
 		{
 			label: 'Go to Album',

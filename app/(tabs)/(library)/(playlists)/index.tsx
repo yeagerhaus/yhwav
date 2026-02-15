@@ -37,7 +37,11 @@ export default function PlaylistsScreen() {
 				const newPlaylist = await createPlaylist(name.trim());
 				if (newPlaylist) {
 					setPlaylists([...playlists, newPlaylist]);
-					router.push(`/(tabs)/(library)/(playlists)/${newPlaylist.key}`);
+					router.push({
+						// @ts-expect-error
+						pathname: '(library)/(playlists)/[playlistId]',
+						params: { playlistId: newPlaylist.key },
+					});
 				}
 			});
 		} else {

@@ -11,6 +11,7 @@ interface AlbumItemProps {
 		artwork: string;
 		artist: string;
 		count?: number;
+		year?: number;
 	};
 	size?: number;
 }
@@ -35,6 +36,11 @@ export default function AlbumItem({ item, size }: AlbumItemProps) {
 			<Text style={[styles.artist, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.artist}
 			</Text>
+			{item.year != null && (
+				<Text style={[styles.year, size != null && { maxWidth: s }]} numberOfLines={1}>
+					{item.year}
+				</Text>
+			)}
 		</Pressable>
 	);
 }
@@ -65,9 +71,10 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},
-	count: {
+	year: {
 		fontSize: 10,
 		color: '#666',
 		textAlign: 'center',
+		maxWidth: itemSize,
 	},
 });
