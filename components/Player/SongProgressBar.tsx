@@ -87,7 +87,7 @@ export function SongProgressBar() {
 	});
 
 	return (
-		<Div style={{ width: '100%', marginTop: 15, marginBottom: 10 }}>
+		<Div transparent style={{ width: '100%', marginTop: 15, marginBottom: 10 }}>
 			<GestureDetector gesture={composedGesture}>
 				<Animated.View
 					onLayout={(event) => {
@@ -105,6 +105,7 @@ export function SongProgressBar() {
 					}}
 				>
 					<Div
+						transparent
 						style={{
 							width: '100%',
 							height: 5,

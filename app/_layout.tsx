@@ -1,5 +1,5 @@
 // Crypto polyfills removed - using expo-crypto instead
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider, useTheme } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
@@ -22,6 +22,7 @@ function AudioSync() {
 function AnimatedStack() {
 	const { scale } = useRootScale();
 	const router = useRouter();
+	const { colors } = useTheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
 
 	const animatedStyle = useAnimatedStyle(() => {
@@ -39,7 +40,7 @@ function AnimatedStack() {
 		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
-					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }} />
+					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
 					<Stack.Screen
 						name='music/[id]'
 						options={{

@@ -68,13 +68,13 @@ export const SongInfo = React.memo(() => {
 
 	return (
 		<>
-			<Div style={styles.artworkContainer}>
+			<Div transparent style={styles.artworkContainer}>
 				<Image source={{ uri: artwork }} style={styles.artwork} />
 			</Div>
 
-			<Div style={styles.titleContainer}>
-				<Div style={styles.titleRow}>
-					<Div style={styles.titleMain}>
+			<Div transparent style={styles.titleContainer}>
+				<Div transparent style={styles.titleRow}>
+					<Div transparent style={styles.titleMain}>
 						<Text type='title' style={styles.title}>
 							{title}
 						</Text>
@@ -85,7 +85,7 @@ export const SongInfo = React.memo(() => {
 							{artist}
 						</Text>
 					</Div>
-					<Div style={styles.titleIcons}>
+					<Div transparent style={styles.titleIcons}>
 						{/* <Pressable style={styles.iconButton}>
 						<Ionicons name='star-outline' size={18} color='#fff' />
 					</Pressable> */}

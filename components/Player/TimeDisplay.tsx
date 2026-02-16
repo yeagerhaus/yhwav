@@ -18,7 +18,7 @@ export const TimeDisplay = React.memo(() => {
 	const remainingTime = `-${formatTime(Math.max(0, duration - position))}`;
 
 	return (
-		<Div style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'transparent' }}>
+		<Div transparent style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'transparent' }}>
 			<Text style={{ fontSize: 12, opacity: 0.6, color: '#fff' }}>{currentTime}</Text>
 			<Text style={{ fontSize: 12, opacity: 0.6, color: '#fff' }}>{remainingTime}</Text>
 		</Div>

@@ -26,7 +26,7 @@ export const ExtraControls = React.memo(() => {
 	};
 
 	return (
-		<Div style={styles.extraControls}>
+		<Div transparent style={styles.extraControls}>
 			<Pressable style={styles.extraControlButton} onPress={toggleShuffle}>
 				<SymbolView name='shuffle' size={30} tintColor={getShuffleColor()} />
 			</Pressable>

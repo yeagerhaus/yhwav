@@ -14,7 +14,7 @@ export function HomeSection<T>({ title, data, renderItem, keyExtractor, style }:
 	if (data.length === 0) return null;
 
 	return (
-		<Div style={style} gap={16}>
+		<Div transparent style={style} gap={16}>
 			<Text type='h2' style={{ paddingHorizontal: 16 }}>{title}</Text>
 			<FlatList
 				horizontal

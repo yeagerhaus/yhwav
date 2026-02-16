@@ -38,10 +38,10 @@ const MiniPlayerContent = React.memo(() => {
 	return (
 		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
-			<Div style={styles.textContainer}>
+			<Div transparent style={styles.textContainer}>
 				<Text style={styles.title}>{title}</Text>
 			</Div>
-			<Div style={styles.controls}>
+			<Div transparent style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
 					<SymbolView
 						name={isPlaying ? 'pause.fill' : 'play.fill'}

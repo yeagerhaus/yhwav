@@ -1,5 +1,6 @@
 import { type RefreshControlProps, ScrollView, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { Div } from './Div';
 
 interface MainProps {
@@ -10,13 +11,14 @@ interface MainProps {
 }
 
 export function Main({ children, scrollEnabled = true, style, refreshControl }: MainProps) {
+	const backgroundColor = useThemeColor({}, 'background');
 	const ScrollComponent = scrollEnabled ? ScrollView : Div;
 	return (
 		<ScrollComponent
 			style={{
 				flex: 1,
 				...(style as any),
-				backgroundColor: 'transparent',
+				backgroundColor,
 			}}
 			showsVerticalScrollIndicator={false}
 			refreshControl={refreshControl}
@@ -24,7 +26,7 @@ export function Main({ children, scrollEnabled = true, style, refreshControl }: 
 			<SafeAreaView
 				style={{
 					flex: 1,
-					backgroundColor: 'transparent',
+					backgroundColor,
 				}}
 			>
 				{children}

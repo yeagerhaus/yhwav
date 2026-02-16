@@ -48,16 +48,16 @@ export const ExpandedPlayer = React.memo(
 						start={{ x: 1, y: 0 }}
 						end={{ x: 0, y: 1 }}
 					>
-						<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
-							<Div style={styles.dragHandleContainer}>
-								<Div style={styles.dragHandle} />
+						<Div style={{ ...styles.rootContainer, zIndex: 1000 }} transparent>
+							<Div transparent style={styles.dragHandleContainer}>
+								<Div transparent style={styles.dragHandle} />
 							</Div>
 
 							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-								<Div style={styles.container}>
+								<Div transparent style={styles.container}>
 									<SongInfo />
 
-									<Div style={styles.controls}>
+									<Div transparent style={styles.controls}>
 										<SongProgressBar />
 										<TimeDisplay />
 										<PlaybackControls />
