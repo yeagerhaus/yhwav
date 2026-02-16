@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
-import { Modal, Pressable, type StyleProp, StyleSheet, TouchableOpacity, View, type ViewStyle } from 'react-native';
+import { Modal, Pressable, type StyleProp, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/Text';
+import { Colors, DefaultStyles } from '@/constants/styles';
 import { Div } from './Div';
 export interface ContextMenuItem {
 	label: string;
@@ -49,11 +50,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 				{children}
 			</Pressable>
 
-			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
-				<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
+			<Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+				<TouchableOpacity style={DefaultStyles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
 					<Div
 						style={[
-							styles.menuContainer,
+							DefaultStyles.menuContainer,
 							{
 								top: position.y,
 								right: 16,
@@ -64,35 +65,33 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 							<TouchableOpacity
 								key={index}
 								style={[
-									styles.menuItem,
+									DefaultStyles.menuItem,
 									item.disabled && styles.menuItemDisabled,
-									index !== items.length - 1 && styles.menuItemBorder,
+									index !== items.length - 1 && DefaultStyles.menuItemBorder,
 								]}
 								onPress={() => handleItemPress(item)}
 								disabled={item.disabled}
 							>
-								<Div style={styles.menuItemContent} transparent>
+								<Div style={DefaultStyles.menuItemContent} transparent>
 									{item.systemImage ? (
 										<SymbolView
 											name={item.systemImage}
 											size={18}
-											tintColor={item.destructive ? '#ff3b30' : '#fff'}
+											tintColor={item.destructive ? Colors.dangerSolid : Colors.white}
 											style={styles.menuIcon}
 										/>
 									) : item.icon ? (
 										<Ionicons
 											name={item.icon}
 											size={18}
-											color={item.destructive ? '#ff3b30' : '#fff'}
+											color={item.destructive ? Colors.dangerSolid : Colors.white}
 											style={styles.menuIcon}
 										/>
 									) : null}
 									<Text
-										style={[
-											styles.menuItemText,
-											item.destructive && styles.menuItemDestructive,
-											item.disabled && styles.menuItemDisabledText,
-										]}
+										type="body"
+										colorVariant={item.destructive ? 'danger' : 'primaryInvert'}
+										style={[item.disabled && styles.menuItemDisabledText]}
 									>
 										{item.label}
 									</Text>
@@ -106,44 +105,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 	);
 };
 
-const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-	},
-	menuContainer: {
-		position: 'absolute',
-		minWidth: 200,
-		borderRadius: 12,
-		backgroundColor: 'rgba(40, 40, 40, 0.95)',
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.3,
-		shadowRadius: 8,
-		elevation: 8,
-		overflow: 'hidden',
-	},
-	menuItem: {
-		paddingVertical: 14,
-		paddingHorizontal: 16,
-	},
-	menuItemBorder: {
-		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-	},
-	menuItemContent: {
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
+const styles = {
 	menuIcon: {
 		marginRight: 12,
-	},
-	menuItemText: {
-		fontSize: 16,
-		color: '#fff',
-	},
-	menuItemDestructive: {
-		color: '#ff3b30',
 	},
 	menuItemDisabled: {
 		opacity: 0.4,
@@ -151,4 +115,4 @@ const styles = StyleSheet.create({
 	menuItemDisabledText: {
 		opacity: 0.4,
 	},
-});
+} as const;

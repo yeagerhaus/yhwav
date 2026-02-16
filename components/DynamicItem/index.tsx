@@ -19,9 +19,9 @@ export function DynamicItem({ item, type, onPress, queue, listItem, size }: Dyna
 		case 'list':
 			return <ListItem item={item} onPress={onPress} />;
 		case 'playlist':
-			return <PlaylistItem item={item} />;
+			return <PlaylistItem item={item} size={size} />;
 		case 'album':
-			return <AlbumItem item={item} />;
+			return <AlbumItem item={item} size={size} />;
 		case 'artist':
 			return <ArtistItem item={item} />;
 		case 'song':

@@ -6,6 +6,7 @@ import { ThemedView } from './ThemedView';
 
 export interface DivProps extends ViewProps {
 	flex?: number;
+	display?: 'flex' | 'none';
 	flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
 	alignItems?: 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
 	justifyContent?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around' | 'space-evenly';
@@ -22,44 +23,36 @@ export interface DivProps extends ViewProps {
 
 export function Div({
 	flex,
-	flexDirection,
-	alignItems,
-	justifyContent,
-	gap,
+	display,
 	children,
-	useGlass,
 	useBlur,
+	useGlass,
 	transparent,
-	blurIntensity,
-	blurTint,
-	style,
-	lightColor,
-	darkColor,
-	...otherProps
+	...props
 }: DivProps) {
 	if (useBlur) {
 		return (
-			<BlurView style={style} intensity={blurIntensity} tint={blurTint}>
+			<BlurView {...props}>
 				{children}
 			</BlurView>
 		);
 	}
 	if (useGlass) {
 		return (
-			<GlassView style={style} glassEffectStyle='clear' tintColor='light'>
+			<GlassView {...props} glassEffectStyle='clear' tintColor='light'>
 				{children}
 			</GlassView>
 		);
 	}
 	if (transparent) {
 		return (
-			<View style={style} {...otherProps}>
+			<View {...props}>
 				{children}
 			</View>
 		);
 	}
 	return (
-		<ThemedView style={style} lightColor={lightColor} darkColor={darkColor} {...otherProps}>
+		<ThemedView {...props}>
 			{children}
 		</ThemedView>
 	);

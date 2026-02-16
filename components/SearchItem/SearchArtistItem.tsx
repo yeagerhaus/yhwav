@@ -49,7 +49,7 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 					<Text style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</Text>
 				</Div>
 			)}
-			<Div transparent style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+			<Div transparent style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
 				<Div transparent style={styles.artistInfo}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
 						{highlightText(artist.name, query)}

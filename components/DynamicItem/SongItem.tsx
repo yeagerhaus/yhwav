@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants';
+import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -88,7 +88,7 @@ const SongItem = React.memo(
 							</Text>
 						)}
 					</Div>
-					<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]} transparent>
+					<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
 						<Div style={styles.songInfo} transparent>
 							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 								{item.title}
@@ -138,7 +138,7 @@ const SongItem = React.memo(
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
 					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 				</Div>
-				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
 					<Div transparent style={styles.songInfo}>
 						<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 							{item.title}

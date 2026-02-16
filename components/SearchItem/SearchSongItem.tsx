@@ -6,7 +6,7 @@ import { State, usePlaybackState } from 'react-native-track-player';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants';
+import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -88,7 +88,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 			</Div>
-			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
 				<Div transparent style={styles.songInfo}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}

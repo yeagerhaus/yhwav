@@ -1,86 +1,43 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
+import { DefaultStyles, DefaultTypography } from '@/constants/styles';
 import { useThemeColor } from '@/hooks/useThemeColor';
+
+export type ColorVariant = 'primary' | 'primaryInvert' | 'secondary' | 'muted' | 'brand' | 'danger' | 'link';
 
 export type ThemedTextProps = TextProps & {
 	lightColor?: string;
 	darkColor?: string;
-	type?: 'body' | 'bodySM' | 'bodyXS' | 'label' | 'link' | 'linkSM' | 'h1' | 'h2' | 'h3' | 'h4' | 'title' | 'subtitle' | 'defaultSemiBold';
+	type?: keyof typeof DefaultTypography;
+	colorVariant?: ColorVariant;
 };
 
-const DEFAULT_TYPOGRAPHY = StyleSheet.create({
-	h1: {
-		fontSize: 36,
-		fontWeight: 700,
-		lineHeight: 54,
-		letterSpacing: 0.4,
-	},
-	h2: {
-		fontSize: 24,
-		fontWeight: 700,
-		lineHeight: 36,
-		letterSpacing: 0.4,
-	},
-	h3: {
-		fontSize: 16,
-		fontWeight: 700,
-		lineHeight: 24,
-		letterSpacing: 0.4,
-	},
-	h4: {
-		fontSize: 12,
-		fontWeight: 700,
-		lineHeight: 18,
-		letterSpacing: 1,
-	},
-	body: {
-		fontSize: 16,
-		fontWeight: 400,
-		lineHeight: 24,
-	},
-	bodySM: {},
-	bodyXS: {
-		fontSize: 10,
-		fontWeight: 400,
-		lineHeight: 12,
-	},
-	label: {
-		fontSize: 14,
-		fontWeight: 700,
-		lineHeight: 20,
-		letterSpacing: 0.4,
-	},
-	link: {
-		fontSize: 14,
-		fontWeight: 700,
-		lineHeight: 18,
-		letterSpacing: 0.4,
-	},
-	linkSM: {
-		fontSize: 13,
-		fontWeight: 700,
-		lineHeight: 16,
-		letterSpacing: 0.4,
-	},
-	title: {
-		fontSize: 24,
-		fontWeight: 700,
-		lineHeight: 36,
-	},
-	subtitle: {
-		fontSize: 14,
-		fontWeight: 400,
-		lineHeight: 20,
-	},
-	defaultSemiBold: {
-		fontSize: 16,
-		fontWeight: 600,
-		lineHeight: 24,
-	},
-});
+const COLOR_VARIANT_STYLE: Record<ColorVariant, keyof typeof DefaultStyles> = {
+	primary: 'textPrimary',
+	primaryInvert: 'textPrimaryInvert',
+	secondary: 'textSecondary',
+	muted: 'textMuted',
+	brand: 'textBrand',
+	danger: 'textDanger',
+	link: 'link',
+};
 
-export function ThemedText({ style, lightColor, darkColor, type = 'body', ...rest }: ThemedTextProps) {
-	const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+export function ThemedText({
+	style,
+	lightColor,
+	darkColor,
+	type = 'body',
+	colorVariant,
+	...rest
+}: ThemedTextProps) {
+	const themeColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+	const colorStyle = colorVariant ? DefaultStyles[COLOR_VARIANT_STYLE[colorVariant]] : { color: themeColor };
+	const typographyStyle = DefaultTypography[type] ?? DefaultTypography.body;
 
-	return <Text style={[{ color }, DEFAULT_TYPOGRAPHY[type], style]} {...rest} />;
+	return (
+		<Text
+			style={[colorStyle, typographyStyle, style]}
+			{...rest}
+		/>
+	);
 }

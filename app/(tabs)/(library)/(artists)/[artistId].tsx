@@ -4,6 +4,7 @@ import { FlatList, Image, StyleSheet, View } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Text } from '@/components/Text';
 import { Main } from '@/components/Main';
+import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import type { Album } from '@/types/album';
@@ -154,10 +155,10 @@ export default function ArtistDetailScreen() {
 const styles = StyleSheet.create({
 	container: { flex: 1, padding: 16, marginTop: 100 },
 	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-	banner: { width: '100%', height: 200, borderRadius: 8, marginBottom: 16 },
-	genres: { fontSize: 14, color: '#888', marginBottom: 4 },
-	country: { fontSize: 14, color: '#888', marginBottom: 16 },
+	banner: { width: '100%', height: 200, borderRadius: DefaultSharedComponents.borderRadiusSM, marginBottom: 16 },
+	genres: { fontSize: 14, color: Colors.textMuted, marginBottom: 4 },
+	country: { fontSize: 14, color: Colors.textMuted, marginBottom: 16 },
 	bioContainer: { marginBottom: 16 },
-	bio: { fontSize: 14, color: '#aaa', lineHeight: 20 },
+	bio: { fontSize: 14, color: Colors.gray400, lineHeight: 20 },
 	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
 });

@@ -78,9 +78,9 @@ export default function PlaylistsScreen() {
 			<Main>
 				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 					<Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8 }}>Playlists</Text>
-					<Text style={{ fontSize: 16, color: '#888' }}>No playlists found</Text>
+					<Text type="body" colorVariant="muted">No playlists found</Text>
 					<Pressable onPress={handleCreatePlaylist} style={{ marginTop: 16 }}>
-						<Text style={{ fontSize: 16, color: '#7f62f5' }}>Create Playlist</Text>
+						<Text type="body" colorVariant="brand">Create Playlist</Text>
 					</Pressable>
 				</Div>
 			</Main>

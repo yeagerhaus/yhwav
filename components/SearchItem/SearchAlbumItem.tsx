@@ -64,7 +64,7 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
 				<Div transparent style={styles.albumInfo}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}

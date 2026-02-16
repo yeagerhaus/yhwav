@@ -128,6 +128,16 @@ const Colors = {
 	gray800: '#37383a',
 	gray900: '#1f1f1f',
 	black: '#080808',
+
+	// Semantic (replace hardcoded hex across app)
+	listDividerLight: '#ababab',
+	listDividerDark: '#535353',
+	inputBackground: '#111',
+	surfaceDark: '#333',
+	surfaceDarkElevated: '#1c1c1e',
+	surfaceDarkBorder: '#555',
+	textMuted: '#888',
+	dangerSolid: '#ff3b30',
 };
 
 const DefaultSharedComponents = {
@@ -199,6 +209,21 @@ const DefaultTypography = StyleSheet.create({
 		lineHeight: 16,
 		letterSpacing: 0.4,
 	},
+	title: {
+		fontSize: 24,
+		fontWeight: 700,
+		lineHeight: 36,
+	},
+	subtitle: {
+		fontSize: 14,
+		fontWeight: 400,
+		lineHeight: 20,
+	},
+	defaultSemiBold: {
+		fontSize: 16,
+		fontWeight: 600,
+		lineHeight: 24,
+	},
 });
 
 const DefaultSizes = {
@@ -230,6 +255,7 @@ export const defaultButtonStyles: ButtonStyle = {
 };
 
 const DefaultStyles = StyleSheet.create({
+	// Text color hierarchy (typography)
 	textPrimary: {
 		color: Colors.black,
 	},
@@ -239,15 +265,19 @@ const DefaultStyles = StyleSheet.create({
 	textSecondary: {
 		color: Colors.gray600,
 	},
+	textMuted: {
+		color: Colors.textMuted,
+	},
 	textDanger: {
 		color: Colors.danger,
 	},
 	textBrand: {
-		color: Colors.brand,
+		color: Colors.brandPrimary,
 	},
 	link: {
 		color: Colors.blue300,
 	},
+	// Surfaces
 	surfacePrimary: {
 		backgroundColor: Colors.white,
 	},
@@ -263,11 +293,18 @@ const DefaultStyles = StyleSheet.create({
 	surfaceInvert: {
 		backgroundColor: Colors.black,
 	},
+	surfaceDark: {
+		backgroundColor: Colors.surfaceDark,
+	},
+	surfaceDarkElevated: {
+		backgroundColor: Colors.surfaceDarkElevated,
+	},
+	// Borders
 	border: {
 		borderColor: Colors.gray200,
 	},
 	borderSelected: {
-		borderColor: Colors.brand,
+		borderColor: Colors.brandPrimary,
 	},
 	borderDanger: {
 		borderColor: Colors.danger,
@@ -278,28 +315,7 @@ const DefaultStyles = StyleSheet.create({
 		lineHeight: DefaultSharedComponents.lineHeight * DefaultSharedComponents.fontSize,
 		letterSpacing: DefaultSharedComponents.letterSpacing,
 	},
-	// Default component styles
-	primaryButton: {
-		paddingTop: defaultButtonPadding.top,
-		paddingBottom: defaultButtonPadding.bottom,
-		paddingLeft: defaultButtonPadding.left,
-		paddingRight: defaultButtonPadding.right,
-		borderRadius: defaultButtonBorderRadius.topLeft,
-		fontSize: defaultButtonStyles.fontSize,
-		fontWeight: defaultButtonStyles.fontWeight as any,
-		backgroundColor: Colors.brand,
-		color: Colors.white,
-	},
-	secondaryButton: {
-		paddingTop: defaultButtonPadding.top,
-		paddingBottom: defaultButtonPadding.bottom,
-		paddingLeft: defaultButtonPadding.left,
-		paddingRight: defaultButtonPadding.right,
-		borderRadius: defaultButtonBorderRadius.topLeft,
-		fontSize: defaultButtonStyles.fontSize,
-		fontWeight: defaultButtonStyles.fontWeight as any,
-		backgroundColor: Colors.gray100,
-	},
+	// Layout
 	center: {
 		alignContent: 'center',
 		alignItems: 'center',
@@ -310,7 +326,148 @@ const DefaultStyles = StyleSheet.create({
 		flexGrow: 1,
 		flexDirection: 'column',
 		paddingBottom: isWeb ? 0 : 50,
-		// userSelect: 'none',
+	},
+	row: {
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	section: {
+		marginBottom: 30,
+	},
+	sectionHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 15,
+	},
+	sectionTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		marginBottom: 10,
+	},
+	sectionDescription: {
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	// Buttons
+	primaryButton: {
+		paddingTop: defaultButtonPadding.top,
+		paddingBottom: defaultButtonPadding.bottom,
+		paddingLeft: defaultButtonPadding.left,
+		paddingRight: defaultButtonPadding.right,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		fontSize: defaultButtonStyles.fontSize,
+		fontWeight: defaultButtonStyles.fontWeight as any,
+		backgroundColor: Colors.brandPrimary,
+		color: Colors.white,
+		alignItems: 'center',
+	},
+	secondaryButton: {
+		paddingTop: defaultButtonPadding.top,
+		paddingBottom: defaultButtonPadding.bottom,
+		paddingLeft: defaultButtonPadding.left,
+		paddingRight: defaultButtonPadding.right,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		fontSize: defaultButtonStyles.fontSize,
+		fontWeight: defaultButtonStyles.fontWeight as any,
+		backgroundColor: Colors.gray100,
+		alignItems: 'center',
+	},
+	dangerButton: {
+		paddingVertical: 15,
+		paddingHorizontal: 20,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		alignItems: 'center',
+		backgroundColor: Colors.dangerSolid,
+	},
+	cancelButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 20,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		alignItems: 'center',
+		backgroundColor: Colors.surfaceDark,
+	},
+	buttonRow: {
+		flexDirection: 'row',
+		gap: 10,
+	},
+	buttonDisabled: {
+		opacity: 0.6,
+	},
+	// Form
+	input: {
+		backgroundColor: Colors.inputBackground,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		padding: 12,
+		fontSize: 16,
+		borderWidth: 1,
+		borderColor: Colors.surfaceDark,
+		marginBottom: 15,
+	},
+	inputLabel: {
+		fontSize: 14,
+		fontWeight: '600',
+		marginBottom: 8,
+	},
+	pinContainer: {
+		backgroundColor: Colors.inputBackground,
+		padding: 20,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		borderWidth: 1,
+		borderColor: Colors.surfaceDark,
+		alignItems: 'center',
+		marginBottom: 15,
+	},
+	pinCodeContainer: {
+		padding: 20,
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
+		borderWidth: 2,
+		borderColor: Colors.brandPrimary,
+		marginBottom: 15,
+		minWidth: 120,
+		alignItems: 'center',
+	},
+	// List row (border style; pass borderBottomColor at call site for theme)
+	listRowBorder: {
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		paddingBottom: 14,
+		paddingRight: 14,
+	},
+	// Modals / overlays
+	overlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+	},
+	sheet: {
+		backgroundColor: Colors.surfaceDarkElevated,
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
+		paddingBottom: 40,
+		maxHeight: '70%',
+	},
+	menuContainer: {
+		position: 'absolute',
+		minWidth: 200,
+		borderRadius: 12,
+		backgroundColor: 'rgba(40, 40, 40, 0.95)',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.3,
+		shadowRadius: 8,
+		elevation: 8,
+		overflow: 'hidden',
+	},
+	menuItem: {
+		paddingVertical: 14,
+		paddingHorizontal: 16,
+	},
+	menuItemBorder: {
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+	},
+	menuItemContent: {
+		flexDirection: 'row',
+		alignItems: 'center',
 	},
 });
 

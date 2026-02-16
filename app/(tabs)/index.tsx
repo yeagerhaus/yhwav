@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl } from 'react-native';
-import { DynamicItem, HomeSection, Main } from '@/components';
+import { Div, DynamicItem, HomeSection, Main } from '@/components';
 import { Colors } from '@/constants';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
 import { fetchRecentlyPlayed } from '@/utils/plex';
 
-const ITEM_SIZE = 150;
+const ITEM_SIZE = 175;
 
 export default function HomeScreen() {
 	const [refreshing, setRefreshing] = useState(false);
@@ -57,47 +57,48 @@ export default function HomeScreen() {
 		<Main
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}
 		>
-			<HomeSection
-				title='Recently Played'
-				data={recentlyPlayed}
-				keyExtractor={(item) => item.id}
-				renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
-			/>
+			<Div transparent display='flex' flex={1} gap={16} style={{ paddingBottom: 64 }}>
+				<HomeSection
+					title='Recently Played'
+					data={recentlyPlayed}
+					keyExtractor={(item) => item.id}
+					renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
+				/>
 
-			<HomeSection
-				title='Recently Added'
-				data={recentlyAdded}
-				keyExtractor={(item) => item.id}
-				renderItem={(item) => (
-					<DynamicItem type='album' item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
-				)}
-			/>
+				<HomeSection
+					title='Recently Added'
+					data={recentlyAdded}
+					keyExtractor={(item) => item.id}
+					renderItem={(item) => (
+						<DynamicItem type='album' item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
+					)}
+				/>
 
-			{/* <HomeSection
-				title='Most Played Artists'
-				data={mostPlayedArtists}
-				keyExtractor={(item) => item.key}
-				renderItem={(item) => <ArtistItem item={item} size={ITEM_SIZE} />}
-			/> */}
+				{/* <HomeSection
+					title='Most Played Artists'
+					data={mostPlayedArtists}
+					keyExtractor={(item) => item.key}
+					renderItem={(item) => <ArtistItem item={item} size={ITEM_SIZE} />}
+				/> */}
 
-			<HomeSection
-				style={{ paddingBottom: 64 }}
-				title='Your Playlists'
-				data={audioPlaylists}
-				keyExtractor={(item) => item.key ?? item.id}
-				renderItem={(item) => (
-					<DynamicItem
-						type='playlist'
-						item={{
-							id: item.key ?? item.id,
-							title: item.title,
-							artwork: item.artworkUrl ?? '',
-							count: item.leafCount ?? 0,
-						}}
-						size={ITEM_SIZE}
-					/>
-				)}
-			/>
+				<HomeSection
+					title='Your Playlists'
+					data={audioPlaylists}
+					keyExtractor={(item) => item.key ?? item.id}
+					renderItem={(item) => (
+						<DynamicItem
+							type='playlist'
+							item={{
+								id: item.key ?? item.id,
+								title: item.title,
+								artwork: item.artworkUrl ?? '',
+								count: item.leafCount ?? 0,
+							}}
+							size={ITEM_SIZE}
+						/>
+					)}
+				/>
+			</Div>
 		</Main>
 	);
 }

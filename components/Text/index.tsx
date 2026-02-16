@@ -1,7 +1,9 @@
-import { ThemedText, ThemedTextProps } from "./ThemedText";
+import { DefaultTypography } from '@/constants/styles';
+
+import { ThemedText, ThemedTextProps } from './ThemedText';
 
 export interface TextProps extends ThemedTextProps {
-	type?: 'body' | 'bodySM' | 'bodyXS' | 'label' | 'link' | 'linkSM' | 'h1' | 'h2' | 'h3' | 'h4' | 'title' | 'subtitle' | 'defaultSemiBold';
+	type?: keyof typeof DefaultTypography;
 }
 
 export function Text({ children, style, ...props }: TextProps) {

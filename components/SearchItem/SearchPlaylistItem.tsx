@@ -48,7 +48,7 @@ export default function SearchPlaylistItem({ playlist, query, onPress }: SearchP
 					<SymbolView name='music.note.list' size={24} tintColor='#ddd' />
 				</Div>
 			)}
-			<Div transparent style={[styles.infoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+			<Div transparent style={[styles.infoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
 				<Div transparent style={styles.info}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.title}>
 						{highlightText(playlist.title, query)}
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
 		width: 50,
 		height: 50,
 		borderRadius: 4,
-		backgroundColor: '#333',
+		backgroundColor: Colors.surfaceDark,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},

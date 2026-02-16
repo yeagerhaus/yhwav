@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants';
+import { Colors } from '@/constants/styles';
 import { Div } from '../Div';
 
 export default function ListItem({ item, onPress }: { item: any; onPress: () => void }) {
@@ -15,7 +15,7 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 					flex: 1,
 					borderBottomWidth: StyleSheet.hairlineWidth,
 					paddingVertical: 14,
-					borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353',
+					borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark,
 				}}
 			>
 				<Div transparent style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>

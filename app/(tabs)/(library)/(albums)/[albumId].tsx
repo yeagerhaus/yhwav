@@ -65,8 +65,8 @@ export default function AlbumDetailScreen() {
 				<Div style={{ paddingVertical: 16 }} transparent>
 					<Div style={{ marginBottom: 16 }} transparent>
 						<Text type='h2'>{albumTitle}</Text>
-						{artistName && <Text type='body' style={{ color: '#888' }}>{artistName}</Text>}
-						{album?.year && <Text type='bodySM' style={{ color: '#666' }}>{album.year}</Text>}
+						{artistName && <Text type="body" colorVariant="muted">{artistName}</Text>}
+						{album?.year && <Text type="bodySM" colorVariant="secondary">{album.year}</Text>}
 					</Div>
 					<FlatList
 						scrollEnabled={false}
