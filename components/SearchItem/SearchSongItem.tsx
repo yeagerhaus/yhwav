@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
-import { ThemedText } from '@/components/ThemedText';
+import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
@@ -73,9 +73,9 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 		const parts = text.split(new RegExp(`(${query})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === query.toLowerCase() ? (
-				<ThemedText key={index} style={styles.highlighted}>
+				<Text key={index} style={styles.highlighted}>
 					{part}
-				</ThemedText>
+				</Text>
 			) : (
 				part
 			),
@@ -84,24 +84,24 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 
 	return (
 		<Pressable onPress={playSong} style={styles.songItem}>
-			<Div style={styles.artworkContainer}>
+			<Div transparent style={styles.artworkContainer}>
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 			</Div>
-			<Div style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<Div style={styles.songInfo}>
-					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div transparent style={styles.songInfo}>
+					<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}
-					</ThemedText>
-					<Div style={styles.artistRow}>
-						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />}
-						<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
+					</Text>
+					<Div transparent style={styles.artistRow}>
+						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />}
+						<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
 							{highlightText(song.artist, query)}
-						</ThemedText>
+						</Text>
 					</Div>
-					<ThemedText type='subtitle' numberOfLines={1} style={styles.songAlbum}>
+					<Text type='subtitle' numberOfLines={1} style={styles.songAlbum}>
 						{highlightText(song.album, query)}
-					</ThemedText>
+					</Text>
 				</Div>
 				<ContextMenu items={menuItems} style={styles.moreButton}>
 					<SymbolView name='ellipsis' size={20} tintColor='#999' />
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
 		padding: 8,
 	},
 	highlighted: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		color: 'white',
 		fontWeight: '600',
 	},

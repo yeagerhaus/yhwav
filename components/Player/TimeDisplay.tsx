@@ -1,7 +1,8 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { Div } from '../Div';
+import { Text } from '../Text';
 
 const formatTime = (seconds: number) => {
 	const minutes = Math.floor(seconds / 60);

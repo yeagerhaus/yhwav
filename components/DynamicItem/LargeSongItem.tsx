@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
-import { Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Image, Pressable, StyleSheet } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { Text } from '../Text';
 import type { Song } from '@/types/song';
 
 interface HorizontalSongItemProps {
@@ -11,7 +12,7 @@ interface HorizontalSongItemProps {
 
 const DEFAULT_SIZE = 150;
 
-const HorizontalSongItem = React.memo(
+const LargeSongItem = React.memo(
 	({ item, queue, size }: HorizontalSongItemProps) => {
 		const playSound = useAudioStore((state) => state.playSound);
 		const s = size ?? DEFAULT_SIZE;
@@ -35,9 +36,9 @@ const HorizontalSongItem = React.memo(
 	(prev, next) => prev.item.id === next.item.id && prev.size === next.size && prev.queue?.length === next.queue?.length,
 );
 
-HorizontalSongItem.displayName = 'HorizontalSongItem';
+LargeSongItem.displayName = 'LargeSongItem';
 
-export default HorizontalSongItem;
+export default LargeSongItem;
 
 const styles = StyleSheet.create({
 	container: {

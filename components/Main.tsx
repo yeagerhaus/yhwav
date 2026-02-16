@@ -16,6 +16,7 @@ export function Main({ children, scrollEnabled = true, style, refreshControl }: 
 			style={{
 				flex: 1,
 				...(style as any),
+				backgroundColor: 'transparent',
 			}}
 			showsVerticalScrollIndicator={false}
 			refreshControl={refreshControl}

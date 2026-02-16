@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ThemedText } from '@/components';
-import { Div } from '@/components/Div';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/constants/styles';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
 import { hexWithOpacity } from '@/utils/styles';
@@ -159,7 +158,7 @@ export default function SettingsScreen() {
 	const renderServerList = () => {
 		if (!authState.servers.length) {
 			return (
-				<Div style={styles.section}>
+				<Div style={styles.section} transparent>
 					<Text style={styles.sectionTitle}>No Servers Found</Text>
 					<Text style={styles.sectionDescription}>Make sure your Plex server is running and accessible.</Text>
 				</Div>
@@ -167,8 +166,8 @@ export default function SettingsScreen() {
 		}
 
 		return (
-			<Div style={styles.section}>
-				<Div style={styles.sectionHeader}>
+			<Div style={styles.section} transparent>
+				<Div style={styles.sectionHeader} transparent>
 					<Text style={styles.sectionTitle}>Available Servers</Text>
 					<TouchableOpacity onPress={handleRefreshServers} disabled={isLoading}>
 						<Text style={styles.refreshButton}>Refresh</Text>
@@ -181,13 +180,13 @@ export default function SettingsScreen() {
 						style={[styles.serverItem, authState.selectedServer?.id === server.id && styles.selectedServerItem]}
 						onPress={() => handleSelectServer(server.id)}
 					>
-						<Div style={styles.serverInfo}>
-							<Text style={styles.serverName}>{server.name}</Text>
-							<Text style={styles.serverDetails}>
+						<Div transparent style={styles.serverInfo}>
+							<Text type='h4' style={styles.serverName}>{server.name}</Text>
+							<Text type='bodySM' style={styles.serverDetails}>
 								{server.local ? 'Local' : 'Remote'} • 192.168.X.X:X {/* {server.address}:{server.port} */}
 								{/* {server.local ? 'Local' : 'Remote'} • {server.address}:{server.port} */}
 							</Text>
-							<Text style={styles.serverId}>ID: XXXX{/* {server.serverId} */}</Text>
+							<Text type='bodyXS' style={styles.serverId}>ID: XXXX{/* {server.serverId} */}</Text>
 						</Div>
 						{authState.selectedServer?.id === server.id && <Text style={styles.selectedIndicator}>✓</Text>}
 					</TouchableOpacity>
@@ -198,15 +197,15 @@ export default function SettingsScreen() {
 
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
-			<Div>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Settings</ThemedText>
+			<Div transparent>
+				<Text type='h1' style={{ marginBottom: 16 }}>Settings</Text>
 			</Div>
 
 			{authState.isAuthenticated ? (
-				<Div style={{ flex: 1, gap: 24 }}>
+				<Div flex={1} transparent style={{ gap: 24 }}>
 					<Div style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-						<ThemedText style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Connected as: </ThemedText>
-						<ThemedText style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>{authState.username}</ThemedText>
+						<Text type='h4'>Connected as: </Text>
+						<Text type='h4'>{authState.username}</Text>
 					</Div>
 
 					{renderServerList()}
@@ -218,21 +217,21 @@ export default function SettingsScreen() {
 					>
 						{isLoading ? (
 							<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-								<ActivityIndicator size='large' color={Colors.brand.primary} />
+								<ActivityIndicator size='large' color={Colors.brandPrimary} />
 							</Div>
 						) : (
-							<Text style={styles.clearCacheButtonText}>Clear Cache & Reload Library</Text>
+							<Text type='h3'>Clear Cache & Reload Library</Text>
 						)}
 					</TouchableOpacity>
 
 					<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-						<Text style={styles.logoutButtonText}>Logout</Text>
+						<Text type='h3'>Logout</Text>
 					</TouchableOpacity>
 				</Div>
 			) : (
 				<>
 					<Div style={styles.section}>
-						<Text style={styles.sectionTitle}>Connect to Plex</Text>
+						<Text type='h2'>Connect to Plex</Text>
 						<Text style={styles.sectionDescription}>Sign in with your Plex account to access your media servers.</Text>
 					</Div>
 
@@ -246,24 +245,24 @@ export default function SettingsScreen() {
 							>
 								{isLoading ? (
 									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size='large' color={Colors.brand.primary} />
+										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								) : (
-									<Text style={styles.connectButtonText}>Sign in with Plex</Text>
+									<Text type='body'>Sign in with Plex</Text>
 								)}
 							</TouchableOpacity>
 						</Div>
 					) : (
 						<Div style={styles.section}>
 							<Div style={styles.pinContainer}>
-								<Text style={styles.pinLabel}>Enter this code on plex.tv/activate</Text>
+								<Text type='body'>Enter this code on plex.tv/activate</Text>
 								<Div style={styles.pinCodeContainer}>
 									<Text style={styles.pinCode}>{pinCode}</Text>
 								</Div>
-								{pinStatus && <Text style={styles.pinStatus}>{pinStatus}</Text>}
+								{pinStatus && <Text type='body'>{pinStatus}</Text>}
 								{isLoading && (
 									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size='large' color={Colors.brand.primary} />
+										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								)}
 							</Div>
@@ -275,7 +274,7 @@ export default function SettingsScreen() {
 									setIsLoading(false);
 								}}
 							>
-								<Text style={styles.cancelButtonText}>Cancel</Text>
+								<Text type='body'>Cancel</Text>
 							</TouchableOpacity>
 						</Div>
 					)}
@@ -323,7 +322,7 @@ export default function SettingsScreen() {
 													<Div
 														style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}
 													>
-														<ActivityIndicator size='large' color={Colors.brand.primary} />
+														<ActivityIndicator size='large' color={Colors.brandPrimary} />
 													</Div>
 												) : (
 													<Text style={styles.loginButtonText}>Connect</Text>
@@ -420,8 +419,8 @@ const styles = StyleSheet.create({
 		borderColor: '#333',
 	},
 	selectedServerItem: {
-		borderColor: Colors.brand.primary,
-		backgroundColor: hexWithOpacity(Colors.brand.primary, 0.1),
+		borderColor: Colors.brandPrimary,
+		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.1),
 	},
 	serverInfo: {
 		flex: 1,
@@ -443,12 +442,12 @@ const styles = StyleSheet.create({
 		fontFamily: 'monospace',
 	},
 	selectedIndicator: {
-		color: Colors.brand.primary,
+		color: Colors.brandPrimary,
 		fontSize: 20,
 		fontWeight: 'bold',
 	},
 	refreshButton: {
-		color: Colors.brand.primary,
+		color: Colors.brandPrimary,
 		fontSize: 14,
 		fontWeight: '600',
 	},
@@ -473,7 +472,7 @@ const styles = StyleSheet.create({
 		gap: 10,
 	},
 	connectButton: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		padding: 15,
 		borderRadius: 8,
 		alignItems: 'center',
@@ -484,7 +483,7 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 	},
 	loginButton: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		padding: 12,
 		borderRadius: 8,
 		flex: 1,
@@ -565,13 +564,13 @@ const styles = StyleSheet.create({
 		padding: 20,
 		borderRadius: 8,
 		borderWidth: 2,
-		borderColor: Colors.brand.primary,
+		borderColor: Colors.brandPrimary,
 		marginBottom: 15,
 		minWidth: 120,
 		alignItems: 'center',
 	},
 	pinCode: {
-		color: Colors.brand.primary,
+		color: Colors.brandPrimary,
 		fontSize: 32,
 		fontWeight: 'bold',
 		letterSpacing: 4,

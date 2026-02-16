@@ -1,5 +1,6 @@
-import { FlatList, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { FlatList, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { Div } from './Div';
+import { Text } from './Text';
 
 interface HomeSectionProps<T> {
 	title: string;
@@ -13,31 +14,16 @@ export function HomeSection<T>({ title, data, renderItem, keyExtractor, style }:
 	if (data.length === 0) return null;
 
 	return (
-		<Div style={style}>
-			<Text style={styles.title}>{title}</Text>
+		<Div style={style} gap={16}>
+			<Text type='h2' style={{ paddingHorizontal: 16 }}>{title}</Text>
 			<FlatList
 				horizontal
 				data={data}
 				renderItem={({ item }) => renderItem(item)}
 				keyExtractor={keyExtractor}
 				showsHorizontalScrollIndicator={false}
-				contentContainerStyle={styles.list}
+				contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
 			/>
 		</Div>
 	);
 }
-
-const styles = StyleSheet.create({
-	title: {
-		fontSize: 22,
-		fontWeight: 'bold',
-		color: '#FFFFFF',
-		paddingHorizontal: 16,
-		marginTop: 24,
-		marginBottom: 12,
-	},
-	list: {
-		paddingHorizontal: 16,
-		gap: 12,
-	},
-});

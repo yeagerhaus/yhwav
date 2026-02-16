@@ -1,10 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image } from 'react-native';
-import ImageColors from 'react-native-image-colors';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import ImageColors from 'react-native-image-colors';	
+import { Div, DynamicItem, Main, Text } from '@/components';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Song } from '@/types/song';
@@ -58,22 +56,24 @@ export default function AlbumDetailScreen() {
 
 	return (
 		<Main>
-			<Div style={{ paddingHorizontal: 16 }}>
+			<Div style={{ paddingHorizontal: 16 }} transparent>
 				{artwork && (
-					<Image source={{ uri: artwork }} style={{ width: '100%', height: '100%', maxHeight: 250 }} resizeMode='contain' />
+					<Div transparent style={{ width: '100%', alignItems: 'center' }}>
+						<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }} resizeMode='contain' />
+					</Div>
 				)}
-				<Div style={{ paddingVertical: 16 }}>
-					<Div style={{ marginBottom: 16 }}>
-						<ThemedText style={{ fontSize: 24, fontWeight: 'bold' }}>{albumTitle}</ThemedText>
-						{artistName && <ThemedText style={{ fontSize: 16, color: '#888' }}>{artistName}</ThemedText>}
-						{album?.year && <ThemedText style={{ fontSize: 14, color: '#666' }}>{album.year}</ThemedText>}
+				<Div style={{ paddingVertical: 16 }} transparent>
+					<Div style={{ marginBottom: 16 }} transparent>
+						<Text type='h2'>{albumTitle}</Text>
+						{artistName && <Text type='body' style={{ color: '#888' }}>{artistName}</Text>}
+						{album?.year && <Text type='bodySM' style={{ color: '#666' }}>{album.year}</Text>}
 					</Div>
 					<FlatList
 						scrollEnabled={false}
 						data={songs}
 						keyExtractor={(item) => item.id}
 						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} listItem />}
-						contentContainerStyle={{ paddingBottom: 300 }}
+						contentContainerStyle={{ paddingBottom: 100 }}
 					/>
 				</Div>
 			</Div>

@@ -2,7 +2,8 @@ import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Div, ThemedText } from '@/components';
+import { Div } from '@/components';
+import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
@@ -38,7 +39,7 @@ const MiniPlayerContent = React.memo(() => {
 		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<Div style={styles.textContainer}>
-				<ThemedText style={styles.title}>{title}</ThemedText>
+				<Text style={styles.title}>{title}</Text>
 			</Div>
 			<Div style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
@@ -46,11 +47,11 @@ const MiniPlayerContent = React.memo(() => {
 						name={isPlaying ? 'pause.fill' : 'play.fill'}
 						type='hierarchical'
 						size={20}
-						tintColor={Colors.brand.primary}
+						tintColor={Colors.brandPrimary}
 					/>
 				</Pressable>
 				<Pressable style={styles.controlButton} onPress={skipToNext}>
-					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brand.primary} />
+					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brandPrimary} />
 				</Pressable>
 			</Div>
 		</Div>

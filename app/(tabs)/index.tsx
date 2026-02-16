@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl } from 'react-native';
-import AlbumItem from '@/components/DynamicItem/AlbumItem';
-import ArtistItem from '@/components/DynamicItem/ArtistItem';
-import HorizontalSongItem from '@/components/DynamicItem/HorizontalSongItem';
-import PlaylistItem from '@/components/DynamicItem/PlaylistItem';
-import { HomeSection } from '@/components/HomeSection';
-import { Main } from '@/components/Main';
+import { DynamicItem, HomeSection, Main } from '@/components';
 import { Colors } from '@/constants';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
@@ -16,7 +11,7 @@ const ITEM_SIZE = 150;
 export default function HomeScreen() {
 	const [refreshing, setRefreshing] = useState(false);
 	const albums = useLibraryStore((s) => s.albums);
-	const artists = useLibraryStore((s) => s.artists);
+	// const artists = useLibraryStore((s) => s.artists);
 	const playlists = useLibraryStore((s) => s.playlists);
 	const recentlyPlayed = useLibraryStore((s) => s.recentlyPlayed);
 	const setRecentlyPlayed = useLibraryStore((s) => s.setRecentlyPlayed);
@@ -60,13 +55,13 @@ export default function HomeScreen() {
 
 	return (
 		<Main
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.primary} />}
+			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}
 		>
 			<HomeSection
 				title='Recently Played'
 				data={recentlyPlayed}
 				keyExtractor={(item) => item.id}
-				renderItem={(item) => <HorizontalSongItem item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
+				renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
 			/>
 
 			<HomeSection
@@ -74,7 +69,7 @@ export default function HomeScreen() {
 				data={recentlyAdded}
 				keyExtractor={(item) => item.id}
 				renderItem={(item) => (
-					<AlbumItem item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
+					<DynamicItem type='album' item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
 				)}
 			/>
 
@@ -91,7 +86,8 @@ export default function HomeScreen() {
 				data={audioPlaylists}
 				keyExtractor={(item) => item.key ?? item.id}
 				renderItem={(item) => (
-					<PlaylistItem
+					<DynamicItem
+						type='playlist'
 						item={{
 							id: item.key ?? item.id,
 							title: item.title,

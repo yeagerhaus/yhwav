@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
-import { Div, DynamicItem, ThemedText } from '@/components';
+import { Div, DynamicItem } from '@/components';
+import { Text } from '@/components/Text';
 import { Main } from '@/components/Main';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -108,31 +109,31 @@ export default function ArtistDetailScreen() {
 
 	if (!artist) {
 		return (
-			<Div style={styles.container}>
-				<ThemedText style={styles.header}>Artist not found</ThemedText>
+			<Div transparent style={styles.container}>
+				<Text style={styles.header}>Artist not found</Text>
 			</Div>
 		);
 	}
 
 	return (
 		<Main>
-			<Div style={{ paddingTop: 64, paddingHorizontal: 16 }}>
+			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
 				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
-				<Div>
-					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 4 }}>{artist.name}</ThemedText>
-					{artist.genres.length > 0 && <ThemedText style={styles.genres}>{artist.genres.join(', ')}</ThemedText>}
-					{artist.country && <ThemedText style={styles.country}>{artist.country}</ThemedText>}
+				<Div transparent>
+					<Text type='h1' style={{ marginBottom: 4 }}>{artist.name}</Text>
+					{artist.genres.length > 0 && <Text style={styles.genres}>{artist.genres.join(', ')}</Text>}
+					{artist.country && <Text style={styles.country}>{artist.country}</Text>}
 				</Div>
 				{artist.summary ? (
-					<Div style={styles.bioContainer}>
-						<ThemedText style={styles.bio} numberOfLines={4}>
+					<Div transparent style={styles.bioContainer}>
+						<Text style={styles.bio} numberOfLines={4}>
 							{artist.summary}
-						</ThemedText>
+						</Text>
 					</Div>
 				) : null}
 				{sections.map((section) => (
-					<Div key={section.category}>
-						<ThemedText style={styles.sectionHeader}>{section.category}</ThemedText>
+					<Div key={section.category} transparent>
+						<Text style={styles.sectionHeader}>{section.category}</Text>
 						<FlatList
 							scrollEnabled={false}
 							data={section.albums}
@@ -144,7 +145,7 @@ export default function ArtistDetailScreen() {
 						/>
 					</Div>
 				))}
-				<Div style={{ height: 64 }} />
+				<Div transparent style={{ height: 64 }} />
 			</Div>
 		</Main>
 	);

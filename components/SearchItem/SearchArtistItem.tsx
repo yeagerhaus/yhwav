@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants/Colors';
+import { Text } from '@/components/Text';
+import { Colors } from '@/constants/styles';
 import type { Artist } from '@/types/artist';
 import { Div } from '../Div';
 
@@ -29,9 +29,9 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 		const parts = text.split(new RegExp(`(${query})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === query.toLowerCase() ? (
-				<ThemedText key={index} style={styles.highlighted}>
+				<Text key={index} style={styles.highlighted}>
 					{part}
-				</ThemedText>
+				</Text>
 			) : (
 				part
 			),
@@ -45,18 +45,18 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 			{artist.thumb ? (
 				<Image source={{ uri: artist.thumb }} style={styles.artistImage} />
 			) : (
-				<Div style={styles.artistIconContainer}>
-					<ThemedText style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</ThemedText>
+				<Div transparent style={styles.artistIconContainer}>
+					<Text style={styles.artistIcon}>{artist.name.charAt(0).toUpperCase()}</Text>
 				</Div>
 			)}
-			<Div style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<Div style={styles.artistInfo}>
-					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
+			<Div transparent style={[styles.artistInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
+				<Div transparent style={styles.artistInfo}>
+					<Text type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
 						{highlightText(artist.name, query)}
-					</ThemedText>
-					<ThemedText type='subtitle' numberOfLines={1} style={styles.artistStats}>
+					</Text>
+					<Text type='subtitle' numberOfLines={1} style={styles.artistStats}>
 						{genreText}
-					</ThemedText>
+					</Text>
 				</Div>
 			</Div>
 		</Pressable>
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
 		opacity: 0.6,
 	},
 	highlighted: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		color: 'white',
 		fontWeight: '600',
 	},

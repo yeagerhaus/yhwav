@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { addToPlaylist, createPlaylist } from '@/utils/plex';
-import { ThemedText } from './ThemedText';
 import { Div } from './Div';
+import { Text } from './Text';
 
 const ANIM_DURATION = 250;
 
@@ -90,7 +90,7 @@ export function AddToPlaylistModal() {
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
 			<Animated.View style={[styles.sheet, sheetStyle]}>
 				<Div style={styles.handle} />
-				<ThemedText style={styles.title}>Add to Playlist</ThemedText>
+				<Text style={styles.title}>Add to Playlist</Text>
 				{label ? (
 					<Text style={styles.songName} numberOfLines={1}>
 						{label}
@@ -99,7 +99,7 @@ export function AddToPlaylistModal() {
 
 				<Pressable style={styles.newPlaylistRow} onPress={handleNewPlaylist}>
 					<Ionicons name='add-circle' size={28} color='#7f62f5' />
-					<ThemedText style={styles.newPlaylistText}>New Playlist...</ThemedText>
+					<Text style={styles.newPlaylistText}>New Playlist...</Text>
 				</Pressable>
 
 				<FlatList
@@ -108,9 +108,9 @@ export function AddToPlaylistModal() {
 					renderItem={({ item }) => (
 						<Pressable style={styles.row} onPress={() => handleSelect(item.ratingKey)}>
 							<SymbolView name='music.note.list' size={22} tintColor='#aaa' />
-							<ThemedText style={styles.playlistName} numberOfLines={1}>
+							<Text style={styles.playlistName} numberOfLines={1}>
 								{item.title}
-							</ThemedText>
+							</Text>
 							<Text style={styles.trackCount}>{item.leafCount ?? 0}</Text>
 						</Pressable>
 					)}

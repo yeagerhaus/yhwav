@@ -1,11 +1,19 @@
 import { BlurView, type BlurViewProps } from 'expo-blur';
 import { GlassView } from 'expo-glass-effect';
-import type { ViewProps } from 'react-native';
+import { View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 import { ThemedView } from './ThemedView';
 
 export interface DivProps extends ViewProps {
+	flex?: number;
+	flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
+	alignItems?: 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
+	justifyContent?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around' | 'space-evenly';
+	gap?: number;
+	style?: StyleProp<ViewStyle>;
 	useGlass?: boolean;
 	useBlur?: boolean;
+	transparent?: boolean;
 	blurIntensity?: number;
 	blurTint?: BlurViewProps['tint'];
 	lightColor?: string;
@@ -13,9 +21,15 @@ export interface DivProps extends ViewProps {
 }
 
 export function Div({
+	flex,
+	flexDirection,
+	alignItems,
+	justifyContent,
+	gap,
 	children,
 	useGlass,
 	useBlur,
+	transparent,
 	blurIntensity,
 	blurTint,
 	style,
@@ -35,6 +49,13 @@ export function Div({
 			<GlassView style={style} glassEffectStyle='clear' tintColor='light'>
 				{children}
 			</GlassView>
+		);
+	}
+	if (transparent) {
+		return (
+			<View style={style} {...otherProps}>
+				{children}
+			</View>
 		);
 	}
 	return (

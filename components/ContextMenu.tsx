@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
 import { Modal, Pressable, type StyleProp, StyleSheet, TouchableOpacity, View, type ViewStyle } from 'react-native';
-import { ThemedText } from '@/components/ThemedText';
+import { Text } from '@/components/Text';
 import { Div } from './Div';
 export interface ContextMenuItem {
 	label: string;
@@ -52,7 +52,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
 				<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
 					<Div
-						useGlass
 						style={[
 							styles.menuContainer,
 							{
@@ -72,7 +71,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 								onPress={() => handleItemPress(item)}
 								disabled={item.disabled}
 							>
-								<Div style={styles.menuItemContent}>
+								<Div style={styles.menuItemContent} transparent>
 									{item.systemImage ? (
 										<SymbolView
 											name={item.systemImage}
@@ -88,7 +87,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 											style={styles.menuIcon}
 										/>
 									) : null}
-									<ThemedText
+									<Text
 										style={[
 											styles.menuItemText,
 											item.destructive && styles.menuItemDestructive,
@@ -96,7 +95,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 										]}
 									>
 										{item.label}
-									</ThemedText>
+									</Text>
 								</Div>
 							</TouchableOpacity>
 						))}

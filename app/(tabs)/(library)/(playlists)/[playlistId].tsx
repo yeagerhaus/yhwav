@@ -3,9 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import { Div, DynamicItem, Main, Text } from '@/components';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
@@ -122,13 +120,13 @@ export default function DetailScreen() {
 					>
 						<Ionicons name='remove-circle' size={24} color='#ff3b30' />
 					</Pressable>
-					<Div style={styles.editSongInfo}>
-						<ThemedText numberOfLines={1} style={styles.editSongTitle}>
+					<Div style={styles.editSongInfo} transparent>
+						<Text numberOfLines={1} style={styles.editSongTitle}>
 							{item.title}
-						</ThemedText>
-						<ThemedText numberOfLines={1} style={styles.editSongArtist}>
+						</Text>
+						<Text numberOfLines={1} style={styles.editSongArtist}>
 							{item.artist}
-						</ThemedText>
+						</Text>
 					</Div>
 					<Ionicons name='reorder-three' size={24} color='#888' />
 				</Pressable>
@@ -139,21 +137,21 @@ export default function DetailScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div style={{ alignItems: 'center', paddingTop: 64 }}>
+			<Div style={{ alignItems: 'center', paddingTop: 64 }} transparent>
 				{artwork && (
-					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1 }} resizeMode='contain' />
+					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }} resizeMode='contain' />
 				)}
-				<Div style={{ paddingVertical: 16, width: '100%' }}>
+				<Div style={{ paddingVertical: 16, width: '100%' }} transparent>
 					{editor.isEditing ? (
-						<Div>
-							<Div style={styles.editHeader}>
+						<Div transparent>
+							<Div transparent style={styles.editHeader}>
 								<Pressable onPress={handleCancel}>
-									<ThemedText style={styles.cancelButton}>Cancel</ThemedText>
+									<Text style={styles.cancelButton}>Cancel</Text>
 								</Pressable>
 								<Pressable onPress={handleSave} disabled={editor.isSaving}>
-									<ThemedText style={[styles.saveButton, editor.isSaving && { opacity: 0.5 }]}>
+									<Text style={[styles.saveButton, editor.isSaving && { opacity: 0.5 }]}>
 										{editor.isSaving ? 'Saving...' : 'Save'}
-									</ThemedText>
+									</Text>
 								</Pressable>
 							</Div>
 							<TextInput
@@ -165,24 +163,24 @@ export default function DetailScreen() {
 							/>
 							<Pressable onPress={handleDelete} style={styles.deleteButton}>
 								<Ionicons name='trash-outline' size={18} color='#ff3b30' />
-								<ThemedText style={styles.deleteText}>Delete Playlist</ThemedText>
+								<Text style={styles.deleteText}>Delete Playlist</Text>
 							</Pressable>
 						</Div>
 					) : (
-						<Div>
-							<Div style={styles.normalHeader}>
-								<Div style={{ flex: 1 }}>
+						<Div transparent>
+							<Div transparent style={styles.normalHeader}>
+								<Div style={{ flex: 1 }} transparent>
 									{playlist && (
-										<Div style={{ marginBottom: 16 }}>
-											<ThemedText style={{ fontSize: 24, fontWeight: 'bold' }}>{playlist.title}</ThemedText>
-											<ThemedText style={{ fontSize: 16, color: '#888' }}>
+										<Div style={{ marginBottom: 16 }} transparent>
+											<Text type='h2'>{playlist.title}</Text>
+											<Text type='body' style={{ color: '#888' }}>
 												{playlist.summary || `${playlist.leafCount || 0} tracks`}
-											</ThemedText>
+											</Text>
 										</Div>
 									)}
 								</Div>
 								<Pressable onPress={handleEdit} style={styles.editButton}>
-									<ThemedText style={styles.editButtonText}>Edit</ThemedText>
+									<Text type='body' style={styles.editButtonText}>Edit</Text>
 								</Pressable>
 							</Div>
 						</Div>
@@ -221,7 +219,7 @@ export default function DetailScreen() {
 				windowSize={10}
 				initialNumToRender={15}
 				updateCellsBatchingPeriod={50}
-				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>
 		</Main>
 	);

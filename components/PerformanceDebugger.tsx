@@ -4,10 +4,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Colors } from '@/constants/styles';
 import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
+import { Text } from './Text';
 
 export function PerformanceDebugger() {
 	const [visible, setVisible] = useState(false);
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	sectionTitle: {
-		color: Colors.brand.primary,
+		color: Colors.brandPrimary,
 		fontSize: 14,
 		fontWeight: 'bold',
 		marginBottom: 8,
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 	},
 	button: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		padding: 10,
 		borderRadius: 6,
 		marginTop: 8,

@@ -1,8 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { FlatList } from 'react-native';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import { Div, DynamicItem, Main, Text } from '@/components';
 import { useAlbums } from '@/hooks/useAlbums';
 
 export default function AlbumsScreen() {
@@ -26,8 +24,8 @@ export default function AlbumsScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16, paddingTop: 64 }}>Albums</ThemedText>
+			<Div transparent style={{ paddingTop: 64, marginBottom: 16 }}>
+				<Text type='h1'>Albums</Text>
 			</Div>
 		),
 		[],
@@ -46,7 +44,7 @@ export default function AlbumsScreen() {
 				windowSize={10}
 				initialNumToRender={10}
 				updateCellsBatchingPeriod={50}
-				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
 				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
