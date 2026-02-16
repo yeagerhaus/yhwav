@@ -43,24 +43,3 @@ export default function LibraryScreen() {
 		</Main>
 	);
 }
-
-const _styles = StyleSheet.create({
-	title: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		marginHorizontal: 16,
-		marginTop: 16,
-	},
-	container: {
-		flex: 1,
-	},
-	categoriesContainer: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		gap: 12,
-		padding: 16,
-	},
-	categoryWrapper: {
-		width: '48%',
-	},
-});

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { Div } from '../Div';
 
 const formatTime = (seconds: number) => {
 	const minutes = Math.floor(seconds / 60);
@@ -16,9 +17,9 @@ export const TimeDisplay = React.memo(() => {
 	const remainingTime = `-${formatTime(Math.max(0, duration - position))}`;
 
 	return (
-		<View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'transparent' }}>
+		<Div style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'transparent' }}>
 			<Text style={{ fontSize: 12, opacity: 0.6, color: '#fff' }}>{currentTime}</Text>
 			<Text style={{ fontSize: 12, opacity: 0.6, color: '#fff' }}>{remainingTime}</Text>
-		</View>
+		</Div>
 	);
 });

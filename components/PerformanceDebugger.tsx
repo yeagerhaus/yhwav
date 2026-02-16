@@ -42,21 +42,21 @@ export function PerformanceDebugger() {
 					<ScrollView style={styles.scrollView}>
 						<Text style={styles.title}>Performance Monitor</Text>
 
-						<View style={styles.section}>
+						<Div style={styles.section}>
 							<Text style={styles.sectionTitle}>Key Metrics</Text>
 							<Text style={styles.metric}>playSound avg: {avgPlaySound.toFixed(2)}ms</Text>
 							<Text style={styles.metric}>skipToNext avg: {avgSkip.toFixed(2)}ms</Text>
 							<Text style={styles.metric}>Total metrics: {metrics.length}</Text>
-						</View>
+						</Div>
 
-						<View style={styles.section}>
+						<Div style={styles.section}>
 							<Text style={styles.sectionTitle}>Slowest Operations</Text>
 							{slowest.map((m, i) => (
 								<Text key={i} style={styles.metric}>
 									{m.name}: {m.duration.toFixed(2)}ms
 								</Text>
 							))}
-						</View>
+						</Div>
 
 						<Pressable
 							style={styles.button}

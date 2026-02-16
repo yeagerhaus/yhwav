@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, View as ThemedView } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -50,7 +50,7 @@ export const ExpandedPlayer = React.memo(
 					>
 						<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
 							<Div style={styles.dragHandleContainer}>
-								<ThemedView style={styles.dragHandle} />
+								<Div style={styles.dragHandle} />
 							</Div>
 
 							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>

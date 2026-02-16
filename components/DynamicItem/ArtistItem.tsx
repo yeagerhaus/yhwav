@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Div } from '../Div';
 
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;
@@ -35,9 +36,9 @@ export default function ArtistItem({ item, size }: ArtistItemProps) {
 					style={[styles.artwork, size != null && { width: s, height: s, borderRadius: radius }]}
 				/>
 			) : (
-				<View style={[styles.placeholder, size != null && { width: s, height: s, borderRadius: radius }]}>
+				<Div style={[styles.placeholder, size != null && { width: s, height: s, borderRadius: radius }]}>
 					<Text style={[styles.initial, size != null && { fontSize: initialFontSize }]}>{item.name.charAt(0).toUpperCase()}</Text>
-				</View>
+				</Div>
 			)}
 			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.name}

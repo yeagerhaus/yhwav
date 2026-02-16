@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
+import { Dimensions, Image, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
+import { Div } from '@/components/Div';
 import { ThemedText } from '@/components/ThemedText';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
@@ -69,13 +70,13 @@ export const SongInfo = React.memo(() => {
 
 	return (
 		<>
-			<ThemedView style={styles.artworkContainer}>
+			<Div style={styles.artworkContainer}>
 				<Image source={{ uri: artwork }} style={styles.artwork} />
-			</ThemedView>
+			</Div>
 
-			<ThemedView style={styles.titleContainer}>
-				<ThemedView style={styles.titleRow}>
-					<ThemedView style={styles.titleMain}>
+			<Div style={styles.titleContainer}>
+				<Div style={styles.titleRow}>
+					<Div style={styles.titleMain}>
 						<ThemedText type='title' style={styles.title}>
 							{title}
 						</ThemedText>
@@ -85,17 +86,17 @@ export const SongInfo = React.memo(() => {
 						>
 							{artist}
 						</ThemedText>
-					</ThemedView>
-					<ThemedView style={styles.titleIcons}>
+					</Div>
+					<Div style={styles.titleIcons}>
 						{/* <Pressable style={styles.iconButton}>
 						<Ionicons name='star-outline' size={18} color='#fff' />
 					</Pressable> */}
 						<ContextMenu items={menuItems} style={styles.iconButton}>
 							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
 						</ContextMenu>
-					</ThemedView>
-				</ThemedView>
-			</ThemedView>
+					</Div>
+				</Div>
+			</Div>
 		</>
 	);
 });

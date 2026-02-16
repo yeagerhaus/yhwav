@@ -7,6 +7,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { addToPlaylist, createPlaylist } from '@/utils/plex';
 import { ThemedText } from './ThemedText';
+import { Div } from './Div';
 
 const ANIM_DURATION = 250;
 
@@ -88,7 +89,7 @@ export function AddToPlaylistModal() {
 		<Animated.View style={[styles.backdrop, backdropStyle]}>
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
 			<Animated.View style={[styles.sheet, sheetStyle]}>
-				<View style={styles.handle} />
+				<Div style={styles.handle} />
 				<ThemedText style={styles.title}>Add to Playlist</ThemedText>
 				{label ? (
 					<Text style={styles.songName} numberOfLines={1}>

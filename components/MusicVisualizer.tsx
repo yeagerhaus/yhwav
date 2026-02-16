@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
+import { Div } from './Div';
 
 interface Props {
 	isPlaying: boolean;
@@ -53,7 +54,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 	if (!isPlaying) return null;
 
 	return (
-		<View style={styles.container}>
+		<Div style={styles.container}>
 			{animatedValues.map((value, index) => (
 				<Animated.View
 					key={index}
@@ -72,7 +73,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 					]}
 				/>
 			))}
-		</View>
+		</Div>
 	);
 }
 
@@ -87,6 +88,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		bottom: 0,
+		borderRadius: 4,
 		backgroundColor: 'rgba(0,0,0,0.3)',
 	},
 	bar: {

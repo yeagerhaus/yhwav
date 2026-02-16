@@ -9,4 +9,4 @@ export * from './Overlay/OverlayProvider';
 export * from './PerformanceDebugger';
 export * from './SearchItem';
 export * from './ThemedText';
-export * from './ThemedView';
+export * from './Div';

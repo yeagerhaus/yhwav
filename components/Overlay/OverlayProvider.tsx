@@ -2,6 +2,7 @@ import type React from 'react';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { OverlayContext, type OverlayView } from './OverlayContext';
+import { Div } from '../Div';
 
 export const OverlayProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [views, setViews] = useState<OverlayView[]>([]);
@@ -18,14 +19,14 @@ export const OverlayProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 	return (
 		<OverlayContext.Provider value={{ views, addOverlay, removeOverlay }}>
-			<View style={styles.container}>
+			<Div style={styles.container}>
 				{children}
 				{views.map((view) => (
-					<View key={view.id} style={[styles.overlay, view.style]}>
+					<Div key={view.id} style={[styles.overlay, view.style]}>
 						{view.component}
-					</View>
+					</Div>
 				))}
-			</View>
+			</Div>
 		</OverlayContext.Provider>
 	);
 };

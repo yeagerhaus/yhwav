@@ -2,13 +2,14 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants';
+import { Div } from '../Div';
 
 export default function ListItem({ item, onPress }: { item: any; onPress: () => void }) {
 	const colorScheme = useColorScheme();
 
 	return (
 		<Pressable onPress={onPress}>
-			<View
+			<Div
 				style={{
 					flex: 1,
 					borderBottomWidth: StyleSheet.hairlineWidth,
@@ -16,7 +17,7 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 					borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353',
 				}}
 			>
-				<View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+				<Div style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
 					{item.icon && (
 						<SymbolView
 							name={item.icon}
@@ -28,8 +29,8 @@ export default function ListItem({ item, onPress }: { item: any; onPress: () => 
 					<ThemedText type='defaultSemiBold' numberOfLines={1} style={{ fontSize: 24, fontWeight: '600' }}>
 						{item.title}
 					</ThemedText>
-				</View>
-			</View>
+				</Div>
+			</Div>
 		</Pressable>
 	);
 }

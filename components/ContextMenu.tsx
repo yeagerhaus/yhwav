@@ -72,7 +72,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 								onPress={() => handleItemPress(item)}
 								disabled={item.disabled}
 							>
-								<View style={styles.menuItemContent}>
+								<Div style={styles.menuItemContent}>
 									{item.systemImage ? (
 										<SymbolView
 											name={item.systemImage}
@@ -97,7 +97,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 									>
 										{item.label}
 									</ThemedText>
-								</View>
+								</Div>
 							</TouchableOpacity>
 						))}
 					</Div>

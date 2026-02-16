@@ -2,11 +2,9 @@ import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Div, ThemedText } from '@/components';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { Div } from '../Div';
 
 export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	const insets = useSafeAreaInsets();
@@ -37,12 +35,12 @@ const MiniPlayerContent = React.memo(() => {
 	if (!currentSong) return null;
 
 	return (
-		<ThemedView style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
+		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
-			<ThemedView style={styles.textContainer}>
+			<Div style={styles.textContainer}>
 				<ThemedText style={styles.title}>{title}</ThemedText>
-			</ThemedView>
-			<ThemedView style={styles.controls}>
+			</Div>
+			<Div style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
 					<SymbolView
 						name={isPlaying ? 'pause.fill' : 'play.fill'}
@@ -54,8 +52,8 @@ const MiniPlayerContent = React.memo(() => {
 				<Pressable style={styles.controlButton} onPress={skipToNext}>
 					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brand.primary} />
 				</Pressable>
-			</ThemedView>
-		</ThemedView>
+			</Div>
+		</Div>
 	);
 });
 

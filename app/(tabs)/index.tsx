@@ -39,7 +39,7 @@ export default function HomeScreen() {
 	// 	[artists],
 	// );
 
-	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio'), [playlists]);
+	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null), [playlists]);
 
 	useEffect(() => {
 		fetchRecentlyPlayed(25)
@@ -60,7 +60,6 @@ export default function HomeScreen() {
 
 	return (
 		<Main
-			style={{ backgroundColor: '#000' }}
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.primary} />}
 		>
 			<HomeSection
@@ -87,12 +86,18 @@ export default function HomeScreen() {
 			/> */}
 
 			<HomeSection
+				style={{ paddingBottom: 64 }}
 				title='Your Playlists'
 				data={audioPlaylists}
-				keyExtractor={(item) => item.id}
+				keyExtractor={(item) => item.key ?? item.id}
 				renderItem={(item) => (
 					<PlaylistItem
-						item={{ id: item.id, title: item.title, artwork: item.artworkUrl ?? '', count: item.leafCount ?? 0 }}
+						item={{
+							id: item.key ?? item.id,
+							title: item.title,
+							artwork: item.artworkUrl ?? '',
+							count: item.leafCount ?? 0,
+						}}
 						size={ITEM_SIZE}
 					/>
 				)}

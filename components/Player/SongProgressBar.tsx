@@ -10,6 +10,7 @@ import Animated, {
 	useSharedValue,
 } from 'react-native-reanimated';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { Div } from '../Div';
 
 configureReanimatedLogger({
 	level: ReanimatedLogLevel.warn,
@@ -86,7 +87,7 @@ export function SongProgressBar() {
 	});
 
 	return (
-		<View style={{ width: '100%', marginTop: 15, marginBottom: 10 }}>
+		<Div style={{ width: '100%', marginTop: 15, marginBottom: 10 }}>
 			<GestureDetector gesture={composedGesture}>
 				<Animated.View
 					onLayout={(event) => {
@@ -103,7 +104,7 @@ export function SongProgressBar() {
 						justifyContent: 'center',
 					}}
 				>
-					<View
+					<Div
 						style={{
 							width: '100%',
 							height: 5,
@@ -136,9 +137,9 @@ export function SongProgressBar() {
 								]}
 							/>
 						</Animated.View>
-					</View>
+					</Div>
 				</Animated.View>
 			</GestureDetector>
-		</View>
+		</Div>
 	);
 }

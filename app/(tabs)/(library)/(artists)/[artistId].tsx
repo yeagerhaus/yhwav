@@ -1,8 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
-import { DynamicItem, ThemedText, ThemedView } from '@/components';
-import { Div } from '@/components/Div';
+import { Div, DynamicItem, ThemedText } from '@/components';
 import { Main } from '@/components/Main';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -109,9 +108,9 @@ export default function ArtistDetailScreen() {
 
 	if (!artist) {
 		return (
-			<ThemedView style={styles.container}>
+			<Div style={styles.container}>
 				<ThemedText style={styles.header}>Artist not found</ThemedText>
-			</ThemedView>
+			</Div>
 		);
 	}
 
@@ -125,14 +124,14 @@ export default function ArtistDetailScreen() {
 					{artist.country && <ThemedText style={styles.country}>{artist.country}</ThemedText>}
 				</Div>
 				{artist.summary ? (
-					<View style={styles.bioContainer}>
+					<Div style={styles.bioContainer}>
 						<ThemedText style={styles.bio} numberOfLines={4}>
 							{artist.summary}
 						</ThemedText>
-					</View>
+					</Div>
 				) : null}
 				{sections.map((section) => (
-					<View key={section.category}>
+					<Div key={section.category}>
 						<ThemedText style={styles.sectionHeader}>{section.category}</ThemedText>
 						<FlatList
 							scrollEnabled={false}
@@ -143,9 +142,9 @@ export default function ArtistDetailScreen() {
 							columnWrapperStyle={{ justifyContent: 'space-between' }}
 							renderItem={({ item }) => <DynamicItem item={item} type='album' />}
 						/>
-					</View>
+					</Div>
 				))}
-				<View style={{ height: 64 }} />
+				<Div style={{ height: 64 }} />
 			</Div>
 		</Main>
 	);

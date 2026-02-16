@@ -17,6 +17,7 @@ export function Main({ children, scrollEnabled = true, style, refreshControl }: 
 				flex: 1,
 				...(style as any),
 			}}
+			showsVerticalScrollIndicator={false}
 			refreshControl={refreshControl}
 		>
 			<SafeAreaView

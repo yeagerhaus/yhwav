@@ -1,17 +1,19 @@
-import { FlatList, StyleSheet, Text } from 'react-native';
+import { FlatList, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Div } from './Div';
 
 interface HomeSectionProps<T> {
 	title: string;
 	data: T[];
 	renderItem: (item: T) => React.ReactElement;
 	keyExtractor: (item: T) => string;
+	style?: StyleProp<ViewStyle>;
 }
 
-export function HomeSection<T>({ title, data, renderItem, keyExtractor }: HomeSectionProps<T>) {
+export function HomeSection<T>({ title, data, renderItem, keyExtractor, style }: HomeSectionProps<T>) {
 	if (data.length === 0) return null;
 
 	return (
-		<>
+		<Div style={style}>
 			<Text style={styles.title}>{title}</Text>
 			<FlatList
 				horizontal
@@ -21,7 +23,7 @@ export function HomeSection<T>({ title, data, renderItem, keyExtractor }: HomeSe
 				showsHorizontalScrollIndicator={false}
 				contentContainerStyle={styles.list}
 			/>
-		</>
+		</Div>
 	);
 }
 

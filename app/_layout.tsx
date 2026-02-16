@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { AddToPlaylistModal, MiniPlayer } from '@/components';
+import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
@@ -36,7 +36,7 @@ function AnimatedStack() {
 	});
 
 	return (
-		<View style={{ flex: 1 }}>
+		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
 					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }} />
@@ -55,7 +55,7 @@ function AnimatedStack() {
 
 				{currentSong && <MiniPlayer onPress={() => router.push(`/music/${currentSong.id}`)} />}
 			</Animated.View>
-		</View>
+		</Div>
 	);
 }
 

@@ -31,14 +31,14 @@ export default function ArtistsScreen() {
 				{item.thumb ? (
 					<Image source={{ uri: item.thumb }} style={styles.image} />
 				) : (
-					<View style={styles.initialCircle}>
+					<Div style={styles.initialCircle}>
 						<ThemedText style={styles.initialText}>{item.name.charAt(0).toUpperCase()}</ThemedText>
-					</View>
+					</Div>
 				)}
-				<View style={{ flex: 1 }}>
+				<Div style={{ flex: 1 }}>
 					<ThemedText style={styles.name}>{item.name}</ThemedText>
 					{item.genres.length > 0 && <ThemedText style={styles.genres}>{item.genres.slice(0, 3).join(', ')}</ThemedText>}
-				</View>
+				</Div>
 			</Pressable>
 		),
 		[router],
