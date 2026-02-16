@@ -34,23 +34,23 @@ export function PerformanceDebugger() {
 		<>
 			<Div useGlass style={styles.toggleButton}>
 				<Pressable onPress={() => setVisible(!visible)}>
-					<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
+					<Text type='body' style={styles.toggleButtonText}>{'</>'} Debug</Text>
 				</Pressable>
 			</Div>
 
 			{visible && (
-				<Div useGlass style={styles.container}>
+				<Div useBlur style={styles.container}>
 					<ScrollView style={styles.scrollView}>
 						<Text style={styles.title}>Performance Monitor</Text>
 
-						<Div style={styles.section}>
+						<Div transparent style={styles.section}>
 							<Text style={styles.sectionTitle}>Key Metrics</Text>
 							<Text style={styles.metric}>playSound avg: {avgPlaySound.toFixed(2)}ms</Text>
 							<Text style={styles.metric}>skipToNext avg: {avgSkip.toFixed(2)}ms</Text>
 							<Text style={styles.metric}>Total metrics: {metrics.length}</Text>
 						</Div>
 
-						<Div style={styles.section}>
+						<Div transparent style={styles.section}>
 							<Text style={styles.sectionTitle}>Slowest Operations</Text>
 							{slowest.map((m, i) => (
 								<Text key={i} style={styles.metric}>
@@ -104,7 +104,6 @@ const styles = StyleSheet.create({
 		zIndex: 9999,
 	},
 	toggleButtonText: {
-		color: 'white',
 		fontSize: 12,
 		fontWeight: 'bold',
 	},
@@ -123,7 +122,6 @@ const styles = StyleSheet.create({
 		maxHeight: 380,
 	},
 	title: {
-		color: 'white',
 		fontSize: 16,
 		fontWeight: 'bold',
 		marginBottom: 12,
@@ -138,7 +136,6 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	metric: {
-		color: 'white',
 		fontSize: 12,
 		marginBottom: 4,
 	},
@@ -149,7 +146,6 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 	},
 	buttonText: {
-		color: 'white',
 		textAlign: 'center',
 		fontWeight: 'bold',
 	},

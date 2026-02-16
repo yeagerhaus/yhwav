@@ -10,10 +10,10 @@ const Colors = {
 	brand: '#6262F5',
 	/** Primary brand color used for accents, tab bar, buttons, etc. */
 	brandPrimary: '#7f62f5',
-	// Theme colors for useThemeColor (light/dark)
+	// Theme colors for useThemeColor (light/dark). background = surfacePrimary (light) / surfaceInvert (dark).
 	light: {
 		text: '#11181C',
-		background: '#fff',
+		background: '#ffffff', // surfacePrimary
 		tint: tintColorLight,
 		icon: '#687076',
 		tabIconDefault: '#687076',
@@ -21,7 +21,7 @@ const Colors = {
 	},
 	dark: {
 		text: '#ECEDEE',
-		background: '#151718',
+		background: '#080808', // surfaceInvert (Colors.black)
 		tint: tintColorDark,
 		icon: '#9BA1A6',
 		tabIconDefault: '#9BA1A6',

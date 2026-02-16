@@ -1,8 +1,9 @@
 // Crypto polyfills removed - using expo-crypto instead
-import { DarkTheme, DefaultTheme, ThemeProvider, useTheme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
+import { InteractionManager, StyleSheet, useColorScheme } from 'react-native';
+import { Colors } from '@/constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
@@ -22,8 +23,10 @@ function AudioSync() {
 function AnimatedStack() {
 	const { scale } = useRootScale();
 	const router = useRouter();
-	const { colors } = useTheme();
+	const colorScheme = useColorScheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
+	const screenBackground =
+		colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -40,7 +43,7 @@ function AnimatedStack() {
 		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
-					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: screenBackground } }} />
 					<Stack.Screen
 						name='music/[id]'
 						options={{

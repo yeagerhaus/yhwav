@@ -1,4 +1,3 @@
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -33,7 +32,7 @@ export const ExpandedPlayer = React.memo(
 		}, [ScrollComponentToUse]);
 
 		return (
-			<BlurView intensity={100} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
+			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent>
 				{/* Layer 1: top-left → bottom-right diagonal */}
 				<LinearGradient
 					colors={hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor]}
@@ -68,7 +67,7 @@ export const ExpandedPlayer = React.memo(
 						</Div>
 					</LinearGradient>
 				</LinearGradient>
-			</BlurView>
+			</Div>
 		);
 	},
 	(prevProps, nextProps) => {

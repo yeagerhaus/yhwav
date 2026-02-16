@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors } from '@/constants/styles';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
 import { hexWithOpacity } from '@/utils/styles';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 export default function SettingsScreen() {
+	const colorScheme = useColorScheme();
+	const backgroundColor = useThemeColor({ light: Colors.light.background, dark: Colors.dark.background }, 'background');
 	const [plexToken, setPlexToken] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
@@ -177,7 +180,7 @@ export default function SettingsScreen() {
 				{authState.servers.map((server) => (
 					<TouchableOpacity
 						key={server.id}
-						style={[styles.serverItem, authState.selectedServer?.id === server.id && styles.selectedServerItem]}
+						style={[styles.serverItem, { backgroundColor: hexWithOpacity(backgroundColor, 0.5)}, authState.selectedServer?.id === server.id && styles.selectedServerItem ]}
 						onPress={() => handleSelectServer(server.id)}
 					>
 						<Div transparent style={styles.serverInfo}>
@@ -357,7 +360,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#000',
 	},
 	scrollView: {
 		flex: 1,
@@ -369,12 +371,10 @@ const styles = StyleSheet.create({
 		marginBottom: 30,
 	},
 	backButton: {
-		color: '#fff',
 		fontSize: 16,
 		marginRight: 15,
 	},
 	title: {
-		color: '#fff',
 		fontSize: 24,
 		fontWeight: 'bold',
 	},
@@ -388,30 +388,25 @@ const styles = StyleSheet.create({
 		marginBottom: 15,
 	},
 	sectionTitle: {
-		color: '#fff',
 		fontSize: 18,
 		fontWeight: 'bold',
 		marginBottom: 10,
 	},
 	sectionDescription: {
-		color: '#888',
 		fontSize: 14,
 		lineHeight: 20,
 	},
 	userInfo: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
 	userEmail: {
-		color: '#888',
 		fontSize: 14,
 		marginTop: 2,
 	},
 	serverItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: '#111',
 		padding: 15,
 		borderRadius: 8,
 		marginBottom: 10,
@@ -426,17 +421,16 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	serverName: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
 	serverDetails: {
-		color: '#888',
+		color: hexWithOpacity(Colors.gray600, 0.5),
 		fontSize: 12,
 		marginTop: 2,
 	},
 	serverId: {
-		color: '#666',
+		color: hexWithOpacity(Colors.gray600, 0.5),
 		fontSize: 10,
 		marginTop: 2,
 		fontFamily: 'monospace',
@@ -452,7 +446,6 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 	},
 	inputLabel: {
-		color: '#fff',
 		fontSize: 14,
 		fontWeight: '600',
 		marginBottom: 8,
@@ -461,7 +454,6 @@ const styles = StyleSheet.create({
 		backgroundColor: '#111',
 		borderRadius: 8,
 		padding: 12,
-		color: '#fff',
 		fontSize: 16,
 		borderWidth: 1,
 		borderColor: '#333',
@@ -478,7 +470,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	connectButtonText: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
@@ -490,7 +481,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	loginButtonText: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
@@ -502,7 +492,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	cancelButtonText: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
@@ -515,7 +504,6 @@ const styles = StyleSheet.create({
 		borderColor: '#555',
 	},
 	clearCacheButtonText: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
@@ -526,7 +514,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	logoutButtonText: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 	},
@@ -534,13 +521,11 @@ const styles = StyleSheet.create({
 		opacity: 0.6,
 	},
 	helpTitle: {
-		color: '#fff',
 		fontSize: 16,
 		fontWeight: '600',
 		marginBottom: 10,
 	},
 	helpText: {
-		color: '#888',
 		fontSize: 14,
 		lineHeight: 20,
 	},
@@ -554,13 +539,11 @@ const styles = StyleSheet.create({
 		marginBottom: 15,
 	},
 	pinLabel: {
-		color: '#888',
 		fontSize: 14,
 		marginBottom: 15,
 		textAlign: 'center',
 	},
 	pinCodeContainer: {
-		backgroundColor: '#000',
 		padding: 20,
 		borderRadius: 8,
 		borderWidth: 2,
@@ -577,7 +560,6 @@ const styles = StyleSheet.create({
 		fontFamily: 'monospace',
 	},
 	pinStatus: {
-		color: '#888',
 		fontSize: 12,
 		textAlign: 'center',
 		marginTop: 10,
@@ -589,7 +571,6 @@ const styles = StyleSheet.create({
 		padding: 10,
 	},
 	advancedToggleText: {
-		color: '#888',
 		fontSize: 14,
 	},
 	advancedSection: {
@@ -609,7 +590,6 @@ const styles = StyleSheet.create({
 		marginTop: 15,
 	},
 	tokenButtonText: {
-		color: '#fff',
 		fontSize: 14,
 		fontWeight: '600',
 	},
