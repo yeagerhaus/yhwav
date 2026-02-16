@@ -24,6 +24,8 @@ const SongItem = React.memo(
 		const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
+		const playNext = useAudioStore((state) => state.playNext);
+		const addToQueue = useAudioStore((state) => state.addToQueue);
 		const isCurrentSong = useMemo(() => {
 			return item.id === String(currentSong?.id);
 		}, [item.id, currentSong?.id]);
@@ -40,6 +42,16 @@ const SongItem = React.memo(
 		const matchedAlbum = albums.find((a) => a.title === item.album && a.artist === item.artist);
 
 		const menuItems: ContextMenuItem[] = [
+			{
+				label: 'Play Next',
+				systemImage: 'text.line.first.and.arrowtriangle.forward',
+				onPress: () => playNext(item),
+			},
+			{
+				label: 'Add to Queue',
+				systemImage: 'text.badge.plus',
+				onPress: () => addToQueue([item]),
+			},
 			{
 				label: 'Add to Playlist',
 				systemImage: 'plus.circle',

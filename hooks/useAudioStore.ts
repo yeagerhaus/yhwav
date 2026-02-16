@@ -132,6 +132,9 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 // Track which song URL has been pre-warmed to avoid duplicate fetches
 let prewarmedUrl: string | null = null;
 
+// Playback error retry tracking
+let lastErrorRetryAt = 0;
+
 // Natural advance (track ended → next started): latency tracking (excludes skips)
 let naturalAdvanceEnd: ((metadata?: Record<string, unknown>) => void) | null = null;
 let naturalAdvanceEndSongId: string | null = null;
@@ -485,7 +488,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				await TrackPlayer.skip(nextIndex);
 				set({ currentSong: nextSong });
 
-				saveCurrentSongId(nextSong);
+				saveQueueState(state.queue, state.originalQueue, nextSong);
 				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
 				extractArtworkColor(nextSong)
@@ -520,7 +523,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				await TrackPlayer.skip(prevIndex);
 				set({ currentSong: prevSong });
 
-				saveCurrentSongId(prevSong);
+				saveQueueState(state.queue, state.originalQueue, prevSong);
 				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
 				extractArtworkColor(prevSong)
@@ -847,14 +850,30 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackError) {
-				console.error('Playback error:', event);
-				useAudioStore.setState({
-					error: 'Playback error occurred',
-					currentSong: null,
-					isPlaying: false,
-					artworkBgColor: null,
-				});
-				AsyncStorage.removeItem(STORAGE_SONG_KEY).catch(() => {});
+				console.warn('Playback error (will retry):', event);
+
+				// Retry the current track once instead of nuking the player state
+				const now = Date.now();
+				const canRetry = now - lastErrorRetryAt > 3000;
+
+				if (canRetry && state.currentSong && state.queue.length > 0) {
+					lastErrorRetryAt = now;
+					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					if (trackIndex !== -1) {
+						try {
+							await TrackPlayer.skip(trackIndex);
+							await TrackPlayer.play();
+							console.log('✅ Retry succeeded');
+						} catch {
+							console.warn('Retry failed, keeping player state intact');
+							useAudioStore.setState({ isPlaying: false });
+						}
+					}
+				} else if (!canRetry) {
+					// Retry already attempted recently — just pause, don't destroy state
+					console.warn('Playback error after recent retry, pausing');
+					useAudioStore.setState({ isPlaying: false });
+				}
 			}
 
 			if (event.type === Event.RemotePlay) {

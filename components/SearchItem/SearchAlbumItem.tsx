@@ -9,6 +9,8 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
 import { Div } from '../Div';
+import { useArtists } from '@/hooks/useArtists';
+import { useAudioStore } from '@/hooks/useAudioStore';
 
 interface SearchAlbumItemProps {
 	album: Album;
@@ -19,7 +21,9 @@ interface SearchAlbumItemProps {
 export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumItemProps) {
 	const colorScheme = useColorScheme();
 	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
+	const { artists } = useArtists();
 	const allTracks = useLibraryStore((s) => s.tracks);
+	const matchedArtist = artists.find((a) => a.name === album.artist);
 
 	const albumTrackIds = useMemo(
 		() => allTracks.filter((t) => t.album === album.title && t.artist === album.artist).map((t) => t.id),
@@ -41,6 +45,15 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 			systemImage: 'plus.circle',
 			onPress: () => openAddToPlaylist(`${album.title} — ${album.artist}`, albumTrackIds),
 			disabled: albumTrackIds.length === 0,
+		},
+		{
+			label: 'Go to Artist',
+			systemImage: 'person.circle',
+			onPress: () => {
+				if (matchedArtist) {
+					router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
+				}
+			},
 		},
 	];
 

@@ -2,7 +2,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { InteractionManager, StyleSheet, useColorScheme } from 'react-native';
+import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
+
+LogBox.ignoreAllLogs();
 import { Colors } from '@/constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -71,13 +73,11 @@ export default function RootLayout() {
 	useEffect(() => {
 		const init = async () => {
 			try {
-				// Initialize audio player first
-				await initializePlayer();
-				console.log('✅ Audio player initialized');
-
 				// Try to load existing authentication state
 				const authLoaded = await plexAuthService.loadAuthState();
 
+				// Hydrate library BEFORE initializing player so saved queue IDs can resolve
+				let hydrated = false;
 				if (authLoaded && plexAuthService.isAuthenticated()) {
 					console.log('✅ Using existing Plex authentication');
 					const selectedServer = plexAuthService.getSelectedServer();
@@ -85,12 +85,17 @@ export default function RootLayout() {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
 					}
 
-					// Load cached data first (for instant UI)
-					const hydrated = await rehydrateLibraryStore();
+					hydrated = await rehydrateLibraryStore();
 					if (hydrated) {
 						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 					}
+				}
 
+				// Initialize audio player AFTER library hydration so saved queue IDs resolve correctly
+				await initializePlayer();
+				console.log('✅ Audio player initialized');
+
+				if (authLoaded && plexAuthService.isAuthenticated()) {
 					// Fetch albums, artists, playlists & recently played immediately (small payloads, no caching needed)
 					const fetchAlbumsAndArtists = () => {
 						fetchAllAlbums()
