@@ -1,10 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
-import { Colors } from '@/constants/Colors';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { Div, DynamicItem, Main, Text } from '@/components';
+import { Colors } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
 import type { Artist } from '@/types';
 
@@ -17,37 +15,14 @@ export default function ArtistsScreen() {
 	const keyExtractor = useCallback((item: Artist) => item.key, []);
 
 	const renderItem = useCallback(
-		({ item }: { item: Artist }) => (
-			<Pressable
-				style={styles.item}
-				onPress={() =>
-					router.push({
-						// @ts-expect-error
-						pathname: '(library)/(artists)/[artistId]',
-						params: { artistId: item.key },
-					})
-				}
-			>
-				{item.thumb ? (
-					<Image source={{ uri: item.thumb }} style={styles.image} />
-				) : (
-					<View style={styles.initialCircle}>
-						<ThemedText style={styles.initialText}>{item.name.charAt(0).toUpperCase()}</ThemedText>
-					</View>
-				)}
-				<View style={{ flex: 1 }}>
-					<ThemedText style={styles.name}>{item.name}</ThemedText>
-					{item.genres.length > 0 && <ThemedText style={styles.genres}>{item.genres.slice(0, 3).join(', ')}</ThemedText>}
-				</View>
-			</Pressable>
-		),
-		[router],
+		({ item }: { item: Artist }) => <DynamicItem item={item} type='artist' />,
+		[],
 	);
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16, paddingTop: 64 }}>Artists</ThemedText>
+			<Div transparent style={{ paddingTop: 64, marginBottom: 16 }}>
+				<Text type='h1'>Artists</Text>
 			</Div>
 		),
 		[],
@@ -55,8 +30,8 @@ export default function ArtistsScreen() {
 
 	const listEmptyComponent = useMemo(
 		() => (
-			<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-				<ActivityIndicator size='large' color={Colors.brand.primary} />
+			<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+				<ActivityIndicator size='large' color={Colors.brandPrimary} />
 			</Div>
 		),
 		[],
@@ -81,18 +56,4 @@ export default function ArtistsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
-	item: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 },
-	image: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#ddd' },
-	initialCircle: {
-		width: 50,
-		height: 50,
-		borderRadius: 25,
-		backgroundColor: '#FA2D48',
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	initialText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-	name: { fontSize: 18, fontWeight: '500' },
-	genres: { fontSize: 14, color: '#666' },
-});
+

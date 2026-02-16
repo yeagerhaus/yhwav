@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Colors, DefaultStyles } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { addToPlaylist, createPlaylist } from '@/utils/plex';
-import { ThemedText } from './ThemedText';
+import { Div } from './Div';
+import { Text } from './Text';
 
 const ANIM_DURATION = 250;
 
@@ -85,32 +87,32 @@ export function AddToPlaylistModal() {
 	}, [ratingKeys, animatedClose, playlists, setPlaylists]);
 
 	return (
-		<Animated.View style={[styles.backdrop, backdropStyle]}>
+		<Animated.View style={[DefaultStyles.overlay, styles.backdropExtras, backdropStyle]}>
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
-			<Animated.View style={[styles.sheet, sheetStyle]}>
-				<View style={styles.handle} />
-				<ThemedText style={styles.title}>Add to Playlist</ThemedText>
+			<Animated.View style={[DefaultStyles.sheet, sheetStyle]}>
+				<Div style={styles.handle} />
+				<Text type="h3" colorVariant="primaryInvert" style={styles.title}>Add to Playlist</Text>
 				{label ? (
-					<Text style={styles.songName} numberOfLines={1}>
+					<Text type="body" colorVariant="secondary" style={styles.songName} numberOfLines={1}>
 						{label}
 					</Text>
 				) : null}
 
 				<Pressable style={styles.newPlaylistRow} onPress={handleNewPlaylist}>
-					<Ionicons name='add-circle' size={28} color='#7f62f5' />
-					<ThemedText style={styles.newPlaylistText}>New Playlist...</ThemedText>
+					<Ionicons name="add-circle" size={28} color={Colors.brandPrimary} />
+					<Text type="body" colorVariant="brand" style={styles.newPlaylistText}>New Playlist...</Text>
 				</Pressable>
 
 				<FlatList
 					data={audioPlaylists}
 					keyExtractor={(item) => item.id}
 					renderItem={({ item }) => (
-						<Pressable style={styles.row} onPress={() => handleSelect(item.ratingKey)}>
-							<SymbolView name='music.note.list' size={22} tintColor='#aaa' />
-							<ThemedText style={styles.playlistName} numberOfLines={1}>
+						<Pressable style={[DefaultStyles.row, DefaultStyles.listRowBorder, styles.rowBorder]} onPress={() => handleSelect(item.ratingKey)}>
+							<SymbolView name="music.note.list" size={22} tintColor={Colors.gray400} />
+							<Text type="body" colorVariant="primaryInvert" style={styles.playlistName} numberOfLines={1}>
 								{item.title}
-							</ThemedText>
-							<Text style={styles.trackCount}>{item.leafCount ?? 0}</Text>
+							</Text>
+							<Text type="bodySM" colorVariant="secondary" style={styles.trackCount}>{item.leafCount ?? 0}</Text>
 						</Pressable>
 					)}
 					style={styles.list}
@@ -121,40 +123,29 @@ export function AddToPlaylistModal() {
 }
 
 const styles = StyleSheet.create({
-	backdrop: {
+	backdropExtras: {
 		...StyleSheet.absoluteFillObject,
 		zIndex: 9999,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
 		justifyContent: 'flex-end',
 	},
 	backdropTouch: {
 		flex: 1,
 	},
-	sheet: {
-		backgroundColor: '#1c1c1e',
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		paddingBottom: 40,
-		maxHeight: '70%',
-	},
 	handle: {
 		width: 36,
 		height: 5,
 		borderRadius: 3,
-		backgroundColor: '#666',
+		backgroundColor: Colors.gray600,
 		alignSelf: 'center',
 		marginTop: 8,
 		marginBottom: 12,
 	},
 	title: {
-		fontSize: 18,
-		fontWeight: '700',
 		textAlign: 'center',
 		marginBottom: 4,
 	},
 	songName: {
 		fontSize: 13,
-		color: '#888',
 		textAlign: 'center',
 		marginBottom: 16,
 		paddingHorizontal: 24,
@@ -170,27 +161,18 @@ const styles = StyleSheet.create({
 	},
 	newPlaylistText: {
 		fontSize: 16,
-		color: '#7f62f5',
 		fontWeight: '600',
 	},
 	list: {
 		paddingHorizontal: 20,
 	},
-	row: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 12,
-		paddingVertical: 14,
-		borderBottomWidth: StyleSheet.hairlineWidth,
+	rowBorder: {
 		borderBottomColor: 'rgba(255,255,255,0.06)',
 	},
 	playlistName: {
 		flex: 1,
-		fontSize: 16,
-		color: '#fff',
 	},
 	trackCount: {
 		fontSize: 14,
-		color: '#666',
 	},
 });

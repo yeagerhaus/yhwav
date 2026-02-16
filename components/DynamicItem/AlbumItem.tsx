@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
+import { Text } from '../Text';
 
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;
@@ -30,14 +31,14 @@ export default function AlbumItem({ item, size }: AlbumItemProps) {
 			}
 		>
 			<Image source={{ uri: item.artwork }} style={[styles.artwork, size != null && { width: s, height: s }]} />
-			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
+			<Text type='h4' style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.album}
 			</Text>
-			<Text style={[styles.artist, size != null && { maxWidth: s }]} numberOfLines={1}>
+			<Text type='body' style={[styles.artist, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.artist}
 			</Text>
 			{item.year != null && (
-				<Text style={[styles.year, size != null && { maxWidth: s }]} numberOfLines={1}>
+				<Text type='bodySM' style={[styles.year, size != null && { maxWidth: s }]} numberOfLines={1}>
 					{item.year}
 				</Text>
 			)}
@@ -59,10 +60,6 @@ const styles = StyleSheet.create({
 		backgroundColor: '#eee',
 	},
 	name: {
-		color: '#FFFFFF',
-		fontSize: 14,
-		fontWeight: '600',
-		textAlign: 'center',
 		maxWidth: itemSize,
 	},
 	artist: {

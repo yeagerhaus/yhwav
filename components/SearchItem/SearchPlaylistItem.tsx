@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants/Colors';
+import { Text } from '@/components/Text';
+import { Colors } from '@/constants/styles';
 import type { Playlist } from '@/types/playlist';
 import { Div } from '../Div';
 
@@ -30,9 +30,9 @@ export default function SearchPlaylistItem({ playlist, query, onPress }: SearchP
 		const parts = text.split(new RegExp(`(${q})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === q.toLowerCase() ? (
-				<ThemedText key={index} style={styles.highlighted}>
+				<Text key={index} style={styles.highlighted}>
 					{part}
-				</ThemedText>
+				</Text>
 			) : (
 				part
 			),
@@ -44,18 +44,18 @@ export default function SearchPlaylistItem({ playlist, query, onPress }: SearchP
 			{playlist.artworkUrl ? (
 				<Image source={{ uri: playlist.artworkUrl }} style={styles.artwork} />
 			) : (
-				<Div style={styles.iconContainer}>
+				<Div transparent style={styles.iconContainer}>
 					<SymbolView name='music.note.list' size={24} tintColor='#ddd' />
 				</Div>
 			)}
-			<Div style={[styles.infoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<Div style={styles.info}>
-					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.title}>
+			<Div transparent style={[styles.infoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+				<Div transparent style={styles.info}>
+					<Text type='defaultSemiBold' numberOfLines={1} style={styles.title}>
 						{highlightText(playlist.title, query)}
-					</ThemedText>
-					<ThemedText type='subtitle' numberOfLines={1} style={styles.subtitle}>
+					</Text>
+					<Text type='subtitle' numberOfLines={1} style={styles.subtitle}>
 						{playlist.leafCount ?? 0} tracks
-					</ThemedText>
+					</Text>
 				</Div>
 			</Div>
 		</Pressable>
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
 		width: 50,
 		height: 50,
 		borderRadius: 4,
-		backgroundColor: '#333',
+		backgroundColor: Colors.surfaceDark,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
 		opacity: 0.6,
 	},
 	highlighted: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		color: 'white',
 		fontWeight: '600',
 	},

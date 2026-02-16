@@ -1,20 +1,21 @@
 import React, { useCallback } from 'react';
-import { Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { Text } from '../Text';
 import type { Song } from '@/types/song';
 
+const screenWidth = Dimensions.get('window').width;
+const itemSize = screenWidth / 2 - 24;
 interface HorizontalSongItemProps {
 	item: Song;
 	queue?: Song[];
 	size?: number;
 }
 
-const DEFAULT_SIZE = 150;
-
-const HorizontalSongItem = React.memo(
+const LargeSongItem = React.memo(
 	({ item, queue, size }: HorizontalSongItemProps) => {
 		const playSound = useAudioStore((state) => state.playSound);
-		const s = size ?? DEFAULT_SIZE;
+		const s = size ?? itemSize;
 
 		const onPress = useCallback(() => {
 			playSound(item, queue);
@@ -35,15 +36,18 @@ const HorizontalSongItem = React.memo(
 	(prev, next) => prev.item.id === next.item.id && prev.size === next.size && prev.queue?.length === next.queue?.length,
 );
 
-HorizontalSongItem.displayName = 'HorizontalSongItem';
+LargeSongItem.displayName = 'LargeSongItem';
 
-export default HorizontalSongItem;
+export default LargeSongItem;
 
 const styles = StyleSheet.create({
 	container: {
+		width: itemSize,
 		alignItems: 'center',
 	},
 	artwork: {
+		width: itemSize,
+		height: itemSize,
 		borderRadius: 8,
 		marginBottom: 8,
 		backgroundColor: '#eee',

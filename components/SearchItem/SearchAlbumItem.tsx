@@ -3,8 +3,8 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
-import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants/Colors';
+import { Text } from '@/components/Text';
+import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
@@ -50,9 +50,9 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 		const parts = text.split(new RegExp(`(${q})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === q.toLowerCase() ? (
-				<ThemedText key={index} style={styles.highlighted}>
+				<Text key={index} style={styles.highlighted}>
 					{part}
-				</ThemedText>
+				</Text>
 			) : (
 				part
 			),
@@ -64,18 +64,18 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<Div style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-				<Div style={styles.albumInfo}>
-					<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
+			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+				<Div transparent style={styles.albumInfo}>
+					<Text type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}
-					</ThemedText>
-					<ThemedText type='subtitle' numberOfLines={1} style={styles.albumArtist}>
+					</Text>
+					<Text type='subtitle' numberOfLines={1} style={styles.albumArtist}>
 						{highlightText(album.artist, query)}
-					</ThemedText>
+					</Text>
 					{album.year && (
-						<ThemedText type='subtitle' numberOfLines={1} style={styles.albumYear}>
+						<Text type='subtitle' numberOfLines={1} style={styles.albumYear}>
 							{album.year}
-						</ThemedText>
+						</Text>
 					)}
 				</Div>
 				<ContextMenu items={menuItems} style={styles.moreButton}>
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
 		padding: 8,
 	},
 	highlighted: {
-		backgroundColor: Colors.brand.primary,
+		backgroundColor: Colors.brandPrimary,
 		color: 'white',
 		fontWeight: '600',
 	},

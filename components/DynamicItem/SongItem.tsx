@@ -4,8 +4,8 @@ import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { State, usePlaybackState } from 'react-native-track-player';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
-import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants';
+import { Text } from '@/components/Text';
+import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -79,30 +79,31 @@ const SongItem = React.memo(
 		if (listItem) {
 			return (
 				<Pressable onPress={() => playSong(item)} style={styles.songItem}>
-					<Div style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+					<Div style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }} transparent>
 						{isCurrentSong && playbackState.state === State.Playing ? (
 							<MusicVisualizer isPlaying={playbackState.state === State.Playing} />
 						) : (
-							<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 								{item.playlistIndex !== undefined ? item.playlistIndex + 1 : item.trackNumber}
-							</ThemedText>
+							</Text>
 						)}
 					</Div>
-					<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-						<Div style={styles.songInfo}>
-							<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+					<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
+						<Div style={styles.songInfo} transparent>
+							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 								{item.title}
-							</ThemedText>
-							<Div style={styles.artistRow}>
+							</Text>
+							<Div style={styles.artistRow} transparent>
 								{item.id === String(currentSong?.id) && (
-									<SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />
+									<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
 								)}
-								<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
+								<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
 									{item.artist}
-								</ThemedText>
+								</Text>
 							</Div>
 						</Div>
 						<Div
+							transparent
 							style={{
 								width: 32,
 								height: 32,
@@ -133,25 +134,26 @@ const SongItem = React.memo(
 
 		return (
 			<Pressable onPress={() => playSong(item)} style={styles.songItem}>
-				<Div style={styles.artworkContainer}>
+				<Div transparent style={styles.artworkContainer}>
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
 					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 				</Div>
-				<Div style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? '#ababab' : '#535353' }]}>
-					<Div style={styles.songInfo}>
-						<ThemedText type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+					<Div transparent style={styles.songInfo}>
+						<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 							{item.title}
-						</ThemedText>
-						<Div style={styles.artistRow}>
+						</Text>
+						<Div transparent style={styles.artistRow}>
 							{item.id === String(currentSong?.id) && (
-								<SymbolView name='music.note' size={12} tintColor={Colors.brand.primary} />
+								<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
 							)}
-							<ThemedText type='subtitle' numberOfLines={1} style={styles.songArtist}>
+							<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}
-							</ThemedText>
+							</Text>
 						</Div>
 					</Div>
 					<Div
+						transparent
 						style={{
 							width: 32,
 							height: 32,

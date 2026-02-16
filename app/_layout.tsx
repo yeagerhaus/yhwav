@@ -2,10 +2,11 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { InteractionManager, StyleSheet, useColorScheme, View } from 'react-native';
+import { InteractionManager, StyleSheet, useColorScheme } from 'react-native';
+import { Colors } from '@/constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { AddToPlaylistModal, MiniPlayer } from '@/components';
+import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
@@ -22,7 +23,10 @@ function AudioSync() {
 function AnimatedStack() {
 	const { scale } = useRootScale();
 	const router = useRouter();
+	const colorScheme = useColorScheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
+	const screenBackground =
+		colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -36,10 +40,10 @@ function AnimatedStack() {
 	});
 
 	return (
-		<View style={{ flex: 1 }}>
+		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
-					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }} />
+					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: screenBackground } }} />
 					<Stack.Screen
 						name='music/[id]'
 						options={{
@@ -55,7 +59,7 @@ function AnimatedStack() {
 
 				{currentSong && <MiniPlayer onPress={() => router.push(`/music/${currentSong.id}`)} />}
 			</Animated.View>
-		</View>
+		</Div>
 	);
 }
 

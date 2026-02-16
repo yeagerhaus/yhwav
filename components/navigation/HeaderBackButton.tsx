@@ -22,7 +22,7 @@ export function HeaderBackButton() {
 			style={{ marginLeft: 16, height: 50, width: 50, borderRadius: 100, alignItems: 'center', justifyContent: 'center' }}
 		>
 			<Div useGlass style={{ width: 50, height: 50, borderRadius: 100, alignItems: 'center', justifyContent: 'center' }}>
-				<SymbolView name='chevron.left' type='hierarchical' tintColor={Colors.brand.primary} />
+				<SymbolView name='chevron.left' type='hierarchical' tintColor={Colors.brandPrimary} />
 			</Div>
 		</Pressable>
 	);

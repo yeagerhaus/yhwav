@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Dimensions, Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
 import { Div } from '../Div';
+import { Text } from '../Text';
 
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;

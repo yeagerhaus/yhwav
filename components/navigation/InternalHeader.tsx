@@ -4,6 +4,7 @@ import { HeaderBackButton } from './HeaderBackButton';
 export function InternalHeader() {
 	return (
 		<Div
+			transparent
 			style={{
 				position: 'absolute',
 				top: 0,
@@ -13,6 +14,7 @@ export function InternalHeader() {
 			}}
 		>
 			<Div
+				transparent
 				style={{
 					width: '100%',
 					height: 100,

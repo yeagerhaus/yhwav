@@ -4,10 +4,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { DefaultStyles } from '@/constants/styles';
 import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
+import { Text } from './Text';
 
 export function PerformanceDebugger() {
 	const [visible, setVisible] = useState(false);
@@ -33,58 +34,56 @@ export function PerformanceDebugger() {
 		<>
 			<Div useGlass style={styles.toggleButton}>
 				<Pressable onPress={() => setVisible(!visible)}>
-					<Text style={styles.toggleButtonText}>{'</>'} Debug</Text>
+					<Text type='body' style={styles.toggleButtonText}>{'</>'} Debug</Text>
 				</Pressable>
 			</Div>
 
 			{visible && (
-				<Div useGlass style={styles.container}>
+				<Div useBlur style={styles.container}>
 					<ScrollView style={styles.scrollView}>
-						<Text style={styles.title}>Performance Monitor</Text>
+						<Text type="h3" style={styles.title}>Performance Monitor</Text>
 
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>Key Metrics</Text>
-							<Text style={styles.metric}>playSound avg: {avgPlaySound.toFixed(2)}ms</Text>
-							<Text style={styles.metric}>skipToNext avg: {avgSkip.toFixed(2)}ms</Text>
-							<Text style={styles.metric}>Total metrics: {metrics.length}</Text>
-						</View>
+						<Div transparent style={styles.section}>
+							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Key Metrics</Text>
+							<Text type="bodySM" style={styles.metric}>playSound avg: {avgPlaySound.toFixed(2)}ms</Text>
+							<Text type="bodySM" style={styles.metric}>skipToNext avg: {avgSkip.toFixed(2)}ms</Text>
+							<Text type="bodySM" style={styles.metric}>Total metrics: {metrics.length}</Text>
+						</Div>
 
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>Slowest Operations</Text>
+						<Div transparent style={styles.section}>
+							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Slowest Operations</Text>
 							{slowest.map((m, i) => (
-								<Text key={i} style={styles.metric}>
+								<Text key={i} type="bodySM" style={styles.metric}>
 									{m.name}: {m.duration.toFixed(2)}ms
 								</Text>
 							))}
-						</View>
+						</Div>
 
 						<Pressable
-							style={styles.button}
-							onPress={() => {
-								performanceMonitor.logReport();
-							}}
+							style={[DefaultStyles.primaryButton, styles.debugButton]}
+							onPress={() => performanceMonitor.logReport()}
 						>
-							<Text style={styles.buttonText}>Log Full Report</Text>
+							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Log Full Report</Text>
 						</Pressable>
 
 						<Pressable
-							style={styles.button}
+							style={[DefaultStyles.primaryButton, styles.debugButton]}
 							onPress={() => {
 								performanceMonitor.clear();
 								setMetrics([]);
 							}}
 						>
-							<Text style={styles.buttonText}>Clear Metrics</Text>
+							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Clear Metrics</Text>
 						</Pressable>
 
 						<Pressable
-							style={styles.button}
+							style={[DefaultStyles.primaryButton, styles.debugButton]}
 							onPress={() => {
 								console.log(performanceMonitor.generateSummary());
 								console.log('\n📋 Full JSON Export:\n', performanceMonitor.exportMetrics());
 							}}
 						>
-							<Text style={styles.buttonText}>Export for Analysis</Text>
+							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Export for Analysis</Text>
 						</Pressable>
 					</ScrollView>
 				</Div>
@@ -103,7 +102,6 @@ const styles = StyleSheet.create({
 		zIndex: 9999,
 	},
 	toggleButtonText: {
-		color: 'white',
 		fontSize: 12,
 		fontWeight: 'bold',
 	},
@@ -122,34 +120,22 @@ const styles = StyleSheet.create({
 		maxHeight: 380,
 	},
 	title: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: 'bold',
 		marginBottom: 12,
 	},
 	section: {
 		marginBottom: 16,
 	},
 	sectionTitle: {
-		color: Colors.brand.primary,
-		fontSize: 14,
-		fontWeight: 'bold',
 		marginBottom: 8,
 	},
 	metric: {
-		color: 'white',
 		fontSize: 12,
 		marginBottom: 4,
 	},
-	button: {
-		backgroundColor: Colors.brand.primary,
-		padding: 10,
+	debugButton: {
+		paddingVertical: 10,
+		paddingHorizontal: 16,
 		borderRadius: 6,
 		marginTop: 8,
-	},
-	buttonText: {
-		color: 'white',
-		textAlign: 'center',
-		fontWeight: 'bold',
 	},
 });

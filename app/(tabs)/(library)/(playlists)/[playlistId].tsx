@@ -3,14 +3,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import { Div, DynamicItem, Main, Text } from '@/components';
+import { Colors, DefaultStyles, DefaultSharedComponents } from '@/constants/styles';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
+import { hexWithOpacity } from '@/utils/styles';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
 
 const ITEM_HEIGHT = 70;
@@ -120,17 +120,17 @@ export default function DetailScreen() {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<Ionicons name='remove-circle' size={24} color='#ff3b30' />
+						<Ionicons name="remove-circle" size={24} color={Colors.dangerSolid} />
 					</Pressable>
-					<Div style={styles.editSongInfo}>
-						<ThemedText numberOfLines={1} style={styles.editSongTitle}>
+					<Div style={styles.editSongInfo} transparent>
+						<Text numberOfLines={1} style={styles.editSongTitle}>
 							{item.title}
-						</ThemedText>
-						<ThemedText numberOfLines={1} style={styles.editSongArtist}>
+						</Text>
+						<Text numberOfLines={1} style={styles.editSongArtist}>
 							{item.artist}
-						</ThemedText>
+						</Text>
 					</Div>
-					<Ionicons name='reorder-three' size={24} color='#888' />
+					<Ionicons name="reorder-three" size={24} color={Colors.textMuted} />
 				</Pressable>
 			</ScaleDecorator>
 		),
@@ -139,50 +139,50 @@ export default function DetailScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div style={{ alignItems: 'center', paddingTop: 64 }}>
+			<Div style={{ alignItems: 'center', paddingTop: 64 }} transparent>
 				{artwork && (
-					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1 }} resizeMode='contain' />
+					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }} resizeMode='contain' />
 				)}
-				<Div style={{ paddingVertical: 16, width: '100%' }}>
+				<Div style={{ paddingVertical: 16, width: '100%' }} transparent>
 					{editor.isEditing ? (
-						<Div>
-							<Div style={styles.editHeader}>
+						<Div transparent>
+							<Div transparent style={styles.editHeader}>
 								<Pressable onPress={handleCancel}>
-									<ThemedText style={styles.cancelButton}>Cancel</ThemedText>
+									<Text type="body" colorVariant="muted">Cancel</Text>
 								</Pressable>
 								<Pressable onPress={handleSave} disabled={editor.isSaving}>
-									<ThemedText style={[styles.saveButton, editor.isSaving && { opacity: 0.5 }]}>
+									<Text type="body" colorVariant="brand" style={editor.isSaving ? { opacity: 0.5 } : undefined}>
 										{editor.isSaving ? 'Saving...' : 'Save'}
-									</ThemedText>
+									</Text>
 								</Pressable>
 							</Div>
 							<TextInput
 								value={editTitle}
 								onChangeText={setEditTitle}
 								style={styles.titleInput}
-								placeholderTextColor='#888'
-								placeholder='Playlist title'
+								placeholderTextColor={Colors.textMuted}
+								placeholder="Playlist title"
 							/>
 							<Pressable onPress={handleDelete} style={styles.deleteButton}>
-								<Ionicons name='trash-outline' size={18} color='#ff3b30' />
-								<ThemedText style={styles.deleteText}>Delete Playlist</ThemedText>
+								<Ionicons name="trash-outline" size={18} color={Colors.dangerSolid} />
+								<Text type="body" colorVariant="danger">Delete Playlist</Text>
 							</Pressable>
 						</Div>
 					) : (
-						<Div>
-							<Div style={styles.normalHeader}>
-								<Div style={{ flex: 1 }}>
+						<Div transparent>
+							<Div transparent style={styles.normalHeader}>
+								<Div style={{ flex: 1 }} transparent>
 									{playlist && (
-										<Div style={{ marginBottom: 16 }}>
-											<ThemedText style={{ fontSize: 24, fontWeight: 'bold' }}>{playlist.title}</ThemedText>
-											<ThemedText style={{ fontSize: 16, color: '#888' }}>
+										<Div style={{ marginBottom: 16 }} transparent>
+											<Text type="h2">{playlist.title}</Text>
+											<Text type="body" colorVariant="muted">
 												{playlist.summary || `${playlist.leafCount || 0} tracks`}
-											</ThemedText>
+											</Text>
 										</Div>
 									)}
 								</Div>
 								<Pressable onPress={handleEdit} style={styles.editButton}>
-									<ThemedText style={styles.editButtonText}>Edit</ThemedText>
+									<Text type="body" colorVariant="brand" style={styles.editButtonText}>Edit</Text>
 								</Pressable>
 							</Div>
 						</Div>
@@ -221,7 +221,7 @@ export default function DetailScreen() {
 				windowSize={10}
 				initialNumToRender={15}
 				updateCellsBatchingPeriod={50}
-				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>
 		</Main>
 	);
@@ -238,32 +238,22 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'flex-start',
 	},
-	cancelButton: {
-		fontSize: 17,
-		color: '#888',
-	},
-	saveButton: {
-		fontSize: 17,
-		fontWeight: '600',
-		color: '#7f62f5',
-	},
 	editButton: {
 		paddingVertical: 6,
 		paddingHorizontal: 14,
 		borderRadius: 16,
-		backgroundColor: 'rgba(127, 98, 245, 0.15)',
+		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.15),
 	},
 	editButtonText: {
 		fontSize: 15,
 		fontWeight: '600',
-		color: '#7f62f5',
 	},
 	titleInput: {
 		fontSize: 24,
 		fontWeight: 'bold',
-		color: '#fff',
+		color: Colors.white,
 		borderBottomWidth: 1,
-		borderBottomColor: '#7f62f5',
+		borderBottomColor: Colors.brandPrimary,
 		paddingVertical: 8,
 		marginBottom: 16,
 	},
@@ -273,10 +263,6 @@ const styles = StyleSheet.create({
 		gap: 8,
 		paddingVertical: 8,
 	},
-	deleteText: {
-		fontSize: 16,
-		color: '#ff3b30',
-	},
 	editRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -284,8 +270,8 @@ const styles = StyleSheet.create({
 		gap: 12,
 	},
 	editRowActive: {
-		backgroundColor: 'rgba(127, 98, 245, 0.1)',
-		borderRadius: 8,
+		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.1),
+		borderRadius: DefaultSharedComponents.borderRadiusSM,
 	},
 	removeButton: {
 		padding: 4,
@@ -300,6 +286,6 @@ const styles = StyleSheet.create({
 	},
 	editSongArtist: {
 		fontSize: 13,
-		color: '#888',
+		color: Colors.textMuted,
 	},
 });

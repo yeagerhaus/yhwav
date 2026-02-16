@@ -1,9 +1,8 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Dimensions, Image, StyleSheet, View as ThemedView } from 'react-native';
-import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
-import { ThemedText } from '@/components/ThemedText';
+import { Dimensions, Image, StyleSheet } from 'react-native';
+import { Div, Text, ContextMenu, type ContextMenuItem } from '@/components';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -69,33 +68,33 @@ export const SongInfo = React.memo(() => {
 
 	return (
 		<>
-			<ThemedView style={styles.artworkContainer}>
+			<Div transparent style={styles.artworkContainer}>
 				<Image source={{ uri: artwork }} style={styles.artwork} />
-			</ThemedView>
+			</Div>
 
-			<ThemedView style={styles.titleContainer}>
-				<ThemedView style={styles.titleRow}>
-					<ThemedView style={styles.titleMain}>
-						<ThemedText type='title' style={styles.title}>
+			<Div transparent style={styles.titleContainer}>
+				<Div transparent style={styles.titleRow}>
+					<Div transparent style={styles.titleMain}>
+						<Text type='title' style={styles.title}>
 							{title}
-						</ThemedText>
-						<ThemedText
+						</Text>
+						<Text
 							style={styles.artist}
 							// onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)}
 						>
 							{artist}
-						</ThemedText>
-					</ThemedView>
-					<ThemedView style={styles.titleIcons}>
+						</Text>
+					</Div>
+					<Div transparent style={styles.titleIcons}>
 						{/* <Pressable style={styles.iconButton}>
 						<Ionicons name='star-outline' size={18} color='#fff' />
 					</Pressable> */}
 						<ContextMenu items={menuItems} style={styles.iconButton}>
 							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
 						</ContextMenu>
-					</ThemedView>
-				</ThemedView>
-			</ThemedView>
+					</Div>
+				</Div>
+			</Div>
 		</>
 	);
 });

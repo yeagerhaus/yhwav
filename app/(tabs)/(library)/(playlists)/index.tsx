@@ -2,9 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import { Div, DynamicItem, Main, Text } from '@/components';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { createPlaylist } from '@/utils/plex';
@@ -17,7 +15,7 @@ export default function PlaylistsScreen() {
 	const formattedPlaylists = useMemo(
 		() =>
 			playlists
-				.filter((playlist) => playlist.playlistType === 'audio')
+				.filter((playlist) => playlist.playlistType === 'audio' && playlist.artworkUrl != null)
 				.map((playlist) => ({
 					id: playlist.key || playlist.id,
 					title: playlist.title,
@@ -55,8 +53,8 @@ export default function PlaylistsScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold' }}>Playlists</ThemedText>
+			<Div transparent style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}>
+				<Text type='h1'>Playlists</Text>
 				<Pressable onPress={handleCreatePlaylist} hitSlop={8}>
 					<Ionicons name='add-circle-outline' size={28} color='#7f62f5' />
 				</Pressable>
@@ -68,7 +66,7 @@ export default function PlaylistsScreen() {
 	if (isLoading) {
 		return (
 			<Main>
-				<Div style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 					<ActivityIndicator />
 				</Div>
 			</Main>
@@ -78,11 +76,11 @@ export default function PlaylistsScreen() {
 	if (hasNoPlaylists) {
 		return (
 			<Main>
-				<Div style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-					<ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8 }}>Playlists</ThemedText>
-					<ThemedText style={{ fontSize: 16, color: '#888' }}>No playlists found</ThemedText>
+				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+					<Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8 }}>Playlists</Text>
+					<Text type="body" colorVariant="muted">No playlists found</Text>
 					<Pressable onPress={handleCreatePlaylist} style={{ marginTop: 16 }}>
-						<ThemedText style={{ fontSize: 16, color: '#7f62f5' }}>Create Playlist</ThemedText>
+						<Text type="body" colorVariant="brand">Create Playlist</Text>
 					</Pressable>
 				</Div>
 			</Main>
@@ -102,7 +100,7 @@ export default function PlaylistsScreen() {
 				windowSize={10}
 				initialNumToRender={10}
 				updateCellsBatchingPeriod={50}
-				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
 				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>

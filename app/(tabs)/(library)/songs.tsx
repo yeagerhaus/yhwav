@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/constants';
+import { Div, DynamicItem, Main, Text } from '@/components';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
 
@@ -100,8 +98,8 @@ export default function SongsScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div>
-				<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 16 }}>Songs</ThemedText>
+			<Div transparent style={{ paddingTop: 64, marginBottom: 16 }}>
+				<Text type='h1'>Songs</Text>
 			</Div>
 		),
 		[],
@@ -111,11 +109,11 @@ export default function SongsScreen() {
 	if (isIndexing || (tracks.length > 0 && sortedSongs.length === 0)) {
 		return (
 			<Main scrollEnabled={false}>
-				<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
-					<ActivityIndicator size='large' color={Colors.brand.primary} />
-					<ThemedText style={{ marginTop: 16, fontSize: 16, opacity: 0.7 }}>
+				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
+					<ActivityIndicator size='large' color={Colors.brandPrimary} />
+					<Text type='body' style={{ marginTop: 16, opacity: 0.7 }}>
 						{isIndexing ? 'Indexing library...' : 'Sorting songs...'}
-					</ThemedText>
+					</Text>
 				</Div>
 			</Main>
 		);

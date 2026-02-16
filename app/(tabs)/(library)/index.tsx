@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet } from 'react-native';
-import { DynamicItem, ThemedText } from '@/components';
-import { Div } from '@/components/Div';
-import { Main } from '@/components/Main';
+import { DynamicItem } from '@/components';
+import { Div, Main, Text } from '@/components';
 import { Colors } from '@/constants';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
@@ -28,11 +27,11 @@ export default function LibraryScreen() {
 	}, []);
 
 	return (
-		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.primary} />}>
-			<Div style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-				<ThemedText style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>
+		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}>
+			<Div flex={1} style={{ paddingHorizontal: 16, marginBottom: 16 }} transparent>
+				<Text type='h3' style={{ marginBottom: 16 }}>
 					{Number(trackCount).toLocaleString()} {trackCount === 1 ? 'Song' : 'Songs'} in Library
-				</ThemedText>
+				</Text>
 				<FlatList
 					scrollEnabled={false}
 					data={SECTIONS}
@@ -43,24 +42,3 @@ export default function LibraryScreen() {
 		</Main>
 	);
 }
-
-const _styles = StyleSheet.create({
-	title: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		marginHorizontal: 16,
-		marginTop: 16,
-	},
-	container: {
-		flex: 1,
-	},
-	categoriesContainer: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		gap: 12,
-		padding: 16,
-	},
-	categoryWrapper: {
-		width: '48%',
-	},
-});

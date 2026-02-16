@@ -1,7 +1,6 @@
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, View as ThemedView } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -33,7 +32,7 @@ export const ExpandedPlayer = React.memo(
 		}, [ScrollComponentToUse]);
 
 		return (
-			<BlurView intensity={100} style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} tint='dark'>
+			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent>
 				{/* Layer 1: top-left → bottom-right diagonal */}
 				<LinearGradient
 					colors={hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor]}
@@ -48,16 +47,16 @@ export const ExpandedPlayer = React.memo(
 						start={{ x: 1, y: 0 }}
 						end={{ x: 0, y: 1 }}
 					>
-						<Div style={{ ...styles.rootContainer, zIndex: 1000 }}>
-							<Div style={styles.dragHandleContainer}>
-								<ThemedView style={styles.dragHandle} />
+						<Div style={{ ...styles.rootContainer, zIndex: 1000 }} transparent>
+							<Div transparent style={styles.dragHandleContainer}>
+								<Div transparent style={styles.dragHandle} />
 							</Div>
 
 							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-								<Div style={styles.container}>
+								<Div transparent style={styles.container}>
 									<SongInfo />
 
-									<Div style={styles.controls}>
+									<Div transparent style={styles.controls}>
 										<SongProgressBar />
 										<TimeDisplay />
 										<PlaybackControls />
@@ -68,7 +67,7 @@ export const ExpandedPlayer = React.memo(
 						</Div>
 					</LinearGradient>
 				</LinearGradient>
-			</BlurView>
+			</Div>
 		);
 	},
 	(prevProps, nextProps) => {

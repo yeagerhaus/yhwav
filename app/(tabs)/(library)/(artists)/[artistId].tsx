@@ -1,9 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { FlatList, Image, StyleSheet, View } from 'react-native';
-import { DynamicItem, ThemedText, ThemedView } from '@/components';
-import { Div } from '@/components/Div';
+import { Div, DynamicItem } from '@/components';
+import { Text } from '@/components/Text';
 import { Main } from '@/components/Main';
+import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import type { Album } from '@/types/album';
@@ -109,31 +110,31 @@ export default function ArtistDetailScreen() {
 
 	if (!artist) {
 		return (
-			<ThemedView style={styles.container}>
-				<ThemedText style={styles.header}>Artist not found</ThemedText>
-			</ThemedView>
+			<Div transparent style={styles.container}>
+				<Text style={styles.header}>Artist not found</Text>
+			</Div>
 		);
 	}
 
 	return (
 		<Main>
-			<Div style={{ paddingTop: 64, paddingHorizontal: 16 }}>
+			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
 				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
-				<Div>
-					<ThemedText style={{ fontSize: 40, fontWeight: 'bold', marginBottom: 4 }}>{artist.name}</ThemedText>
-					{artist.genres.length > 0 && <ThemedText style={styles.genres}>{artist.genres.join(', ')}</ThemedText>}
-					{artist.country && <ThemedText style={styles.country}>{artist.country}</ThemedText>}
+				<Div transparent>
+					<Text type='h1' style={{ marginBottom: 4 }}>{artist.name}</Text>
+					{artist.genres.length > 0 && <Text style={styles.genres}>{artist.genres.join(', ')}</Text>}
+					{artist.country && <Text style={styles.country}>{artist.country}</Text>}
 				</Div>
 				{artist.summary ? (
-					<View style={styles.bioContainer}>
-						<ThemedText style={styles.bio} numberOfLines={4}>
+					<Div transparent style={styles.bioContainer}>
+						<Text style={styles.bio} numberOfLines={4}>
 							{artist.summary}
-						</ThemedText>
-					</View>
+						</Text>
+					</Div>
 				) : null}
 				{sections.map((section) => (
-					<View key={section.category}>
-						<ThemedText style={styles.sectionHeader}>{section.category}</ThemedText>
+					<Div key={section.category} transparent>
+						<Text style={styles.sectionHeader}>{section.category}</Text>
 						<FlatList
 							scrollEnabled={false}
 							data={section.albums}
@@ -143,9 +144,9 @@ export default function ArtistDetailScreen() {
 							columnWrapperStyle={{ justifyContent: 'space-between' }}
 							renderItem={({ item }) => <DynamicItem item={item} type='album' />}
 						/>
-					</View>
+					</Div>
 				))}
-				<View style={{ height: 64 }} />
+				<Div transparent style={{ height: 64 }} />
 			</Div>
 		</Main>
 	);
@@ -154,10 +155,10 @@ export default function ArtistDetailScreen() {
 const styles = StyleSheet.create({
 	container: { flex: 1, padding: 16, marginTop: 100 },
 	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-	banner: { width: '100%', height: 200, borderRadius: 8, marginBottom: 16 },
-	genres: { fontSize: 14, color: '#888', marginBottom: 4 },
-	country: { fontSize: 14, color: '#888', marginBottom: 16 },
+	banner: { width: '100%', height: 200, borderRadius: DefaultSharedComponents.borderRadiusSM, marginBottom: 16 },
+	genres: { fontSize: 14, color: Colors.textMuted, marginBottom: 4 },
+	country: { fontSize: 14, color: Colors.textMuted, marginBottom: 16 },
 	bioContainer: { marginBottom: 16 },
-	bio: { fontSize: 14, color: '#aaa', lineHeight: 20 },
+	bio: { fontSize: 14, color: Colors.gray400, lineHeight: 20 },
 	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
 });

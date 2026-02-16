@@ -11,7 +11,7 @@ export const PlaybackControls = React.memo(() => {
 	const skipToPrevious = useAudioStore((state) => state.skipToPrevious);
 
 	return (
-		<Div style={styles.buttonContainer}>
+		<Div transparent style={styles.buttonContainer}>
 			<Pressable style={styles.button} onPress={skipToPrevious}>
 				<SymbolView name='backward.fill' type='hierarchical' size={35} tintColor='#fff' />
 			</Pressable>

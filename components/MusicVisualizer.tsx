@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, useColorScheme } from 'react-native';
+import { Div } from './Div';
+import { useThemeColor } from '@/hooks';
 
 interface Props {
 	isPlaying: boolean;
@@ -9,6 +11,7 @@ const BAR_COUNT = 5;
 const ANIMATION_DURATION = 300;
 
 export function MusicVisualizer({ isPlaying }: Props) {
+	const theme = useColorScheme();
 	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(0))).current;
 	const [prominentBar, setProminentBar] = useState(0);
 	const randomScales = useRef(new Array(BAR_COUNT).fill(0).map(() => 0.3 + Math.random() * 0.4)).current;
@@ -53,7 +56,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 	if (!isPlaying) return null;
 
 	return (
-		<View style={styles.container}>
+		<Div style={{...styles.container, backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'}}>
 			{animatedValues.map((value, index) => (
 				<Animated.View
 					key={index}
@@ -72,7 +75,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 					]}
 				/>
 			))}
-		</View>
+		</Div>
 	);
 }
 
@@ -87,7 +90,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		bottom: 0,
-		backgroundColor: 'rgba(0,0,0,0.3)',
+		borderRadius: 4,
 	},
 	bar: {
 		width: 2.5,

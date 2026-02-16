@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Pressable, StyleSheet, View as ThemedView } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Div } from '@/components';
 import { RepeatMode } from 'react-native-track-player';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
@@ -25,20 +26,20 @@ export const ExtraControls = React.memo(() => {
 	};
 
 	return (
-		<ThemedView style={styles.extraControls}>
+		<Div transparent style={styles.extraControls}>
 			<Pressable style={styles.extraControlButton} onPress={toggleShuffle}>
 				<SymbolView name='shuffle' size={30} tintColor={getShuffleColor()} />
 			</Pressable>
 			{/* <Pressable style={styles.extraControlButton}>
-				<ThemedView style={styles.extraControlIcons}>
+				<Div style={styles.extraControlIcons}>
 					<Ionicons name='volume-off' size={26} color='#fff' marginRight={-6} />
 					<Ionicons name='bluetooth' size={24} color='#fff' />
-				</ThemedView>
+				</Div>
 			</Pressable> */}
 			<Pressable style={styles.extraControlButton} onPress={toggleRepeat}>
 				<SymbolView name={getRepeatIcon()} size={30} tintColor={getRepeatColor()} />
 			</Pressable>
-		</ThemedView>
+		</Div>
 	);
 });
 
