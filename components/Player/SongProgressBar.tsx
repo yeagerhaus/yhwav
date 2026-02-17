@@ -32,7 +32,7 @@ export function SongProgressBar() {
 			return scrubbingProgress.value;
 		}
 		if (duration === 0) return 0;
-		return (position / duration) * 100;
+		return Math.min(100, Math.max(0, (position / duration) * 100));
 	}, [position, duration]);
 
 	const handleSeek = useCallback(

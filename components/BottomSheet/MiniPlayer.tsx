@@ -2,7 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Div } from '@/components';
+import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';

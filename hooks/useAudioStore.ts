@@ -263,7 +263,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					Capability.SkipToPrevious,
 					Capability.SeekTo,
 				],
-				progressUpdateEventInterval: 1,
+				progressUpdateEventInterval: 0.5,
 			});
 
 			// Restore saved state
@@ -769,6 +769,7 @@ export function useTrackPlayerSync() {
 			Event.RemotePause,
 			Event.RemoteNext,
 			Event.RemotePrevious,
+			Event.RemoteSeek,
 		],
 		async (event) => {
 			// Get fresh state for each event
@@ -786,15 +787,17 @@ export function useTrackPlayerSync() {
 					naturalAdvanceEndSongId = state.currentSong.id;
 				}
 
-				// Pre-warm HTTP connection for next track when nearing end of current
-				if (remaining > 0 && remaining < 30 && state.queue.length > 1 && state.currentSong) {
+				// Pre-fetch first 256KB of next track to warm OS HTTP cache
+				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
 					const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
 					if (currentIndex !== -1) {
 						const nextIndex = (currentIndex + 1) % state.queue.length;
 						const nextSong = state.queue[nextIndex];
 						if (nextSong && nextSong.uri !== prewarmedUrl) {
 							prewarmedUrl = nextSong.uri;
-							fetch(nextSong.uri, { method: 'HEAD' }).catch(() => {});
+							fetch(nextSong.uri, { headers: { Range: 'bytes=0-262143' } })
+								.then((r) => r.arrayBuffer())
+								.catch(() => {});
 						}
 					}
 				}
@@ -892,6 +895,10 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.RemotePrevious) {
 				lastUserSkipAt = Date.now();
 				await state.skipToPrevious();
+			}
+
+			if (event.type === Event.RemoteSeek) {
+				await state.seekTo(event.position);
 			}
 		},
 	);

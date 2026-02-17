@@ -42,6 +42,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     private var preloadedUrl: URL? = nil
     private var preloadedAsset: AVURLAsset? = nil
     private var preloadedItem: AVPlayerItem? = nil
+    private var preloadPlayer: AVPlayer? = nil
 
     public init() {
         playerTimeObserver = AVPlayerTimeObserver(periodicObserverTimeInterval: timeEventFrequency.getTime())
@@ -272,6 +273,19 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
                 )
                 item.preferredForwardBufferDuration = self.bufferDuration
                 self.preloadedItem = item
+
+                // Use a completely separate AVURLAsset + AVPlayerItem on a muted secondary
+                // player to warm the OS HTTP cache. A separate asset avoids resource-loader
+                // contention with the preloadedItem that the main player will use.
+                let cacheAsset = AVURLAsset(url: url, options: options)
+                let cacheItem = AVPlayerItem(
+                    asset: cacheAsset,
+                    automaticallyLoadedAssetKeys: playableKeys
+                )
+                cacheItem.preferredForwardBufferDuration = 15
+                self.preloadPlayer = AVPlayer(playerItem: cacheItem)
+                self.preloadPlayer?.isMuted = true
+                self.preloadPlayer?.rate = 0 // paused but buffering
             }
         }
 
@@ -281,6 +295,8 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     }
 
     func clearPreload() {
+        preloadPlayer?.replaceCurrentItem(with: nil)
+        preloadPlayer = nil
         preloadedAsset?.cancelLoading()
         preloadedUrl = nil
         preloadedAsset = nil
@@ -301,6 +317,10 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
             // Stop observing old item (but do NOT clear the player to nil)
             stopObservingAVPlayerItem()
             asset?.cancelLoading()
+
+            // Tear down the cache-warming preload player
+            self.preloadPlayer?.replaceCurrentItem(with: nil)
+            self.preloadPlayer = nil
 
             // Clear preload state
             self.preloadedUrl = nil
@@ -515,6 +535,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
 
     private func recreateAVPlayer() {
         playbackError = nil
+        clearPreload()
         playerTimeObserver.unregisterForBoundaryTimeEvents()
         playerTimeObserver.unregisterForPeriodicEvents()
         playerObserver.stopObserving()
