@@ -24,6 +24,7 @@ export const STORAGE_REPEAT_MODE_KEY = 'REPEAT_MODE';
 export const STORAGE_SHUFFLE_KEY = 'SHUFFLE_MODE';
 export const STORAGE_VOLUME_KEY = 'VOLUME';
 export const STORAGE_PLAYBACK_RATE_KEY = 'PLAYBACK_RATE';
+export const STORAGE_SLEEP_TIMER_ENDS_AT_KEY = 'SLEEP_TIMER_ENDS_AT';
 
 // Lightweight queue persistence — save only IDs, resolve from library store
 function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song | null) {
@@ -93,6 +94,11 @@ interface AudioState {
 	toggleShuffle: () => Promise<void>;
 	setVolume: (volume: number) => Promise<void>;
 	setPlaybackRate: (rate: number) => Promise<void>;
+
+	// Sleep timer (JS-based; works on all platforms)
+	sleepTimerEndsAt: number | null;
+	setSleepTimer: (minutes: number | null) => void;
+	getSleepTimerRemainingSeconds: () => number | null;
 
 	// Internal state management
 	_setIsPlaying: (isPlaying: boolean) => void;
@@ -214,6 +220,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	isBuffering: false,
 	error: null,
 	artworkBgColor: null,
+	sleepTimerEndsAt: null,
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -276,6 +283,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					savedShuffleStr,
 					savedVolumeStr,
 					savedRateStr,
+					savedSleepTimerEndsAtStr,
 				] = await Promise.all([
 					AsyncStorage.getItem(STORAGE_SONG_KEY),
 					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
@@ -285,6 +293,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
 					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
 					AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY),
+					AsyncStorage.getItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY),
 				]);
 
 				// Restore settings
@@ -308,6 +317,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					const rate = Number.parseFloat(savedRateStr);
 					set({ playbackRate: rate });
 					await TrackPlayer.setRate(rate);
+				}
+
+				if (savedSleepTimerEndsAtStr) {
+					const endsAt = Number.parseInt(savedSleepTimerEndsAtStr, 10);
+					if (endsAt > Date.now()) {
+						set({ sleepTimerEndsAt: endsAt });
+					} else {
+						await AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
+					}
 				}
 
 				// Restore queue and current song from IDs
@@ -734,6 +752,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			console.error('Error setting playback rate:', error);
 		}
 	},
+
+	setSleepTimer: (minutes: number | null) => {
+		if (minutes == null) {
+			set({ sleepTimerEndsAt: null });
+			AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY).catch(() => {});
+			return;
+		}
+		const endsAt = Date.now() + minutes * 60 * 1000;
+		set({ sleepTimerEndsAt: endsAt });
+		AsyncStorage.setItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt)).catch(() => {});
+	},
+
+	getSleepTimerRemainingSeconds: () => {
+		const endsAt = get().sleepTimerEndsAt;
+		if (endsAt == null) return null;
+		const rem = Math.ceil((endsAt - Date.now()) / 1000);
+		return rem <= 0 ? null : rem;
+	},
 }));
 
 // Hook to sync TrackPlayer events with the store
@@ -778,6 +814,13 @@ export function useTrackPlayerSync() {
 				state._setPosition(event.position);
 				state._setDuration(event.duration);
 				lastProgressTimestamp = Date.now();
+
+				// Sleep timer: stop playback when time is up
+				const { sleepTimerEndsAt } = useAudioStore.getState();
+				if (sleepTimerEndsAt != null && Date.now() >= sleepTimerEndsAt) {
+					await TrackPlayer.pause();
+					useAudioStore.getState().setSleepTimer(null);
+				}
 
 				const remaining = event.duration - event.position;
 
