@@ -19,7 +19,7 @@
 		"@expo/vector-icons": "^15.0.3",
 		"@react-native-async-storage/async-storage": "^2.2.0",
 		"@react-native-community/slider": "5.0.1",
-		"@react-navigation/bottom-tabs": "^7.13.0",
+		"@react-navigation/bottom-tabs": "^7.14.0",
 		"@react-navigation/native": "^7.1.28",
 		"dotenv": "^17.3.1",
 		"expo": "^54.0.33",
@@ -58,7 +58,11 @@
 		"@babel/core": "^7.29.0",
 		"@biomejs/biome": "2.0.0",
 		"@types/react": "~19.1.17",
+		"baseline-browser-mapping": "^2.9.19",
 		"typescript": "~5.9.3"
+	},
+	"overrides": {
+		"baseline-browser-mapping": "^2.9.19"
 	},
 	"expo": {
 		"doctor": {

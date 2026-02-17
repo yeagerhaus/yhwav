@@ -14,10 +14,6 @@ export default function TabLayout() {
 				}),
 			}}
 		>
-			<NativeTabs.Trigger name='index'>
-				<Label>Home</Label>
-				<Icon sf={{ default: 'music.note.house', selected: 'music.note.house.fill' }} selectedColor={Colors.brandPrimary} />
-			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='(library)'>
 				<Label>Library</Label>
 				<Icon
@@ -31,7 +27,7 @@ export default function TabLayout() {
 				<Label>Settings</Label>
 			</NativeTabs.Trigger>
 
-			// biome-ignore lint/a11y/useSemanticElements: role=search is intentional for a11y in native tab bar
+			{/* // biome-ignore lint/a11y/useSemanticElements: role=search is intentional for a11y in native tab bar */}
 			<NativeTabs.Trigger name='search' role='search'>
 				<Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} selectedColor={Colors.brandPrimary} />
 				<Label>Search</Label>

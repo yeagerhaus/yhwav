@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet } from 'react-native';
-import { DynamicItem } from '@/components';
+import { DynamicItem, HomeSection } from '@/components';
 import { Div, Main, Text } from '@/components';
 import { Colors } from '@/constants';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
+import { fetchRecentlyPlayed } from '@/utils/plex';
+
+const ITEM_SIZE = 175;
 
 const SECTIONS = [
 	{ title: 'Playlists', icon: 'music.note.list', route: '/(tabs)/(library)/(playlists)' },
@@ -19,12 +22,48 @@ export default function LibraryScreen() {
 	// Only subscribe to tracks.length to avoid re-rendering on every track update
 	const trackCount = useLibraryStore((s) => s.tracks.length);
 	const [refreshing, setRefreshing] = useState(false);
+	const albums = useLibraryStore((s) => s.albums);
+	// const artists = useLibraryStore((s) => s.artists);
+	const playlists = useLibraryStore((s) => s.playlists);
+	const recentlyPlayed = useLibraryStore((s) => s.recentlyPlayed);
+	const setRecentlyPlayed = useLibraryStore((s) => s.setRecentlyPlayed);
+
+	const recentlyAdded = useMemo(
+		() =>
+			[...albums]
+				.filter((a) => a.addedAt != null)
+				.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0))
+				.slice(0, 25),
+		[albums],
+	);
+
+	// const mostPlayedArtists = useMemo(
+	// 	() =>
+	// 		artists
+	// 			.filter((a) => a.viewCount != null && a.viewCount > 0)
+	// 			.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
+	// 			.slice(0, 25),
+	// 	[artists],
+	// );
+
+	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null), [playlists]);
+
+	useEffect(() => {
+		fetchRecentlyPlayed(25)
+			.then(setRecentlyPlayed)
+			.catch((err) => console.warn('Failed to fetch recently played:', err));
+	}, [setRecentlyPlayed]);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
-		await clearCacheAndReload();
+		await Promise.all([
+			clearCacheAndReload(),
+			fetchRecentlyPlayed(25)
+				.then(setRecentlyPlayed)
+				.catch((err) => console.warn('Failed to fetch recently played:', err)),
+		]);
 		setRefreshing(false);
-	}, []);
+	}, [setRecentlyPlayed]);
 
 	return (
 		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}>
@@ -37,6 +76,48 @@ export default function LibraryScreen() {
 					data={SECTIONS}
 					keyExtractor={(item) => item.title}
 					renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
+				/>
+			</Div>
+			<Div transparent display='flex' flex={1} gap={16} style={{ paddingBottom: 40 }}>
+				<HomeSection
+					title='Recently Played'
+					data={recentlyPlayed}
+					keyExtractor={(item) => item.id}
+					renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
+				/>
+
+				<HomeSection
+					title='Recently Added'
+					data={recentlyAdded}
+					keyExtractor={(item) => item.id}
+					renderItem={(item) => (
+						<DynamicItem type='album' item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
+					)}
+				/>
+
+				{/* <HomeSection
+					title='Most Played Artists'
+					data={mostPlayedArtists}
+					keyExtractor={(item) => item.key}
+					renderItem={(item) => <ArtistItem item={item} size={ITEM_SIZE} />}
+				/> */}
+
+				<HomeSection
+					title='Your Playlists'
+					data={audioPlaylists}
+					keyExtractor={(item) => item.key ?? item.id}
+					renderItem={(item) => (
+						<DynamicItem
+							type='playlist'
+							item={{
+								id: item.key ?? item.id,
+								title: item.title,
+								artwork: item.artworkUrl ?? '',
+								count: item.leafCount ?? 0,
+							}}
+							size={ITEM_SIZE}
+						/>
+					)}
 				/>
 			</Div>
 		</Main>
