@@ -80,6 +80,8 @@ interface AudioState {
 	skipToNext: () => Promise<void>;
 	skipToPrevious: () => Promise<void>;
 	seekTo: (position: number) => Promise<void>;
+	skipBackward15: () => Promise<void>;
+	skipForward15: () => Promise<void>;
 
 	// Queue management
 	addToQueue: (songs: Song[]) => Promise<void>;
@@ -561,6 +563,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
+	},
+
+	skipBackward15: async () => {
+		const { position, seekTo } = get();
+		await seekTo(Math.max(0, position - 15));
+	},
+
+	skipForward15: async () => {
+		const { position, duration, seekTo } = get();
+		await seekTo(Math.min(duration, position + 15));
 	},
 
 	// Add to queue

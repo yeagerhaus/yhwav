@@ -24,11 +24,12 @@ export const ExpandedPlayer = React.memo(
 		const ScrollComponentToUse = scrollComponent || ScrollView;
 		const { colors: ultraBlur, hasColors } = useUltraBlurColors();
 		const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
-
+		const currentSong = useAudioStore((state) => state.currentSong);
+		const isPodcast = currentSong?.source === 'podcast';
 		const insets = useSafeAreaInsets();
 
 		// Fallback: single-color gradient using artworkBgColor
-		const fallbackColor = artworkBgColor || '#000000';
+		const fallbackColor = isPodcast ? '#000000' : artworkBgColor || '#000000';
 
 		const MemoizedScrollComponent = React.useMemo(() => {
 			return ScrollComponentToUse;

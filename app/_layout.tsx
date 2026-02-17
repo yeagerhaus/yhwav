@@ -14,6 +14,7 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -76,6 +77,14 @@ export default function RootLayout() {
 	useEffect(() => {
 		hydrateDevSettings();
 	}, [hydrateDevSettings]);
+
+	const hydratePodcast = usePodcastStore((s) => s.hydrate);
+	useEffect(() => {
+		hydratePodcast().then(() => {
+			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
+			if (feeds.length > 0) fetchAllFeeds();
+		});
+	}, [hydratePodcast]);
 
 	useEffect(() => {
 		const init = async () => {

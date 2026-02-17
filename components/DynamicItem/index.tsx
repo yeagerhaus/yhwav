@@ -3,23 +3,39 @@ import ArtistItem from './ArtistItem';
 import LargeSongItem from './LargeSongItem';
 import ListItem from './ListItem';
 import PlaylistItem from './PlaylistItem';
+import PodcastShowItem from './PodcastShowItem';
 import SongItem from './SongItem';
+import PodcastEpisodeItem from './PodcastEpisodeItem';
 
 export interface DynamicItemProps {
-	type: 'list' | 'playlist' | 'album' | 'artist' | 'song' | 'largeSong';
+	type: 'list' | 'playlist' | 'podcast' | 'podcastEpisode' | 'album' | 'artist' | 'song' | 'largeSong';
 	item: any;
 	onPress?: any;
 	queue?: any[];
 	listItem?: boolean;
 	size?: number;
+	showTitle?: string;
+	showImageUrl?: string;
 }
 
-export function DynamicItem({ item, type, onPress, queue, listItem, size }: DynamicItemProps) {
+export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl }: DynamicItemProps) {
 	switch (type) {
 		case 'list':
 			return <ListItem item={item} onPress={onPress} />;
 		case 'playlist':
 			return <PlaylistItem item={item} size={size} />;
+		case 'podcast':
+			return <PodcastShowItem item={item} size={size} />;
+		case 'podcastEpisode':
+			return (
+				<PodcastEpisodeItem
+					episode={item}
+					showTitle={showTitle ?? ''}
+					showImageUrl={showImageUrl}
+					queue={queue}
+					listItem={listItem}
+				/>
+			);
 		case 'album':
 			return <AlbumItem item={item} size={size} />;
 		case 'artist':
