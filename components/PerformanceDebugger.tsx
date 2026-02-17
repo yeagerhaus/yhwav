@@ -10,15 +10,52 @@ import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
 import { Text } from './Text';
 
+/** Format bytes to human-readable (e.g. 12.5 MB) */
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return '0 B';
+	const k = 1024;
+	const sizes = ['B', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+/** Get memory info when available (Chrome debugger, Node, or Hermes) */
+function getMemoryUsage(): { used: string; total: string; limit?: string } | null {
+	try {
+		// Chrome / V8 (e.g. when using React Native debugger)
+		const perf = global.performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } };
+		if (perf?.memory) {
+			return {
+				used: formatBytes(perf.memory.usedJSHeapSize),
+				total: formatBytes(perf.memory.totalJSHeapSize),
+				limit: formatBytes(perf.memory.jsHeapSizeLimit),
+			};
+		}
+		// Node / Expo dev server
+		if (typeof process !== 'undefined' && process.memoryUsage) {
+			const mem = process.memoryUsage();
+			return {
+				used: formatBytes(mem.heapUsed),
+				total: formatBytes(mem.heapTotal),
+			};
+		}
+	} catch {
+		// ignore
+	}
+	return null;
+}
+
 export function PerformanceDebugger() {
 	const [visible, setVisible] = useState(false);
 	const [metrics, setMetrics] = useState(performanceMonitor.getMetrics());
+	const [memory, setMemory] = useState<ReturnType<typeof getMemoryUsage>>(getMemoryUsage());
 
 	useEffect(() => {
 		if (!__DEV__ || !visible) return;
 
 		const interval = setInterval(() => {
 			setMetrics(performanceMonitor.getMetrics());
+			setMemory(getMemoryUsage());
 		}, 1000);
 
 		return () => clearInterval(interval);
@@ -42,6 +79,21 @@ export function PerformanceDebugger() {
 				<Div useBlur style={styles.container}>
 					<ScrollView style={styles.scrollView}>
 						<Text type="h3" style={styles.title}>Performance Monitor</Text>
+
+						<Div transparent style={styles.section}>
+							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Memory</Text>
+							{memory ? (
+								<>
+									<Text type="bodySM" style={styles.metric}>Heap used: {memory.used}</Text>
+									<Text type="bodySM" style={styles.metric}>Heap total: {memory.total}</Text>
+									{memory.limit != null && (
+										<Text type="bodySM" style={styles.metric}>Heap limit: {memory.limit}</Text>
+									)}
+								</>
+							) : (
+								<Text type="bodySM" style={styles.metric}>Unavailable (use Chrome debugger for heap stats)</Text>
+							)}
+						</Div>
 
 						<Div transparent style={styles.section}>
 							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Key Metrics</Text>

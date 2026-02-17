@@ -12,6 +12,7 @@ import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
+import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
@@ -69,6 +70,12 @@ export default function RootLayout() {
 	const colorScheme = useColorScheme();
 	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
+	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
+	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
+
+	useEffect(() => {
+		hydrateDevSettings();
+	}, [hydrateDevSettings]);
 
 	useEffect(() => {
 		const init = async () => {
@@ -176,7 +183,7 @@ export default function RootLayout() {
 					<AudioSync />
 					<AnimatedStack />
 					<AddToPlaylistModal />
-					<PerformanceDebugger />
+					{__DEV__ && showPerformanceDebugger && <PerformanceDebugger />}
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

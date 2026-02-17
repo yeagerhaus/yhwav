@@ -1,6 +1,7 @@
 export { useAlbums } from './useAlbums';
 export { useArtists } from './useArtists';
 export { useAudioStore, useTrackPlayerSync } from './useAudioStore';
+export { useDevSettingsStore } from './useDevSettingsStore';
 export { useLibraryStore } from './useLibraryStore';
 export { usePlaylists } from './usePlaylists';
 export { useSearch } from './useSearch';
