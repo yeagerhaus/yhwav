@@ -23,7 +23,7 @@ public enum PlaybackEndedReason: String {
 class AVPlayerWrapper: AVPlayerWrapperProtocol {
     // MARK: - Properties
 
-    fileprivate var avPlayer = AVPlayer()
+    fileprivate var avPlayer: AVPlayer = AVPlayer()
     private let playerObserver = AVPlayerObserver()
     internal let playerTimeObserver: AVPlayerTimeObserver
     private let playerItemNotificationObserver = AVPlayerItemNotificationObserver()
@@ -42,6 +42,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     private var preloadedUrl: URL? = nil
     private var preloadedAsset: AVURLAsset? = nil
     private var preloadedItem: AVPlayerItem? = nil
+    // Separate cache-warming player with its own AVURLAsset to trigger iOS buffering
     private var preloadPlayer: AVPlayer? = nil
 
     public init() {
@@ -247,9 +248,8 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
         }
 
         // Cancel any existing preload
-        preloadedAsset?.cancelLoading()
+        clearPreload()
         preloadedUrl = url
-        preloadedItem = nil
 
         let pendingAsset = AVURLAsset(url: url, options: options)
         preloadedAsset = pendingAsset
@@ -279,9 +279,9 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
                 item.preferredForwardBufferDuration = self.bufferDuration
                 self.preloadedItem = item
 
-                // Use a completely separate AVURLAsset + AVPlayerItem on a muted secondary
-                // player to warm the OS HTTP cache. A separate asset avoids resource-loader
-                // contention with the preloadedItem that the main player will use.
+                // Create a separate AVURLAsset + AVPlayerItem + AVPlayer for cache warming.
+                // This triggers iOS to actively buffer audio data from the network.
+                // We use a completely separate asset to avoid resource-loader contention.
                 let cacheAsset = AVURLAsset(url: url, options: options)
                 let cacheItem = AVPlayerItem(
                     asset: cacheAsset,
@@ -290,7 +290,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
                 cacheItem.preferredForwardBufferDuration = 15
                 self.preloadPlayer = AVPlayer(playerItem: cacheItem)
                 self.preloadPlayer?.isMuted = true
-                self.preloadPlayer?.rate = 0 // paused but buffering
+                self.preloadPlayer?.rate = 0  // paused but buffering
             }
         }
 
@@ -311,7 +311,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     // MARK: - Load
 
     func load() {
-        // MARK: Gapless fast-path — check BEFORE clearing so we can do a direct swap
+        // MARK: Gapless fast-path — preloaded item ready
         if state != .failed,
            let url = url,
            let preloadedUrl = preloadedUrl,
@@ -319,11 +319,13 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
            let preloadedAsset = preloadedAsset,
            let readyItem = preloadedItem {
 
-            // Stop observing old item (but do NOT clear the player to nil)
+            let readyAsset = preloadedAsset
+
+            // Stop observing old item
             stopObservingAVPlayerItem()
             asset?.cancelLoading()
 
-            // Tear down the cache-warming preload player
+            // Tear down cache-warming player before swapping
             self.preloadPlayer?.replaceCurrentItem(with: nil)
             self.preloadPlayer = nil
 
@@ -333,7 +335,7 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
             self.preloadedItem = nil
 
             // Set new asset and item
-            self.asset = preloadedAsset
+            self.asset = readyAsset
             self.item = readyItem
 
             // Direct swap — replaceCurrentItem goes straight from old→new, no nil gap
@@ -343,24 +345,24 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
 
             // Load metadata asynchronously (don't block the audio transition)
             let metadataKeys = ["commonMetadata", "availableChapterLocales", "availableMetadataFormats"]
-            preloadedAsset.loadValuesAsynchronously(forKeys: metadataKeys, completionHandler: { [weak self] in
+            readyAsset.loadValuesAsynchronously(forKeys: metadataKeys, completionHandler: { [weak self] in
                 guard let self = self else { return }
-                if (preloadedAsset != self.asset) { return; }
+                if (readyAsset != self.asset) { return; }
 
-                let commonData = preloadedAsset.commonMetadata
+                let commonData = readyAsset.commonMetadata
                 if (!commonData.isEmpty) {
                     self.delegate?.AVWrapper(didReceiveCommonMetadata: commonData)
                 }
 
-                if preloadedAsset.availableChapterLocales.count > 0 {
-                    for locale in preloadedAsset.availableChapterLocales {
-                        let chapters = preloadedAsset.chapterMetadataGroups(withTitleLocale: locale, containingItemsWithCommonKeys: nil)
+                if readyAsset.availableChapterLocales.count > 0 {
+                    for locale in readyAsset.availableChapterLocales {
+                        let chapters = readyAsset.chapterMetadataGroups(withTitleLocale: locale, containingItemsWithCommonKeys: nil)
                         self.delegate?.AVWrapper(didReceiveChapterMetadata: chapters)
                     }
                 } else {
-                    for format in preloadedAsset.availableMetadataFormats {
-                        let timeRange = CMTimeRange(start: CMTime(seconds: 0, preferredTimescale: 1000), end: preloadedAsset.duration)
-                        let group = AVTimedMetadataGroup(items: preloadedAsset.metadata(forFormat: format), timeRange: timeRange)
+                    for format in readyAsset.availableMetadataFormats {
+                        let timeRange = CMTimeRange(start: CMTime(seconds: 0, preferredTimescale: 1000), end: readyAsset.duration)
+                        let group = AVTimedMetadataGroup(items: readyAsset.metadata(forFormat: format), timeRange: timeRange)
                         self.delegate?.AVWrapper(didReceiveTimedMetadata: [group])
                     }
                 }
