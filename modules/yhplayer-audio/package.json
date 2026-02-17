@@ -1,0 +1,30 @@
+{
+	"name": "yhplayer-audio",
+	"version": "1.0.0",
+	"description": "Custom iOS gapless audio playback using AVQueuePlayer",
+	"main": "src/index.ts",
+	"types": "src/index.ts",
+	"scripts": {
+		"build": "expo-module build"
+	},
+	"keywords": [
+		"react-native",
+		"expo",
+		"expo-yhplayer-audio",
+		"audio",
+		"avqueueplayer"
+	],
+	"repository": {},
+	"bugs": {},
+	"author": "",
+	"license": "MIT",
+	"homepage": "https://github.com/placeholder/yhplayer-audio",
+	"peerDependencies": {
+		"expo": "*",
+		"react": "*",
+		"react-native": "*"
+	},
+	"devDependencies": {
+		"expo-module-scripts": "^5.0.8"
+	}
+}

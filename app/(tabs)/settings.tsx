@@ -22,17 +22,6 @@ export default function SettingsScreen() {
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
-	const sleepTimerEndsAt = useAudioStore((state) => state.sleepTimerEndsAt);
-	const setSleepTimer = useAudioStore((state) => state.setSleepTimer);
-	const getSleepTimerRemainingSeconds = useAudioStore((state) => state.getSleepTimerRemainingSeconds);
-	const [sleepTimerTick, setSleepTimerTick] = useState(0);
-
-	// Refresh countdown display every second when sleep timer is active
-	useEffect(() => {
-		if (sleepTimerEndsAt == null) return;
-		const id = setInterval(() => setSleepTimerTick((n) => n + 1), 1000);
-		return () => clearInterval(id);
-	}, [sleepTimerEndsAt]);
 
 	useEffect(() => {
 		// Load existing auth state
@@ -226,43 +215,6 @@ export default function SettingsScreen() {
 					</Div>
 
 					{renderServerList()}
-
-					<Div style={DefaultStyles.section} transparent>
-						<Text type="h3" style={DefaultStyles.sectionTitle}>Sleep timer</Text>
-						<Text style={DefaultStyles.sectionDescription}>
-							Stop playback after a set time. Works in the background.
-						</Text>
-						<Div style={styles.sleepTimerRow} transparent>
-							{([null, 15, 30, 45, 60] as const).map((mins) => {
-								const label = mins === null ? 'Off' : mins === 60 ? '1 hr' : `${mins} min`;
-								const active = mins === null && !sleepTimerEndsAt;
-								return (
-									<TouchableOpacity
-										key={mins ?? 'off'}
-										style={[
-											styles.sleepTimerChip,
-											{ backgroundColor: hexWithOpacity(backgroundColor, 0.5) },
-											active && styles.sleepTimerChipActive,
-										]}
-										onPress={() => setSleepTimer(mins)}
-									>
-										<Text type="body" colorVariant={active ? 'primary' : 'secondary'}>{label}</Text>
-									</TouchableOpacity>
-								);
-							})}
-						</Div>
-						{sleepTimerEndsAt != null && (() => {
-							const secs = getSleepTimerRemainingSeconds();
-							if (secs == null || secs <= 0) return null;
-							const m = Math.floor(secs / 60);
-							const s = secs % 60;
-							return (
-								<Text type="bodySM" colorVariant="secondary" style={styles.sleepTimerRemaining}>
-									Stopping in {m}:{s.toString().padStart(2, '0')}
-								</Text>
-							);
-						})()}
-					</Div>
 
 					<TouchableOpacity
 						style={[DefaultStyles.cancelButton, styles.clearCacheBorder, isLoading && DefaultStyles.buttonDisabled]}

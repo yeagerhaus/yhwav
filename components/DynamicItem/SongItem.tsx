@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import { State, usePlaybackState } from 'react-native-track-player';
+import { State, usePlaybackState } from '@/lib/playerAdapter';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';

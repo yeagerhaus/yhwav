@@ -2,7 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { Div } from '@/components/Div';
-import { RepeatMode } from 'react-native-track-player';
+import { RepeatMode } from '@/lib/playerAdapter';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
 interface ExtraControlsProps {

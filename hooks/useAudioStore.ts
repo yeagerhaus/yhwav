@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
+import { create } from 'zustand';
 import TrackPlayer, {
 	Capability,
 	Event,
@@ -10,8 +11,7 @@ import TrackPlayer, {
 	State,
 	usePlaybackState,
 	useTrackPlayerEvents,
-} from 'react-native-track-player';
-import { create } from 'zustand';
+} from '@/lib/playerAdapter';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 
@@ -66,7 +66,7 @@ interface AudioState {
 	isPlaying: boolean;
 	position: number;
 	duration: number;
-	repeatMode: RepeatMode;
+	repeatMode: number;
 	isShuffled: boolean;
 	volume: number;
 	playbackRate: number;
@@ -298,7 +298,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 				// Restore settings
 				if (savedRepeatStr) {
-					const repeatMode = Number.parseInt(savedRepeatStr) as RepeatMode;
+					const repeatMode = Number.parseInt(savedRepeatStr, 10);
 					set({ repeatMode });
 					await TrackPlayer.setRepeatMode(repeatMode);
 				}
@@ -811,8 +811,10 @@ export function useTrackPlayerSync() {
 			const state = useAudioStore.getState();
 
 			if (event.type === Event.PlaybackProgressUpdated) {
-				state._setPosition(event.position);
-				state._setDuration(event.duration);
+				const position = event.position ?? 0;
+				const duration = event.duration ?? 0;
+				state._setPosition(position);
+				state._setDuration(duration);
 				lastProgressTimestamp = Date.now();
 
 				// Sleep timer: stop playback when time is up
@@ -822,7 +824,7 @@ export function useTrackPlayerSync() {
 					useAudioStore.getState().setSleepTimer(null);
 				}
 
-				const remaining = event.duration - event.position;
+				const remaining = duration - position;
 
 				// Pre-fetch first 256KB of next track to warm OS HTTP cache
 				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
@@ -855,17 +857,13 @@ export function useTrackPlayerSync() {
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
 
 				const previousSongId = state.currentSong?.id ?? null;
-				const isNaturalAdvance =
-					lastProgressTimestamp > 0 &&
-					Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
+				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
 				if (isNaturalAdvance) {
 					// Measure gap from last progress update to now — captures the
 					// actual audible silence between tracks regardless of duration accuracy
 					const gapMs = Date.now() - lastProgressTimestamp;
 					if (__DEV__) {
-						console.log(
-							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`,
-						);
+						console.log(`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
 					}
 				}
 
@@ -927,7 +925,7 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.RemoteSeek) {
-				await state.seekTo(event.position);
+				await state.seekTo(event.position ?? 0);
 			}
 		},
 	);
