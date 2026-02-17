@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Dimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, LayoutAnimation } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ExpandedPlayer } from '@/components/BottomSheet/ExpandedPlayer';
@@ -30,6 +30,19 @@ function MusicScreen() {
 	// Don't use useAudio() here as it causes re-renders on progress updates
 	const router = useRouter();
 	const { setScale } = useRootScale();
+
+	// Queue state
+	const [queueOpen, setQueueOpen] = useState(false);
+	const queueOpenShared = useSharedValue(false);
+
+	useEffect(() => {
+		queueOpenShared.value = queueOpen;
+	}, [queueOpen, queueOpenShared]);
+
+	const toggleQueue = useCallback(() => {
+		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+		setQueueOpen((prev) => !prev);
+	}, []);
 
 	// Shared values - grouped for better organization
 	const translateY = useSharedValue(0);
@@ -92,6 +105,9 @@ function MusicScreen() {
 			Gesture.Pan()
 				.onStart((event) => {
 					'worklet';
+					// Disable drag-to-close when queue is open
+					if (queueOpenShared.value) return;
+
 					initialGestureX.value = event.x;
 					initialGestureY.value = event.y;
 					isHorizontalGesture.value = false;
@@ -103,6 +119,8 @@ function MusicScreen() {
 				})
 				.onUpdate((event) => {
 					'worklet';
+					if (queueOpenShared.value) return;
+
 					const dx = event.translationX;
 					const dy = event.translationY;
 
@@ -140,6 +158,8 @@ function MusicScreen() {
 				})
 				.onEnd((event) => {
 					'worklet';
+					if (queueOpenShared.value) return;
+
 					isDragging.value = false;
 
 					// Handle horizontal gesture end only if enabled
@@ -187,7 +207,7 @@ function MusicScreen() {
 					isDragging.value = false;
 					isHorizontalGesture.value = false;
 				}),
-		[calculateGestureAngle, handleScale, handleHapticFeedback, goBack],
+		[calculateGestureAngle, handleScale, handleHapticFeedback, goBack, queueOpenShared],
 	);
 
 	const scrollGesture = useMemo(
@@ -258,7 +278,11 @@ function MusicScreen() {
 		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
 			<StatusBar animated={true} style={statusBarStyle.value} />
 			<Animated.View style={[{ flex: 1, backgroundColor: 'transparent' }, animatedStyle]}>
-				<ExpandedPlayer scrollComponent={ScrollComponent} />
+				<ExpandedPlayer
+					scrollComponent={queueOpen ? undefined : ScrollComponent}
+					queueOpen={queueOpen}
+					onToggleQueue={toggleQueue}
+				/>
 			</Animated.View>
 		</Div>
 	);

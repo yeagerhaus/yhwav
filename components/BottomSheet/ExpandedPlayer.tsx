@@ -8,16 +8,19 @@ import { useUltraBlurColors } from '@/hooks/useUltraBlurColors';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
 import { PlaybackControls } from '../Player/PlaybackControls';
+import { QueueList } from '../Player/QueueList';
 import { SongInfo } from '../Player/SongInfo';
 import { SongProgressBar } from '../Player/SongProgressBar';
 import { TimeDisplay } from '../Player/TimeDisplay';
 
 interface ExpandedPlayerProps {
 	scrollComponent?: (props: any) => React.ReactElement;
+	queueOpen?: boolean;
+	onToggleQueue?: () => void;
 }
 
 export const ExpandedPlayer = React.memo(
-	({ scrollComponent }: ExpandedPlayerProps) => {
+	({ scrollComponent, queueOpen, onToggleQueue }: ExpandedPlayerProps) => {
 		const ScrollComponentToUse = scrollComponent || ScrollView;
 		const { colors: ultraBlur, hasColors } = useUltraBlurColors();
 		const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
@@ -30,6 +33,19 @@ export const ExpandedPlayer = React.memo(
 		const MemoizedScrollComponent = React.useMemo(() => {
 			return ScrollComponentToUse;
 		}, [ScrollComponentToUse]);
+
+		const playerUI = (
+			<Div transparent style={styles.container}>
+				<SongInfo />
+
+				<Div transparent style={styles.controls}>
+					<SongProgressBar />
+					<TimeDisplay />
+					<PlaybackControls />
+					<ExtraControls queueOpen={queueOpen} onToggleQueue={onToggleQueue} />
+				</Div>
+			</Div>
+		);
 
 		return (
 			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent>
@@ -52,18 +68,13 @@ export const ExpandedPlayer = React.memo(
 								<Div transparent style={styles.dragHandle} />
 							</Div>
 
-							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-								<Div transparent style={styles.container}>
-									<SongInfo />
-
-									<Div transparent style={styles.controls}>
-										<SongProgressBar />
-										<TimeDisplay />
-										<PlaybackControls />
-										<ExtraControls />
-									</Div>
-								</Div>
-							</MemoizedScrollComponent>
+							{queueOpen ? (
+								<QueueList headerComponent={playerUI} />
+							) : (
+								<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+									{playerUI}
+								</MemoizedScrollComponent>
+							)}
 						</Div>
 					</LinearGradient>
 				</LinearGradient>
@@ -71,9 +82,11 @@ export const ExpandedPlayer = React.memo(
 		);
 	},
 	(prevProps, nextProps) => {
-		// Custom comparison to prevent re-renders when only scrollComponent changes
-		// This is important because the scrollComponent is recreated on every render in the parent
-		return prevProps.scrollComponent === nextProps.scrollComponent;
+		return (
+			prevProps.scrollComponent === nextProps.scrollComponent &&
+			prevProps.queueOpen === nextProps.queueOpen &&
+			prevProps.onToggleQueue === nextProps.onToggleQueue
+		);
 	},
 );
 
@@ -113,22 +126,5 @@ const styles = StyleSheet.create({
 	scrollView: {
 		flex: 1,
 		width: '100%',
-	},
-	lyricsContainer: {
-		paddingHorizontal: 20,
-		paddingVertical: 30,
-		width: '100%',
-		alignItems: 'center',
-	},
-	lyricsText: {
-		color: '#fff',
-		fontSize: 16,
-		lineHeight: 24,
-		textAlign: 'center',
-		opacity: 0.8,
-		marginVertical: 2,
-	},
-	lyricsSpacing: {
-		marginVertical: 10,
 	},
 });

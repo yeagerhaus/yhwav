@@ -91,7 +91,7 @@ export default function SearchIndex() {
 const styles = StyleSheet.create({
 	container: {
 		paddingHorizontal: 16,
-		paddingTop: 8,
+		paddingTop: 24,
 		paddingBottom: 120,
 	},
 	emptyState: {

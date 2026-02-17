@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, useColorScheme } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Switch, TextInput, TouchableOpacity, useColorScheme } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
+import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -18,6 +19,8 @@ export default function SettingsScreen() {
 	const [pinCode, setPinCode] = useState<string | null>(null);
 	const [pinStatus, setPinStatus] = useState<string>('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
+	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
+	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
 
 	useEffect(() => {
 		// Load existing auth state
@@ -229,6 +232,21 @@ export default function SettingsScreen() {
 					<TouchableOpacity style={DefaultStyles.dangerButton} onPress={handleLogout}>
 						<Text type="h3" colorVariant="primaryInvert">Logout</Text>
 					</TouchableOpacity>
+
+					{__DEV__ && (
+						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
+							<Text type="h3" style={DefaultStyles.sectionTitle}>Developer</Text>
+							<Div style={styles.switchRow} transparent>
+								<Text type="body">Show performance debugger</Text>
+								<Switch
+									value={showPerformanceDebugger}
+									onValueChange={setShowPerformanceDebugger}
+									trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
+									thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
+								/>
+							</Div>
+						</Div>
+					)}
 				</Div>
 			) : (
 				<>
@@ -347,6 +365,21 @@ export default function SettingsScreen() {
 							</Div>
 						)}
 					</Div>
+
+					{__DEV__ && (
+						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
+							<Text type="h3" style={DefaultStyles.sectionTitle}>Developer</Text>
+							<Div style={styles.switchRow} transparent>
+								<Text type="body">Show performance debugger</Text>
+								<Switch
+									value={showPerformanceDebugger}
+									onValueChange={setShowPerformanceDebugger}
+									trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
+									thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
+								/>
+							</Div>
+						</Div>
+					)}
 				</>
 			)}
 		</Main>
@@ -430,5 +463,14 @@ const styles = StyleSheet.create({
 	},
 	flex1: {
 		flex: 1,
+	},
+	devSection: {
+		marginTop: 8,
+	},
+	switchRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingVertical: 8,
 	},
 });

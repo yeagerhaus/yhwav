@@ -25,6 +25,8 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const playbackState = usePlaybackState();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const playSound = useAudioStore((state) => state.playSound);
+	const playNext = useAudioStore((state) => state.playNext);
+	const addToQueue = useAudioStore((state) => state.addToQueue);
 	const { artists } = useArtists();
 	const { albums } = useAlbums();
 	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
@@ -37,6 +39,16 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
 
 	const menuItems: ContextMenuItem[] = [
+		{
+			label: 'Play Next',
+			systemImage: 'text.line.first.and.arrowtriangle.forward',
+			onPress: () => playNext(song),
+		},
+		{
+			label: 'Add to Queue',
+			systemImage: 'text.badge.plus',
+			onPress: () => addToQueue([song]),
+		},
 		{
 			label: 'Add to Playlist',
 			systemImage: 'plus.circle',

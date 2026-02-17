@@ -5,7 +5,12 @@ import { Div } from '@/components';
 import { RepeatMode } from 'react-native-track-player';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
-export const ExtraControls = React.memo(() => {
+interface ExtraControlsProps {
+	queueOpen?: boolean;
+	onToggleQueue?: () => void;
+}
+
+export const ExtraControls = React.memo(({ queueOpen, onToggleQueue }: ExtraControlsProps) => {
 	const repeatMode = useAudioStore((state) => state.repeatMode);
 	const isShuffled = useAudioStore((state) => state.isShuffled);
 	const toggleRepeat = useAudioStore((state) => state.toggleRepeat);
@@ -25,17 +30,18 @@ export const ExtraControls = React.memo(() => {
 		return isShuffled ? '#fff' : 'rgba(255, 255, 255, 0.5)';
 	};
 
+	const getQueueColor = () => {
+		return queueOpen ? '#fff' : 'rgba(255, 255, 255, 0.5)';
+	};
+
 	return (
 		<Div transparent style={styles.extraControls}>
 			<Pressable style={styles.extraControlButton} onPress={toggleShuffle}>
 				<SymbolView name='shuffle' size={30} tintColor={getShuffleColor()} />
 			</Pressable>
-			{/* <Pressable style={styles.extraControlButton}>
-				<Div style={styles.extraControlIcons}>
-					<Ionicons name='volume-off' size={26} color='#fff' marginRight={-6} />
-					<Ionicons name='bluetooth' size={24} color='#fff' />
-				</Div>
-			</Pressable> */}
+			<Pressable style={styles.extraControlButton} onPress={onToggleQueue}>
+				<SymbolView name='list.bullet' size={30} tintColor={getQueueColor()} />
+			</Pressable>
 			<Pressable style={styles.extraControlButton} onPress={toggleRepeat}>
 				<SymbolView name={getRepeatIcon()} size={30} tintColor={getRepeatColor()} />
 			</Pressable>
