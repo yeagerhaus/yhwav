@@ -136,8 +136,7 @@ let prewarmedUrl: string | null = null;
 let lastErrorRetryAt = 0;
 
 // Natural advance (track ended → next started): latency tracking (excludes skips)
-let naturalAdvanceEnd: ((metadata?: Record<string, unknown>) => void) | null = null;
-let naturalAdvanceEndSongId: string | null = null;
+let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
 
@@ -778,14 +777,9 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				state._setPosition(event.position);
 				state._setDuration(event.duration);
+				lastProgressTimestamp = Date.now();
 
 				const remaining = event.duration - event.position;
-
-				// Start latency timer when current track is about to end (natural advance only)
-				if (remaining > 0 && remaining < 0.5 && state.currentSong && naturalAdvanceEndSongId !== state.currentSong.id) {
-					naturalAdvanceEnd = performanceMonitor.startTimer('playback-natural-advance-latency');
-					naturalAdvanceEndSongId = state.currentSong.id;
-				}
 
 				// Pre-fetch first 256KB of next track to warm OS HTTP cache
 				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
@@ -819,25 +813,17 @@ export function useTrackPlayerSync() {
 
 				const previousSongId = state.currentSong?.id ?? null;
 				const isNaturalAdvance =
-					naturalAdvanceEnd != null &&
-					naturalAdvanceEndSongId != null &&
-					naturalAdvanceEndSongId === previousSongId &&
+					lastProgressTimestamp > 0 &&
 					Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
-				if (isNaturalAdvance && naturalAdvanceEnd) {
-					naturalAdvanceEnd({
-						fromSongId: previousSongId,
-						toSongId: newCurrentSong.id,
-						fromIndex: state.queue.findIndex((s) => s.id === previousSongId),
-						toIndex: trackIndex,
-					});
+				if (isNaturalAdvance) {
+					// Measure gap from last progress update to now — captures the
+					// actual audible silence between tracks regardless of duration accuracy
+					const gapMs = Date.now() - lastProgressTimestamp;
 					if (__DEV__) {
-						const latencyMs = performanceMonitor.getMetricsByName('playback-natural-advance-latency').slice(-1)[0]?.duration;
 						console.log(
-							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id}${latencyMs != null ? ` (${latencyMs.toFixed(0)}ms latency)` : ''}`,
+							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`,
 						);
 					}
-					naturalAdvanceEnd = null;
-					naturalAdvanceEndSongId = null;
 				}
 
 				// Reset pre-warm tracker for the new track

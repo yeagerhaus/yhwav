@@ -77,7 +77,7 @@ export const SongInfo = React.memo(() => {
 			<Div transparent style={styles.titleContainer}>
 				<Div transparent style={styles.titleRow}>
 					<Div transparent style={styles.titleMain}>
-						<Text type='title' style={styles.title}>
+						<Text type='title' style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
 							{title}
 						</Text>
 						<Text

@@ -118,14 +118,19 @@ class AVPlayerWrapper: AVPlayerWrapperProtocol {
     }
 
     var duration: TimeInterval {
-        if let seconds = currentItem?.asset.duration.seconds, !seconds.isNaN {
+        // Prefer item duration (updated as player buffers, most accurate for streams)
+        // over asset duration (from file header metadata, often inaccurate for VBR/transcoded)
+        if let item = currentItem, !item.duration.isIndefinite {
+            let seconds = item.duration.seconds
+            if !seconds.isNaN && seconds > 0 {
+                return seconds
+            }
+        }
+        if let seconds = currentItem?.seekableTimeRanges.last?.timeRangeValue.duration.seconds,
+                !seconds.isNaN, seconds > 0 {
             return seconds
         }
-        else if let seconds = currentItem?.duration.seconds, !seconds.isNaN {
-            return seconds
-        }
-        else if let seconds = currentItem?.seekableTimeRanges.last?.timeRangeValue.duration.seconds,
-                !seconds.isNaN {
+        if let seconds = currentItem?.asset.duration.seconds, !seconds.isNaN, seconds > 0 {
             return seconds
         }
         return 0.0
