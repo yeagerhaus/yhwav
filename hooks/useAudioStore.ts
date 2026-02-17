@@ -24,6 +24,7 @@ export const STORAGE_REPEAT_MODE_KEY = 'REPEAT_MODE';
 export const STORAGE_SHUFFLE_KEY = 'SHUFFLE_MODE';
 export const STORAGE_VOLUME_KEY = 'VOLUME';
 export const STORAGE_PLAYBACK_RATE_KEY = 'PLAYBACK_RATE';
+export const STORAGE_SLEEP_TIMER_ENDS_AT_KEY = 'SLEEP_TIMER_ENDS_AT';
 
 // Lightweight queue persistence — save only IDs, resolve from library store
 function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song | null) {
@@ -94,6 +95,11 @@ interface AudioState {
 	setVolume: (volume: number) => Promise<void>;
 	setPlaybackRate: (rate: number) => Promise<void>;
 
+	// Sleep timer (JS-based; works on all platforms)
+	sleepTimerEndsAt: number | null;
+	setSleepTimer: (minutes: number | null) => void;
+	getSleepTimerRemainingSeconds: () => number | null;
+
 	// Internal state management
 	_setIsPlaying: (isPlaying: boolean) => void;
 	_setPosition: (position: number) => void;
@@ -136,8 +142,7 @@ let prewarmedUrl: string | null = null;
 let lastErrorRetryAt = 0;
 
 // Natural advance (track ended → next started): latency tracking (excludes skips)
-let naturalAdvanceEnd: ((metadata?: Record<string, unknown>) => void) | null = null;
-let naturalAdvanceEndSongId: string | null = null;
+let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
 
@@ -215,6 +220,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	isBuffering: false,
 	error: null,
 	artworkBgColor: null,
+	sleepTimerEndsAt: null,
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -277,6 +283,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					savedShuffleStr,
 					savedVolumeStr,
 					savedRateStr,
+					savedSleepTimerEndsAtStr,
 				] = await Promise.all([
 					AsyncStorage.getItem(STORAGE_SONG_KEY),
 					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
@@ -286,6 +293,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
 					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
 					AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY),
+					AsyncStorage.getItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY),
 				]);
 
 				// Restore settings
@@ -309,6 +317,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					const rate = Number.parseFloat(savedRateStr);
 					set({ playbackRate: rate });
 					await TrackPlayer.setRate(rate);
+				}
+
+				if (savedSleepTimerEndsAtStr) {
+					const endsAt = Number.parseInt(savedSleepTimerEndsAtStr, 10);
+					if (endsAt > Date.now()) {
+						set({ sleepTimerEndsAt: endsAt });
+					} else {
+						await AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
+					}
 				}
 
 				// Restore queue and current song from IDs
@@ -735,6 +752,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			console.error('Error setting playback rate:', error);
 		}
 	},
+
+	setSleepTimer: (minutes: number | null) => {
+		if (minutes == null) {
+			set({ sleepTimerEndsAt: null });
+			AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY).catch(() => {});
+			return;
+		}
+		const endsAt = Date.now() + minutes * 60 * 1000;
+		set({ sleepTimerEndsAt: endsAt });
+		AsyncStorage.setItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt)).catch(() => {});
+	},
+
+	getSleepTimerRemainingSeconds: () => {
+		const endsAt = get().sleepTimerEndsAt;
+		if (endsAt == null) return null;
+		const rem = Math.ceil((endsAt - Date.now()) / 1000);
+		return rem <= 0 ? null : rem;
+	},
 }));
 
 // Hook to sync TrackPlayer events with the store
@@ -778,14 +813,16 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				state._setPosition(event.position);
 				state._setDuration(event.duration);
+				lastProgressTimestamp = Date.now();
+
+				// Sleep timer: stop playback when time is up
+				const { sleepTimerEndsAt } = useAudioStore.getState();
+				if (sleepTimerEndsAt != null && Date.now() >= sleepTimerEndsAt) {
+					await TrackPlayer.pause();
+					useAudioStore.getState().setSleepTimer(null);
+				}
 
 				const remaining = event.duration - event.position;
-
-				// Start latency timer when current track is about to end (natural advance only)
-				if (remaining > 0 && remaining < 0.5 && state.currentSong && naturalAdvanceEndSongId !== state.currentSong.id) {
-					naturalAdvanceEnd = performanceMonitor.startTimer('playback-natural-advance-latency');
-					naturalAdvanceEndSongId = state.currentSong.id;
-				}
 
 				// Pre-fetch first 256KB of next track to warm OS HTTP cache
 				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
@@ -819,25 +856,17 @@ export function useTrackPlayerSync() {
 
 				const previousSongId = state.currentSong?.id ?? null;
 				const isNaturalAdvance =
-					naturalAdvanceEnd != null &&
-					naturalAdvanceEndSongId != null &&
-					naturalAdvanceEndSongId === previousSongId &&
+					lastProgressTimestamp > 0 &&
 					Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
-				if (isNaturalAdvance && naturalAdvanceEnd) {
-					naturalAdvanceEnd({
-						fromSongId: previousSongId,
-						toSongId: newCurrentSong.id,
-						fromIndex: state.queue.findIndex((s) => s.id === previousSongId),
-						toIndex: trackIndex,
-					});
+				if (isNaturalAdvance) {
+					// Measure gap from last progress update to now — captures the
+					// actual audible silence between tracks regardless of duration accuracy
+					const gapMs = Date.now() - lastProgressTimestamp;
 					if (__DEV__) {
-						const latencyMs = performanceMonitor.getMetricsByName('playback-natural-advance-latency').slice(-1)[0]?.duration;
 						console.log(
-							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id}${latencyMs != null ? ` (${latencyMs.toFixed(0)}ms latency)` : ''}`,
+							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`,
 						);
 					}
-					naturalAdvanceEnd = null;
-					naturalAdvanceEndSongId = null;
 				}
 
 				// Reset pre-warm tracker for the new track

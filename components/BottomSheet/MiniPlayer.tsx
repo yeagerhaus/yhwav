@@ -39,7 +39,9 @@ const MiniPlayerContent = React.memo(() => {
 		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<Div transparent style={styles.textContainer}>
-				<Text style={styles.title}>{title}</Text>
+				<Text style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
+					{title}
+				</Text>
 			</Div>
 			<Div transparent style={styles.controls}>
 				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
