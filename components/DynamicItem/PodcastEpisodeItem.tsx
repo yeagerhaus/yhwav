@@ -1,14 +1,16 @@
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { toPlayableSong } from '@/types';
-import type { PodcastEpisode } from '@/types/podcast';
+import type { PodcastDownload, PodcastEpisode, PodcastFeed } from '@/types/podcast';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
+import { Ionicons } from '@expo/vector-icons';
 
 function formatDuration(seconds: number | undefined): string {
 	if (seconds == null || seconds <= 0) return '';
@@ -30,29 +32,52 @@ function formatDate(pubDate: string | undefined): string {
 }
 
 export interface PodcastEpisodeItemProps {
-	episode: PodcastEpisode;
+	episode: PodcastEpisode | PodcastDownload;
 	showTitle: string;
 	showImageUrl?: string;
 	queue?: Song[];
 	listItem?: boolean;
+	feed?: PodcastFeed;
+}
+
+function isDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload {
+	return 'localUri' in ep && 'downloadedAt' in ep;
 }
 
 const PodcastEpisodeItem = React.memo(
-	({ episode, showTitle, showImageUrl, queue, listItem = true }: PodcastEpisodeItemProps) => {
+	({ episode, showTitle, showImageUrl, queue, listItem = true, feed }: PodcastEpisodeItemProps) => {
 		const colorScheme = useColorScheme();
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
 		const progress = usePodcastProgressStore((state) => state.progressByEpisodeId[episode.id]);
+		const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
+		const isDownloaded = usePodcastDownloadsStore((s) => s.isDownloaded(episode.id));
+		const isDownloading = usePodcastDownloadsStore((s) => s.isDownloading(episode.id));
+		const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
+		const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
 
 		const isCurrentSong = useMemo(
 			() => currentSong?.id === episode.id,
 			[episode.id, currentSong?.id],
 		);
 
+		const localUri = useMemo(
+			() => (isDownload(episode) ? episode.localUri : getLocalUri(episode.id)),
+			[episode, getLocalUri],
+		);
+
 		const handlePress = useCallback(() => {
-			const song = toPlayableSong(episode, showTitle, showImageUrl);
+			const song = toPlayableSong(episode, showTitle, showImageUrl, localUri);
 			playSound(song, queue ?? [song]);
-		}, [episode, showTitle, showImageUrl, queue, playSound]);
+		}, [episode, showTitle, showImageUrl, queue, playSound, localUri]);
+
+		const handleDownloadPress = useCallback(() => {
+			if (!feed || isDownload(episode)) {
+				removeDownload(episode.id).catch(() => {});
+				return;
+			}
+			downloadEpisode(episode as PodcastEpisode, feed).catch(() => {});
+		}, [feed, episode, removeDownload, downloadEpisode]);
 
 		const subtitle = useMemo(() => {
 			const parts: string[] = [];
@@ -63,6 +88,11 @@ const PodcastEpisodeItem = React.memo(
 			return parts.length > 0 ? parts.join(' · ') : showTitle;
 		}, [episode.pubDate, episode.durationSeconds, showTitle]);
 
+		const description = useMemo(() => {
+			if ('description' in episode && episode.description) return episode.description;
+			return null;
+		}, [episode]);
+
 		const canResume = progress && !progress.completed && progress.position > 10;
 		const progressPercent =
 			progress && progress.duration > 0 ? Math.min(1, progress.position / progress.duration) : 0;
@@ -70,14 +100,37 @@ const PodcastEpisodeItem = React.memo(
 		return (
 			<Pressable onPress={handlePress} style={styles.row}>
 				<Div style={[styles.info, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
-					<Text type="h3" numberOfLines={1} style={styles.title}>
-						{episode.title}
-					</Text>
-					<Div style={styles.subtitleRow} transparent>
-						<Text type="bodySM" numberOfLines={4} style={styles.subtitle}>
-							{episode.description}
+					<Div style={styles.titleRow} transparent>
+						<Text type="h3" numberOfLines={1} style={[styles.title, { flex: 1 }]}>
+							{episode.title}
 						</Text>
+						{feed != null && (
+							<Pressable
+								onPress={(e) => {
+									e.stopPropagation();
+									handleDownloadPress();
+								}}
+								hitSlop={8}
+								style={styles.downloadButton}
+								disabled={isDownloading}
+							>
+								{isDownloading ? (
+									<ActivityIndicator size="small" color={Colors.brandPrimary} />
+								) : isDownloaded || isDownload(episode) ? (
+									<Ionicons name="checkmark-circle" size={22} color={Colors.brandPrimary} />
+								) : (
+									<Ionicons name="download-outline" size={22} color={Colors.brandPrimary} />
+								)}
+							</Pressable>
+						)}
 					</Div>
+					{description != null && (
+						<Div style={styles.subtitleRow} transparent>
+							<Text type="bodySM" numberOfLines={4} style={styles.subtitle}>
+								{description}
+							</Text>
+						</Div>
+					)}
 					<Div style={styles.subtitleRow} transparent>
 						{canResume && (
 							<Text type="bodyXS" numberOfLines={1} style={[styles.subtitle, styles.resumeLabel]}>
@@ -102,6 +155,7 @@ const PodcastEpisodeItem = React.memo(
 		prev.episode.title === next.episode.title &&
 		prev.showTitle === next.showTitle &&
 		prev.listItem === next.listItem &&
+		prev.feed?.id === next.feed?.id &&
 		prev.queue?.length === next.queue?.length,
 );
 
@@ -123,6 +177,17 @@ const styles = StyleSheet.create({
 		paddingBottom: 4,
 		paddingRight: 4,
 		minWidth: 0,
+	},
+	titleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	downloadButton: {
+		padding: 4,
+		minWidth: 30,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	subtitleRow: {
 		flexDirection: 'row',

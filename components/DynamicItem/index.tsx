@@ -7,6 +7,8 @@ import PodcastShowItem from './PodcastShowItem';
 import SongItem from './SongItem';
 import PodcastEpisodeItem from './PodcastEpisodeItem';
 
+import type { PodcastFeed } from '@/types/podcast';
+
 export interface DynamicItemProps {
 	type: 'list' | 'playlist' | 'podcast' | 'podcastEpisode' | 'album' | 'artist' | 'song' | 'largeSong';
 	item: any;
@@ -16,9 +18,11 @@ export interface DynamicItemProps {
 	size?: number;
 	showTitle?: string;
 	showImageUrl?: string;
+	/** For podcastEpisode: enables download/remove-download button */
+	feed?: PodcastFeed;
 }
 
-export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl }: DynamicItemProps) {
+export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl, feed }: DynamicItemProps) {
 	switch (type) {
 		case 'list':
 			return <ListItem item={item} onPress={onPress} />;
@@ -34,6 +38,7 @@ export function DynamicItem({ item, type, onPress, queue, listItem, size, showTi
 					showImageUrl={showImageUrl}
 					queue={queue}
 					listItem={listItem}
+					feed={feed}
 				/>
 			);
 		case 'album':

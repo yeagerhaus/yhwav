@@ -14,6 +14,7 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
@@ -81,13 +82,15 @@ export default function RootLayout() {
 
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
+	const hydratePodcastDownloads = usePodcastDownloadsStore((s) => s.hydrate);
 	useEffect(() => {
 		hydratePodcastProgress();
+		hydratePodcastDownloads();
 		hydratePodcast().then(() => {
 			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
 			if (feeds.length > 0) fetchAllFeeds();
 		});
-	}, [hydratePodcast, hydratePodcastProgress]);
+	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads]);
 
 	useEffect(() => {
 		const init = async () => {

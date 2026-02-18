@@ -1,20 +1,36 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { FlatList, Image } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { toPlayableSong } from '@/types';
-import type { PodcastEpisode } from '@/types/podcast';
+import type { PodcastDownload, PodcastEpisode } from '@/types/podcast';
 import type { Song } from '@/types/song';
 
 const ITEM_HEIGHT = 70;
 
 export default function PodcastFeedScreen() {
 	const { feedId } = useLocalSearchParams<{ feedId: string }>();
-	const { feeds, episodesByFeedId } = usePodcastStore();
+	const { feeds, episodesByFeedId, fetchFeed } = usePodcastStore();
+	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
+	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 
 	const feed = useMemo(() => feeds.find((f) => f.id === feedId), [feeds, feedId]);
-	const episodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
+	const fetchedEpisodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
+	const downloadedOnly = useMemo(() => (feedId ? getDownloadedEpisodesForFeed(feedId) : []), [feedId, getDownloadedEpisodesForFeed]);
+
+	// When offline or fetch failed: show only downloaded episodes for this feed
+	const episodes = useMemo(
+		(): (PodcastEpisode | PodcastDownload)[] =>
+			fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly,
+		[fetchedEpisodes, downloadedOnly],
+	);
+
+	// Fetch feed when opening and we don't have episodes yet (so online we get list; offline we'll show downloaded)
+	useEffect(() => {
+		if (feedId && feed && fetchedEpisodes.length === 0) fetchFeed(feedId).catch(() => {});
+	}, [feedId, feed, fetchedEpisodes.length, fetchFeed]);
 
 	const showTitle = feed?.title || feed?.url || 'Show';
 	const showImageUrl = useMemo(
@@ -23,13 +39,17 @@ export default function PodcastFeedScreen() {
 	);
 
 	const songs: Song[] = useMemo(
-		() => episodes.map((ep) => toPlayableSong(ep, showTitle, showImageUrl)),
-		[episodes, showTitle, showImageUrl],
+		() =>
+			episodes.map((ep) => {
+				const localUri = 'localUri' in ep ? ep.localUri : getLocalUri(ep.id);
+				return toPlayableSong(ep, showTitle, showImageUrl, localUri);
+			}),
+		[episodes, showTitle, showImageUrl, getLocalUri],
 	);
 
-	const keyExtractor = useCallback((item: PodcastEpisode) => item.id, []);
+	const keyExtractor = useCallback((item: PodcastEpisode | PodcastDownload) => item.id, []);
 	const renderItem = useCallback(
-		({ item }: { item: PodcastEpisode }) => (
+		({ item }: { item: PodcastEpisode | PodcastDownload }) => (
 			<DynamicItem
 				item={item}
 				type="podcastEpisode"
@@ -37,9 +57,10 @@ export default function PodcastFeedScreen() {
 				listItem
 				showTitle={showTitle}
 				showImageUrl={showImageUrl}
+				feed={feed}
 			/>
 		),
-		[songs, showTitle, showImageUrl],
+		[songs, showTitle, showImageUrl, feed],
 	);
 	const getItemLayout = useCallback(
 		(_: unknown, index: number) => ({
