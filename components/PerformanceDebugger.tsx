@@ -1,16 +1,10 @@
-/**
- * Performance Debugger Component
- * Shows real-time performance metrics in development
- */
-
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { DefaultStyles } from '@/constants/styles';
 import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
 import { Text } from './Text';
 
-/** Format bytes to human-readable (e.g. 12.5 MB) */
 function formatBytes(bytes: number): string {
 	if (bytes === 0) return '0 B';
 	const k = 1024;
@@ -19,10 +13,8 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
 }
 
-/** Get memory info when available (Chrome debugger, Node, or Hermes) */
 function getMemoryUsage(): { used: string; total: string; limit?: string } | null {
 	try {
-		// Chrome / V8 (e.g. when using React Native debugger)
 		const perf = global.performance as Performance & {
 			memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number };
 		};
@@ -33,7 +25,6 @@ function getMemoryUsage(): { used: string; total: string; limit?: string } | nul
 				limit: formatBytes(perf.memory.jsHeapSizeLimit),
 			};
 		}
-		// Node / Expo dev server
 		if (typeof process !== 'undefined' && process.memoryUsage) {
 			const mem = process.memoryUsage();
 			return {
@@ -48,12 +39,11 @@ function getMemoryUsage(): { used: string; total: string; limit?: string } | nul
 }
 
 export function PerformanceDebugger() {
-	const [visible, setVisible] = useState(false);
 	const [metrics, setMetrics] = useState(performanceMonitor.getMetrics());
 	const [memory, setMemory] = useState<ReturnType<typeof getMemoryUsage>>(getMemoryUsage());
 
 	useEffect(() => {
-		if (!__DEV__ || !visible) return;
+		if (!__DEV__) return;
 
 		const interval = setInterval(() => {
 			setMetrics(performanceMonitor.getMetrics());
@@ -61,7 +51,7 @@ export function PerformanceDebugger() {
 		}, 1000);
 
 		return () => clearInterval(interval);
-	}, [visible]);
+	}, []);
 
 	if (!__DEV__) return null;
 
@@ -70,138 +60,100 @@ export function PerformanceDebugger() {
 	const avgSkip = performanceMonitor.getAverageDuration('skipToNext');
 
 	return (
-		<>
-			<Div useGlass style={styles.toggleButton}>
-				<Pressable onPress={() => setVisible(!visible)}>
-					<Text type='body' style={styles.toggleButtonText}>
-						{'</>'} Debug
+		<Div transparent style={styles.wrapper}>
+			<Div transparent style={styles.section}>
+				<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+					Memory
+				</Text>
+				{memory ? (
+					<>
+						<Text type='bodySM' style={styles.metric}>
+							Heap used: {memory.used}
+						</Text>
+						<Text type='bodySM' style={styles.metric}>
+							Heap total: {memory.total}
+						</Text>
+						{memory.limit != null && (
+							<Text type='bodySM' style={styles.metric}>
+								Heap limit: {memory.limit}
+							</Text>
+						)}
+					</>
+				) : (
+					<Text type='bodySM' style={styles.metric}>
+						Unavailable (use Chrome debugger for heap stats)
 					</Text>
-				</Pressable>
+				)}
 			</Div>
 
-			{visible && (
-				<Div useBlur style={styles.container}>
-					<ScrollView style={styles.scrollView}>
-						<Text type='h3' style={styles.title}>
-							Performance Monitor
+			<Div transparent style={styles.section}>
+				<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+					Key Metrics
+				</Text>
+				<Text type='bodySM' style={styles.metric}>
+					playSound avg: {avgPlaySound.toFixed(2)}ms
+				</Text>
+				<Text type='bodySM' style={styles.metric}>
+					skipToNext avg: {avgSkip.toFixed(2)}ms
+				</Text>
+				<Text type='bodySM' style={styles.metric}>
+					Total metrics: {metrics.length}
+				</Text>
+			</Div>
+
+			<Div transparent style={styles.section}>
+				<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+					Slowest Operations
+				</Text>
+				{slowest.length > 0 ? (
+					slowest.map((m, i) => (
+						<Text key={i} type='bodySM' style={styles.metric}>
+							{m.name}: {m.duration.toFixed(2)}ms
 						</Text>
+					))
+				) : (
+					<Text type='bodySM' style={styles.metric}>
+						No operations recorded
+					</Text>
+				)}
+			</Div>
 
-						<Div transparent style={styles.section}>
-							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
-								Memory
-							</Text>
-							{memory ? (
-								<>
-									<Text type='bodySM' style={styles.metric}>
-										Heap used: {memory.used}
-									</Text>
-									<Text type='bodySM' style={styles.metric}>
-										Heap total: {memory.total}
-									</Text>
-									{memory.limit != null && (
-										<Text type='bodySM' style={styles.metric}>
-											Heap limit: {memory.limit}
-										</Text>
-									)}
-								</>
-							) : (
-								<Text type='bodySM' style={styles.metric}>
-									Unavailable (use Chrome debugger for heap stats)
-								</Text>
-							)}
-						</Div>
+			<Pressable style={[DefaultStyles.primaryButton, styles.actionButton]} onPress={() => performanceMonitor.logReport()}>
+				<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+					Log Full Report
+				</Text>
+			</Pressable>
 
-						<Div transparent style={styles.section}>
-							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
-								Key Metrics
-							</Text>
-							<Text type='bodySM' style={styles.metric}>
-								playSound avg: {avgPlaySound.toFixed(2)}ms
-							</Text>
-							<Text type='bodySM' style={styles.metric}>
-								skipToNext avg: {avgSkip.toFixed(2)}ms
-							</Text>
-							<Text type='bodySM' style={styles.metric}>
-								Total metrics: {metrics.length}
-							</Text>
-						</Div>
+			<Pressable
+				style={[DefaultStyles.primaryButton, styles.actionButton]}
+				onPress={() => {
+					performanceMonitor.clear();
+					setMetrics([]);
+				}}
+			>
+				<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+					Clear Metrics
+				</Text>
+			</Pressable>
 
-						<Div transparent style={styles.section}>
-							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
-								Slowest Operations
-							</Text>
-							{slowest.map((m, i) => (
-								<Text key={i} type='bodySM' style={styles.metric}>
-									{m.name}: {m.duration.toFixed(2)}ms
-								</Text>
-							))}
-						</Div>
-
-						<Pressable style={[DefaultStyles.primaryButton, styles.debugButton]} onPress={() => performanceMonitor.logReport()}>
-							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
-								Log Full Report
-							</Text>
-						</Pressable>
-
-						<Pressable
-							style={[DefaultStyles.primaryButton, styles.debugButton]}
-							onPress={() => {
-								performanceMonitor.clear();
-								setMetrics([]);
-							}}
-						>
-							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
-								Clear Metrics
-							</Text>
-						</Pressable>
-
-						<Pressable
-							style={[DefaultStyles.primaryButton, styles.debugButton]}
-							onPress={() => {
-								console.log(performanceMonitor.generateSummary());
-								console.log('\n📋 Full JSON Export:\n', performanceMonitor.exportMetrics());
-							}}
-						>
-							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
-								Export for Analysis
-							</Text>
-						</Pressable>
-					</ScrollView>
-				</Div>
-			)}
-		</>
+			<Pressable
+				style={[DefaultStyles.primaryButton, styles.actionButton]}
+				onPress={() => {
+					console.log(performanceMonitor.generateSummary());
+					console.log('\n📋 Full JSON Export:\n', performanceMonitor.exportMetrics());
+				}}
+			>
+				<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+					Export for Analysis
+				</Text>
+			</Pressable>
+		</Div>
 	);
 }
 
 const styles = StyleSheet.create({
-	toggleButton: {
-		position: 'absolute',
-		top: 64,
-		right: 10,
-		padding: 8,
-		borderRadius: 8,
-		zIndex: 9999,
-	},
-	toggleButtonText: {
-		fontSize: 12,
-		fontWeight: 'bold',
-	},
-	container: {
-		position: 'absolute',
-		top: 94,
-		right: 10,
-		width: 300,
-		maxHeight: 400,
-		backgroundColor: 'rgba(0, 0, 0, 0.7)',
-		borderRadius: 8,
-		padding: 12,
-		zIndex: 9998,
-	},
-	scrollView: {
-		maxHeight: 380,
-	},
-	title: {
-		marginBottom: 12,
+	wrapper: {
+		marginTop: 16,
 	},
 	section: {
 		marginBottom: 16,
@@ -213,7 +165,7 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		marginBottom: 4,
 	},
-	debugButton: {
+	actionButton: {
 		paddingVertical: 10,
 		paddingHorizontal: 16,
 		borderRadius: 6,

@@ -857,6 +857,7 @@ export class PlexClient {
 			leafCount: parseInt(playlist.leafCount || '0', 10),
 			createdAt: playlist.addedAt,
 			updatedAt: playlist.updatedAt,
+			lastViewedAt: playlist.lastViewedAt ? parseInt(playlist.lastViewedAt) : undefined,
 			smart: playlist.smart === '1',
 			composite: playlist.composite,
 			ratingKey: playlist.ratingKey,

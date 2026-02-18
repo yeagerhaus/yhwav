@@ -10,7 +10,6 @@ LogBox.ignoreAllLogs();
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
-import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
@@ -96,7 +95,6 @@ export default function RootLayout() {
 	const colorScheme = useColorScheme();
 	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
-	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
@@ -154,73 +152,62 @@ export default function RootLayout() {
 				if (authLoaded && plexAuthService.isAuthenticated()) {
 					initScrobbleQueue().catch(() => {});
 
-					const fetchAlbumsAndArtists = () => {
-						fetchAllAlbums()
-							.then((albums) => setAlbums(albums))
-							.catch((err) => console.warn('⚠️ Failed to fetch albums:', err));
-						fetchAllArtists()
-							.then((artists) => setArtists(artists))
-							.catch((err) => console.warn('⚠️ Failed to fetch artists:', err));
-						fetchAllPlaylists()
-							.then((playlists) => setPlaylists(playlists))
-							.catch((err) => console.warn('⚠️ Failed to fetch playlists:', err));
-						fetchRecentlyPlayed(25)
-							.then((songs) => setRecentlyPlayed(songs))
-							.catch((err) => console.warn('⚠️ Failed to fetch recently played:', err));
+					const backgroundRefreshAll = () => {
+						Promise.all([
+							fetchAllTracks(),
+							fetchAllAlbums(),
+							fetchAllArtists(),
+							fetchAllPlaylists(),
+						fetchRecentlyPlayed(15),
+					])
+						.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
+							if (tracks.length > 0) setTracks(tracks);
+							if (albums.length > 0) setAlbums(albums);
+							if (artists.length > 0) setArtists(artists);
+							if (playlists.length > 0) setPlaylists(playlists);
+							if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
+							console.log(`🔄 Background refresh complete: ${tracks.length} tracks`);
+								InteractionManager.runAfterInteractions(() => {
+									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+								});
+							})
+							.catch((err) => console.warn('⚠️ Background refresh failed:', err));
 					};
 
-					// Only fetch fresh tracks if we don't have cache, or do it much later in background
 					if (!hydrated) {
-						// No cache - fetch immediately
-						fetchAlbumsAndArtists();
-						fetchAllTracks()
-							.then((fetchedTracks) => {
-								if (fetchedTracks.length > 0) {
-									console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
-									setTracks(fetchedTracks);
-									// Retry playback restoration: initial restore may have failed
-									// because the library wasn't cached when initializePlayer ran.
-									if (!useAudioStore.getState().currentSong) {
-										useAudioStore
-											.getState()
-											.restorePlaybackState()
-											.catch(() => {});
-									}
-									// Defer cache save so the UI renders before JSON.stringify blocks
-									InteractionManager.runAfterInteractions(() => {
-										saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-									});
+						Promise.all([
+							fetchAllTracks(),
+							fetchAllAlbums(),
+							fetchAllArtists(),
+							fetchAllPlaylists(),
+						fetchRecentlyPlayed(15),
+					])
+						.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
+							if (tracks.length > 0) setTracks(tracks);
+							if (albums.length > 0) setAlbums(albums);
+							if (artists.length > 0) setArtists(artists);
+							if (playlists.length > 0) setPlaylists(playlists);
+							if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
+							console.log(`✅ Initial fetch complete: ${tracks.length} tracks`);
+								if (!useAudioStore.getState().currentSong) {
+									useAudioStore
+										.getState()
+										.restorePlaybackState()
+										.catch(() => {});
 								}
+								InteractionManager.runAfterInteractions(() => {
+									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+								});
 							})
 							.catch((error) => {
-								console.error('❌ Failed to fetch tracks:', error);
+								console.error('❌ Failed to fetch library:', error);
 								testPlexServer().catch(() => {
 									console.warn('⚠️ Cannot connect to Plex server');
 								});
 							});
 					} else {
-						// We have cache for tracks - but albums/artists aren't cached, fetch now
-						fetchAlbumsAndArtists();
-						// Fetch fresh track data in background much later (5 minutes)
-						// This prevents the double-loading issue
-						setTimeout(
-							() => {
-								fetchAllTracks()
-									.then((fetchedTracks) => {
-										if (fetchedTracks.length > 0) {
-											console.log(`🔄 Background refresh: Fetched ${fetchedTracks.length} tracks`);
-											setTracks(fetchedTracks);
-											InteractionManager.runAfterInteractions(() => {
-												saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-											});
-										}
-									})
-									.catch((error) => {
-										console.warn('⚠️ Background refresh failed (using cache):', error);
-									});
-							},
-							5 * 60 * 1000,
-						); // 5 minutes - user won't notice
+						// Cache loaded -- defer full refresh to background (5 min)
+						setTimeout(backgroundRefreshAll, 5 * 60 * 1000);
 					}
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');
@@ -240,8 +227,7 @@ export default function RootLayout() {
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />
-					<AddToPlaylistModal />
-					{__DEV__ && showPerformanceDebugger && <PerformanceDebugger />}
+				<AddToPlaylistModal />
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>
