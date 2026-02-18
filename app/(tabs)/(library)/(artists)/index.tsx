@@ -3,12 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors } from '@/constants/styles';
-import { useArtists } from '@/hooks/useArtists';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Artist } from '@/types';
 
 export default function ArtistsScreen() {
 	const _router = useRouter();
-	const { artists } = useArtists();
+	const { artists } = useOfflineFilteredLibrary();
 
 	const sorted = useMemo(() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })), [artists]);
 

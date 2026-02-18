@@ -3,12 +3,14 @@ import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { createPlaylist } from '@/utils/plex';
 
 export default function PlaylistsScreen() {
-	const { playlists, isLoading } = usePlaylists();
+	const { playlists: rawPlaylists, isLoading } = usePlaylists();
+	const { playlists } = useOfflineFilteredLibrary();
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
 	const hasNoPlaylists = useMemo(() => !playlists.length, [playlists]);
 
@@ -34,7 +36,7 @@ export default function PlaylistsScreen() {
 				if (!name?.trim()) return;
 				const newPlaylist = await createPlaylist(name.trim());
 				if (newPlaylist) {
-					setPlaylists([...playlists, newPlaylist]);
+					setPlaylists([...rawPlaylists, newPlaylist]);
 					router.push({
 						// @ts-expect-error
 						pathname: '(library)/(playlists)/[playlistId]',
@@ -45,7 +47,7 @@ export default function PlaylistsScreen() {
 		} else {
 			Alert.alert('New Playlist', 'Enter a name for your playlist');
 		}
-	}, [playlists, setPlaylists]);
+	}, [rawPlaylists, setPlaylists]);
 
 	const keyExtractor = useCallback((item: (typeof formattedPlaylists)[0]) => item.id.toString(), [formattedPlaylists]);
 

@@ -3,6 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors } from '@/constants';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 
 type FormattedShow = {
@@ -15,6 +17,8 @@ type FormattedShow = {
 export default function PodcastsScreen() {
 	const { feeds, episodesByFeedId, isLoading, addFeed, fetchAllFeeds } = usePodcastStore();
 	const [refreshing, setRefreshing] = useState(false);
+	const isOffline = useOfflineModeStore((s) => s.offlineMode);
+	const downloads = usePodcastDownloadsStore((s) => s.downloads);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
@@ -37,20 +41,24 @@ export default function PodcastsScreen() {
 		}
 	}, [addFeed]);
 
-	const formattedShows: FormattedShow[] = useMemo(
-		() =>
-			feeds.map((feed) => {
-				const episodes = episodesByFeedId[feed.id] || [];
-				const episodeArt = episodes.find((ep) => ep.imageUrl)?.imageUrl;
-				return {
-					id: feed.id,
-					title: feed.title || feed.url,
-					artwork: feed.imageUrl || episodeArt || '',
-					count: episodes.length,
-				};
-			}),
-		[feeds, episodesByFeedId],
-	);
+	const formattedShows: FormattedShow[] = useMemo(() => {
+		const feedIdsWithDownloads = new Set(Object.values(downloads).map((d) => d.feedId));
+		const feedsToShow = isOffline ? feeds.filter((f) => feedIdsWithDownloads.has(f.id)) : feeds;
+		return feedsToShow.map((feed) => {
+			const episodes = episodesByFeedId[feed.id] || [];
+			const downloadedForFeed = isOffline
+				? Object.values(downloads).filter((d) => d.feedId === feed.id)
+				: null;
+			const count = isOffline && downloadedForFeed ? downloadedForFeed.length : episodes.length;
+			const episodeArt = episodes.find((ep) => ep.imageUrl)?.imageUrl ?? downloadedForFeed?.[0]?.imageUrl;
+			return {
+				id: feed.id,
+				title: feed.title || feed.url,
+				artwork: feed.imageUrl || episodeArt || '',
+				count,
+			};
+		});
+	}, [feeds, episodesByFeedId, isOffline, downloads]);
 
 	const keyExtractor = useCallback((item: FormattedShow) => item.id, []);
 	const renderItem = useCallback(({ item }: { item: FormattedShow }) => <DynamicItem item={item} type='podcast' />, []);

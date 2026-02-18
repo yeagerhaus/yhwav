@@ -2,6 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo } from 'react';
 import { FlatList, Image } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { toPlayableSong } from '@/types';
@@ -13,6 +14,7 @@ const ITEM_HEIGHT = 70;
 export default function PodcastFeedScreen() {
 	const { feedId } = useLocalSearchParams<{ feedId: string }>();
 	const { feeds, episodesByFeedId, fetchFeed } = usePodcastStore();
+	const isOffline = useOfflineModeStore((s) => s.offlineMode);
 	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 
@@ -20,11 +22,11 @@ export default function PodcastFeedScreen() {
 	const fetchedEpisodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
 	const downloadedOnly = useMemo(() => (feedId ? getDownloadedEpisodesForFeed(feedId) : []), [feedId, getDownloadedEpisodesForFeed]);
 
-	// When offline or fetch failed: show only downloaded episodes for this feed
-	const episodes = useMemo(
-		(): (PodcastEpisode | PodcastDownload)[] => (fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly),
-		[fetchedEpisodes, downloadedOnly],
-	);
+	// When offline: show only downloaded episodes. Otherwise show fetched or fallback to downloaded.
+	const episodes = useMemo((): (PodcastEpisode | PodcastDownload)[] => {
+		if (isOffline) return downloadedOnly;
+		return fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly;
+	}, [isOffline, fetchedEpisodes, downloadedOnly]);
 
 	// Fetch feed when opening and we don't have episodes yet (so online we get list; offline we'll show downloaded)
 	useEffect(() => {

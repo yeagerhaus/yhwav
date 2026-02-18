@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { useAlbums } from '@/hooks/useAlbums';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 
 export default function AlbumsScreen() {
-	const { albums } = useAlbums();
+	const { albums } = useOfflineFilteredLibrary();
 
 	const sorted = useMemo(
 		() =>

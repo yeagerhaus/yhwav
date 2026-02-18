@@ -56,7 +56,7 @@ const PodcastEpisodeItem = React.memo(
 		const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
 		const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
 
-		const _isCurrentSong = useMemo(() => currentSong?.id === episode.id, [episode.id, currentSong?.id]);
+		const isCurrentSong = useMemo(() => currentSong?.id === episode.id, [episode.id, currentSong?.id]);
 
 		const localUri = useMemo(() => (isDownload(episode) ? episode.localUri : getLocalUri(episode.id)), [episode, getLocalUri]);
 
@@ -97,7 +97,7 @@ const PodcastEpisodeItem = React.memo(
 					transparent
 				>
 					<Div style={styles.titleRow} transparent>
-						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1 }]}>
+						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1, color: isCurrentSong ? Colors.brandPrimary : Colors.white }]}>
 							{episode.title}
 						</Text>
 						{_feed != null && (
@@ -137,11 +137,6 @@ const PodcastEpisodeItem = React.memo(
 							{subtitle}
 						</Text>
 					</Div>
-					{canResume && progressPercent > 0 && (
-						<View style={styles.progressTrack}>
-							<View style={[styles.progressFill, { width: `${progressPercent * 100}%` }]} />
-						</View>
-					)}
 				</Div>
 			</Pressable>
 		);
@@ -196,7 +191,7 @@ const styles = StyleSheet.create({
 	subtitle: {
 		fontWeight: '400',
 		opacity: 0.6,
-		marginTop: -4,
+		marginBottom: 8,
 	},
 	resumeLabel: {
 		color: Colors.brandPrimary,
