@@ -9,6 +9,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 
 const { width } = Dimensions.get('window');
 
@@ -23,50 +24,76 @@ export const SongInfo = React.memo(() => {
 	const artwork = currentSong.artworkUrl || currentSong.artwork;
 	const title = currentSong.title;
 	const artist = currentSong.artist;
+	const isPodcast = currentSong.source === 'podcast';
 
 	// Find matching artist/album by name to get their ratingKey for navigation
 	const matchedArtist = artists.find((a) => a.name === currentSong.artist);
 	const matchedAlbum = albums.find((a) => a.title === currentSong.album && a.artist === currentSong.artist);
 
-	const menuItems: ContextMenuItem[] = [
-		{
-			label: 'Add to Playlist',
-			systemImage: 'plus.circle',
-			onPress: () => {
-				if (!currentSong) return;
-				openAddToPlaylist(`${currentSong.title} — ${currentSong.artist}`, [currentSong.id]);
-			},
-		},
-		{
-			label: 'Go to Album',
-			systemImage: 'square.stack',
-			onPress: () => {
-				if (matchedAlbum) {
-					router.back();
-					setTimeout(() => {
-						router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
-					}, 100);
-				}
-			},
-		},
-		{
-			label: 'Go to Artist',
-			systemImage: 'person.circle',
-			onPress: () => {
-				if (matchedArtist) {
-					router.back();
-					setTimeout(() => {
-						router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
-					}, 100);
-				}
-			},
-		},
-		{
-			label: 'Share',
-			systemImage: 'square.and.arrow.up',
-			onPress: () => console.log('Share'),
-		},
-	];
+	const markAsPlayed = usePodcastProgressStore((state) => state.markAsPlayed);
+
+	const menuItems: ContextMenuItem[] = isPodcast
+		? [
+				{
+					label: 'Mark as played',
+					systemImage: 'checkmark.circle',
+					onPress: () => {
+						if (currentSong) markAsPlayed(currentSong.id);
+					},
+				},
+				{
+					label: 'Open in Podcasts',
+					systemImage: 'link.circle',
+					onPress: () => {
+						router.back();
+						setTimeout(() => router.push('/(tabs)/(podcasts)'), 100);
+					},
+				},
+				{
+					label: 'Share',
+					systemImage: 'square.and.arrow.up',
+					onPress: () => console.log('Share'),
+				},
+			]
+		: [
+				{
+					label: 'Add to Playlist',
+					systemImage: 'plus.circle',
+					onPress: () => {
+						if (!currentSong) return;
+						openAddToPlaylist(`${currentSong.title} — ${currentSong.artist}`, [currentSong.id]);
+					},
+				},
+				{
+					label: 'Go to Album',
+					systemImage: 'square.stack',
+					onPress: () => {
+						if (matchedAlbum) {
+							router.back();
+							setTimeout(() => {
+								router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
+							}, 100);
+						}
+					},
+				},
+				{
+					label: 'Go to Artist',
+					systemImage: 'person.circle',
+					onPress: () => {
+						if (matchedArtist) {
+							router.back();
+							setTimeout(() => {
+								router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
+							}, 100);
+						}
+					},
+				},
+				{
+					label: 'Share',
+					systemImage: 'square.and.arrow.up',
+					onPress: () => console.log('Share'),
+				},
+			];
 
 	return (
 		<>

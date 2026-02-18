@@ -7,7 +7,7 @@ import { Text } from '../Text';
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;
 
-interface PlaylistItemProps {
+interface PodcastShowItemProps {
 	item: {
 		id: string;
 		title: string;
@@ -17,7 +17,7 @@ interface PlaylistItemProps {
 	size?: number;
 }
 
-export default function PlaylistItem({ item, size }: PlaylistItemProps) {
+export default function PodcastShowItem({ item, size }: PodcastShowItemProps) {
 	const s = size ?? itemSize;
 	const iconSize = Math.round(60 * (s / itemSize));
 	return (
@@ -26,8 +26,8 @@ export default function PlaylistItem({ item, size }: PlaylistItemProps) {
 			onPress={() =>
 				router.push({
 					// @ts-expect-error
-					pathname: '(library)/(playlists)/[playlistId]',
-					params: { playlistId: item.id },
+					pathname: '(podcasts)/[feedId]',
+					params: { feedId: item.id },
 				})
 			}
 		>
@@ -45,13 +45,13 @@ export default function PlaylistItem({ item, size }: PlaylistItemProps) {
 						size != null && { width: s, height: s },
 					]}
 				>
-					<SymbolView name='music.note' size={iconSize} type='hierarchical' tintColor='#ddd' />
+					<SymbolView name='mic.fill' size={iconSize} type='hierarchical' tintColor='#ddd' />
 				</Div>
 			)}
 			<Text style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.title}
 			</Text>
-			<Text style={styles.count}>{item.count} songs</Text>
+			<Text style={styles.count}>{item.count} episodes</Text>
 		</Pressable>
 	);
 }
@@ -72,11 +72,6 @@ const styles = StyleSheet.create({
 	name: {
 		fontSize: 14,
 		fontWeight: '600',
-		textAlign: 'center',
-		maxWidth: itemSize,
-	},
-	artist: {
-		fontSize: 14,
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},

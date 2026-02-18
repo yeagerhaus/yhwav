@@ -56,5 +56,5 @@ const styles = StyleSheet.create({
 	},
 	initialText: { fontSize: 20, fontWeight: 'bold', color: 'white' },
 	name: { fontSize: 18, fontWeight: '500' },
-	genres: { fontSize: 14, color: '#666' },
+	genres: { fontSize: 14 },
 });

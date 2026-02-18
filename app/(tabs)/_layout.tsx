@@ -15,12 +15,20 @@ export default function TabLayout() {
 			}}
 		>
 			<NativeTabs.Trigger name='(library)'>
-				<Label>Library</Label>
 				<Icon
-					// @ts-ignore biome-ignore lint/suspicious/noExplicitAny: <these are valid icons, just not typed>
+					// @ts-expect-error <these are valid icons, just not typed>
 					sf={{ default: 'music.note.square.stack', selected: 'music.note.square.stack.fill' }}
 					selectedColor={Colors.brandPrimary}
 				/>
+				<Label>Library</Label>
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name='(podcasts)'>
+				<Icon 
+					// @ts-expect-error <these are valid icons, just not typed>
+					sf={{ default: 'apple.podcasts.pages.fill', selected: 'apple.podcasts.pages.fill' }} 
+					selectedColor={Colors.brandPrimary} 
+				/>
+				<Label>Podcasts</Label>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='settings'>
 				<Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} selectedColor={Colors.brandPrimary} />

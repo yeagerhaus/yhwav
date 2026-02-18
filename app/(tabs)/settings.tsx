@@ -5,6 +5,7 @@ import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -22,6 +23,8 @@ export default function SettingsScreen() {
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
+	const offlineMode = useOfflineModeStore((state) => state.offlineMode);
+	const setOfflineMode = useOfflineModeStore((state) => state.setOfflineMode);
 
 	useEffect(() => {
 		// Load existing auth state
@@ -215,6 +218,22 @@ export default function SettingsScreen() {
 					</Div>
 
 					{renderServerList()}
+
+					<Div style={[DefaultStyles.section, styles.devSection]} transparent>
+						<Text type="h3" style={DefaultStyles.sectionTitle}>Offline mode</Text>
+						<Text style={[DefaultStyles.sectionDescription, { marginBottom: 8 }]}>
+							Use only cached data and downloads; no new fetches for library or podcasts.
+						</Text>
+						<Div style={styles.switchRow} transparent>
+							<Text type="body">Offline mode</Text>
+							<Switch
+								value={offlineMode}
+								onValueChange={setOfflineMode}
+								trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
+								thumbColor={offlineMode ? Colors.brandPrimary : Colors.textMuted}
+							/>
+						</Div>
+					</Div>
 
 					<TouchableOpacity
 						style={[DefaultStyles.cancelButton, styles.clearCacheBorder, isLoading && DefaultStyles.buttonDisabled]}

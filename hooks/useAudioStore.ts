@@ -80,6 +80,8 @@ interface AudioState {
 	skipToNext: () => Promise<void>;
 	skipToPrevious: () => Promise<void>;
 	seekTo: (position: number) => Promise<void>;
+	skipBackward15: () => Promise<void>;
+	skipForward15: () => Promise<void>;
 
 	// Queue management
 	addToQueue: (songs: Song[]) => Promise<void>;
@@ -203,6 +205,49 @@ function songToTrack(song: Song) {
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
 	};
+}
+
+/** If current song is a podcast with saved progress, seek to resume position. */
+async function maybeResumePodcast(song: Song): Promise<void> {
+	if (song.source !== 'podcast') return;
+	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+	const progress = usePodcastProgressStore.getState().getProgress(song.id);
+	if (progress && !progress.completed && progress.position > 10) {
+		await TrackPlayer.seekTo(progress.position);
+	}
+}
+
+// Podcast progress: debounced save while playing (latest position), immediate save on pause
+let podcastProgressTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingPodcastProgress: { episodeId: string; position: number; duration: number } | null = null;
+const PODCAST_PROGRESS_DEBOUNCE_MS = 3000;
+
+function schedulePodcastProgressSave(episodeId: string, position: number, duration: number) {
+	pendingPodcastProgress = { episodeId, position, duration };
+	if (podcastProgressTimeout == null) {
+		podcastProgressTimeout = setTimeout(() => {
+			if (pendingPodcastProgress) {
+				const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+				usePodcastProgressStore.getState().saveProgress(
+					pendingPodcastProgress.episodeId,
+					pendingPodcastProgress.position,
+					pendingPodcastProgress.duration,
+				);
+				pendingPodcastProgress = null;
+			}
+			podcastProgressTimeout = null;
+		}, PODCAST_PROGRESS_DEBOUNCE_MS);
+	}
+}
+
+function savePodcastProgressImmediate(episodeId: string, position: number, duration: number) {
+	if (podcastProgressTimeout) {
+		clearTimeout(podcastProgressTimeout);
+		podcastProgressTimeout = null;
+	}
+	pendingPodcastProgress = null;
+	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+	usePodcastProgressStore.getState().saveProgress(episodeId, position, duration);
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -435,6 +480,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						if (trackIndex !== -1) {
 							await TrackPlayer.skip(trackIndex);
 						}
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else if (newQueue) {
 						// New queue — reset and load
@@ -451,12 +497,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						saveQueueState(queueToUse, newQueue, song);
 						set({ queue: queueToUse, originalQueue: newQueue });
 
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else {
 						// Single song
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
 						set({ queue: [song], originalQueue: [song] });
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					}
 				} catch (error) {
@@ -561,6 +609,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
+	},
+
+	skipBackward15: async () => {
+		const { position, seekTo } = get();
+		await seekTo(Math.max(0, position - 15));
+	},
+
+	skipForward15: async () => {
+		const { position, duration, seekTo } = get();
+		await seekTo(Math.min(duration, position + 15));
 	},
 
 	// Add to queue
@@ -784,6 +842,11 @@ export function useTrackPlayerSync() {
 			state._setIsPlaying(true);
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
+			// Save podcast progress immediately on pause so resume position is accurate
+			if (state.currentSong?.source === 'podcast') {
+				const s = useAudioStore.getState();
+				savePodcastProgressImmediate(state.currentSong.id, s.position, s.duration);
+			}
 		}
 
 		// Handle buffering
@@ -840,6 +903,11 @@ export function useTrackPlayerSync() {
 						}
 					}
 				}
+
+				// Save podcast progress (debounced) so we can resume later
+				if (state.currentSong?.source === 'podcast') {
+					schedulePodcastProgressSave(state.currentSong.id, position, duration);
+				}
 			}
 
 			if (event.type === Event.PlaybackQueueEnded) {
@@ -855,6 +923,11 @@ export function useTrackPlayerSync() {
 
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
+
+				// Mark previous track as completed if it was a podcast (e.g. episode finished)
+				if (state.currentSong?.source === 'podcast') {
+					savePodcastProgressImmediate(state.currentSong.id, state.duration, state.duration);
+				}
 
 				const previousSongId = state.currentSong?.id ?? null;
 				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
