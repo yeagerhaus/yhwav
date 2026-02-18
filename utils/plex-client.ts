@@ -3,8 +3,11 @@ import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
+import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
+
+const OFFLINE_MODE_MESSAGE = 'Offline mode is on. Disable in Settings to fetch library data.';
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -52,6 +55,9 @@ export class PlexClient {
 	 * Initialize the client with authentication (cached to avoid repeated calls)
 	 */
 	async initialize(): Promise<void> {
+		if (getIsOfflineMode()) {
+			throw new Error(OFFLINE_MODE_MESSAGE);
+		}
 		// Return cached promise if already initializing
 		if (this.initPromise) {
 			return this.initPromise;
@@ -264,6 +270,9 @@ export class PlexClient {
 			retries?: number;
 		} = {},
 	): Promise<PlexResponse<T>> {
+		if (getIsOfflineMode()) {
+			throw new Error(OFFLINE_MODE_MESSAGE);
+		}
 		const { method = 'GET', headers = {}, timeout = TIMEOUT_CONFIG.requestTimeout, retries = RETRY_CONFIG.maxRetries } = options;
 
 		const url = this.buildURL(path, params);

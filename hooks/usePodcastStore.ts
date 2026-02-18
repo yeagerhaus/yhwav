@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import type { PodcastEpisode, PodcastFeed } from '@/types';
+import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import { fetchAndParseFeed } from '@/utils/podcast-rss';
 
 const STORAGE_KEY = 'PODCAST_RSS_FEEDS';
@@ -79,6 +80,11 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 		const trimmed = url.trim();
 		if (!trimmed) return;
 
+		if (getIsOfflineMode()) {
+			set({ error: 'Offline mode is on. Disable in Settings to add feeds.' });
+			return;
+		}
+
 		const { feeds } = get();
 		if (feeds.some((f) => f.url === trimmed)) {
 			set({ error: 'Feed already added' });
@@ -123,6 +129,10 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 	},
 
 	fetchFeed: async (urlOrId: string) => {
+		if (getIsOfflineMode()) {
+			set({ error: 'Offline mode is on.' });
+			return;
+		}
 		const { feeds, episodesByFeedId } = get();
 		const feed = feeds.find((f) => f.id === urlOrId || f.url === urlOrId);
 		const url = feed?.url ?? urlOrId;
@@ -166,6 +176,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 	},
 
 	fetchAllFeeds: async () => {
+		if (getIsOfflineMode()) return;
 		const { feeds } = get();
 		if (feeds.length === 0) return;
 
