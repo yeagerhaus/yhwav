@@ -19,6 +19,7 @@ import { performanceMonitor } from '@/utils/performance';
 export const STORAGE_QUEUE_KEY = 'SONG_QUEUE';
 export const STORAGE_ORIGINAL_QUEUE_KEY = 'ORIGINAL_QUEUE';
 export const STORAGE_SONG_KEY = 'CURRENT_SONG';
+export const STORAGE_SONG_DATA_KEY = 'CURRENT_SONG_DATA'; // full Song JSON for offline fallback
 export const STORAGE_POSITION_KEY = 'CURRENT_POSITION';
 export const STORAGE_REPEAT_MODE_KEY = 'REPEAT_MODE';
 export const STORAGE_SHUFFLE_KEY = 'SHUFFLE_MODE';
@@ -40,8 +41,9 @@ function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song 
 	Promise.all(ops).catch(() => {});
 }
 
-function saveCurrentSongId(song: Song) {
+function saveCurrentSong(song: Song) {
 	AsyncStorage.setItem(STORAGE_SONG_KEY, song.id).catch(() => {});
+	AsyncStorage.setItem(STORAGE_SONG_DATA_KEY, JSON.stringify(song)).catch(() => {});
 }
 
 function resolveIdsToSongs(ids: string[]): Song[] {
@@ -113,6 +115,7 @@ interface AudioState {
 
 	// Initialization
 	initializePlayer: () => Promise<void>;
+	restorePlaybackState: () => Promise<void>;
 }
 
 // Fisher-Yates shuffle algorithm
@@ -317,23 +320,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				progressUpdateEventInterval: 0.5,
 			});
 
-			// Restore saved state
+			// Restore saved settings
 			try {
 				const [
-					savedSongStr,
-					savedQueueStr,
-					savedOriginalQueueStr,
-					savedPosStr,
 					savedRepeatStr,
 					savedShuffleStr,
 					savedVolumeStr,
 					savedRateStr,
 					savedSleepTimerEndsAtStr,
 				] = await Promise.all([
-					AsyncStorage.getItem(STORAGE_SONG_KEY),
-					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
-					AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
-					AsyncStorage.getItem(STORAGE_POSITION_KEY),
 					AsyncStorage.getItem(STORAGE_REPEAT_MODE_KEY),
 					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
 					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
@@ -373,77 +368,104 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					}
 				}
 
-				// Restore queue and current song from IDs
-				if (savedQueueStr && savedSongStr) {
-					const parsed = JSON.parse(savedQueueStr);
-					// Handle both old format (Song[]) and new format (string[])
-					const queueIds: string[] =
-						Array.isArray(parsed) && typeof parsed[0] === 'string'
-							? parsed
-							: Array.isArray(parsed)
-								? parsed.map((s: any) => s.id)
-								: [];
-
-					const queue = resolveIdsToSongs(queueIds);
-
-					// Resolve current song — new format is plain ID, old format is JSON object
-					let currentSong: Song | null = null;
-					try {
-						const songParsed = JSON.parse(savedSongStr);
-						const songId = typeof songParsed === 'string' ? songParsed : songParsed?.id;
-						if (songId) {
-							const { useLibraryStore } = require('@/hooks/useLibraryStore');
-							currentSong = useLibraryStore.getState().songsById[songId] || null;
-						}
-					} catch {
-						// savedSongStr is a plain ID string (new format)
-						const { useLibraryStore } = require('@/hooks/useLibraryStore');
-						currentSong = useLibraryStore.getState().songsById[savedSongStr] || null;
-					}
-
-					if (queue.length > 0 && currentSong) {
-						const position = savedPosStr ? Number(savedPosStr) : 0;
-
-						// Restore original queue if available
-						if (savedOriginalQueueStr) {
-							const origParsed = JSON.parse(savedOriginalQueueStr);
-							const origIds: string[] =
-								Array.isArray(origParsed) && typeof origParsed[0] === 'string'
-									? origParsed
-									: Array.isArray(origParsed)
-										? origParsed.map((s: any) => s.id)
-										: [];
-							set({ originalQueue: resolveIdsToSongs(origIds) });
-						}
-
-						await TrackPlayer.add(queue.map(songToTrack));
-
-						const trackIndex = queue.findIndex((s) => s.id === currentSong!.id);
-						if (trackIndex !== -1) {
-							await TrackPlayer.skip(trackIndex);
-							if (position > 0) {
-								await TrackPlayer.seekTo(position);
-							}
-						}
-
-						const color = await extractArtworkColor(currentSong);
-
-						set({
-							currentSong,
-							queue,
-							position,
-							artworkBgColor: color,
-						});
-
-						console.log('✅ Restored playback state');
-					}
-				}
+				await get().restorePlaybackState();
 			} catch (err) {
 				console.warn('Failed to restore playback state:', err);
 			}
 		} catch (err) {
 			console.error('Failed to initialize TrackPlayer:', err);
 			set({ error: 'Failed to initialize audio player' });
+		}
+	},
+
+	// Restore queue + current song + position from AsyncStorage.
+	// Safe to call multiple times — bails early if a song is already loaded.
+	// Falls back to a single-song queue if the library isn't hydrated yet (shows mini player).
+	restorePlaybackState: async () => {
+		if (get().currentSong !== null) return;
+
+		try {
+			const [savedSongStr, savedSongDataStr, savedQueueStr, savedOriginalQueueStr, savedPosStr] =
+				await Promise.all([
+					AsyncStorage.getItem(STORAGE_SONG_KEY),
+					AsyncStorage.getItem(STORAGE_SONG_DATA_KEY),
+					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
+					AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
+					AsyncStorage.getItem(STORAGE_POSITION_KEY),
+				]);
+
+			if (!savedSongStr && !savedSongDataStr) return;
+
+			// Resolve current song: library lookup first, then fall back to stored full JSON
+			let currentSong: Song | null = null;
+			if (savedSongStr) {
+				try {
+					const songParsed = JSON.parse(savedSongStr);
+					const songId = typeof songParsed === 'string' ? songParsed : songParsed?.id;
+					if (songId) {
+						const { useLibraryStore } = require('@/hooks/useLibraryStore');
+						currentSong = useLibraryStore.getState().songsById[songId] || null;
+					}
+				} catch {
+					const { useLibraryStore } = require('@/hooks/useLibraryStore');
+					currentSong = useLibraryStore.getState().songsById[savedSongStr] || null;
+				}
+			}
+			if (!currentSong && savedSongDataStr) {
+				try { currentSong = JSON.parse(savedSongDataStr) as Song; } catch {}
+			}
+			if (!currentSong) return;
+
+			const position = savedPosStr ? Number(savedPosStr) : 0;
+
+			// Resolve full queue from library; fall back to single-song queue
+			let queue: Song[] = [];
+			if (savedQueueStr) {
+				try {
+					const parsed = JSON.parse(savedQueueStr);
+					const queueIds: string[] =
+						Array.isArray(parsed) && typeof parsed[0] === 'string'
+							? parsed
+							: Array.isArray(parsed) ? parsed.map((s: any) => s.id) : [];
+					queue = resolveIdsToSongs(queueIds);
+				} catch {}
+			}
+
+			const isPartialRestore = queue.length === 0;
+			if (isPartialRestore) {
+				queue = [currentSong]; // library not ready; mini player + single-song playback
+			} else if (savedOriginalQueueStr) {
+				try {
+					const origParsed = JSON.parse(savedOriginalQueueStr);
+					const origIds: string[] =
+						Array.isArray(origParsed) && typeof origParsed[0] === 'string'
+							? origParsed
+							: Array.isArray(origParsed) ? origParsed.map((s: any) => s.id) : [];
+					const resolvedOrig = resolveIdsToSongs(origIds);
+					if (resolvedOrig.length > 0) set({ originalQueue: resolvedOrig });
+				} catch {}
+			}
+
+			await TrackPlayer.add(queue.map(songToTrack));
+
+			const trackIndex = queue.findIndex((s) => s.id === currentSong!.id);
+			if (trackIndex !== -1) {
+				await TrackPlayer.skip(trackIndex);
+				if (position > 0) await TrackPlayer.seekTo(position);
+				// Restore paused: do not auto-play on app reload; wait for user to tap play.
+				await TrackPlayer.pause();
+			}
+
+			const color = await extractArtworkColor(currentSong);
+			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
+
+			if (isPartialRestore) {
+				console.log('⚠️ Partial restore (library not cached): showing last track, full queue pending');
+			} else {
+				console.log(`✅ Restored playback state (${queue.length} tracks)`);
+			}
+		} catch (err) {
+			console.warn('Failed to restore playback state:', err);
 		}
 	},
 
@@ -456,7 +478,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				try {
 					// Update UI immediately — don't wait for TrackPlayer
 					set({ error: null, currentSong: song });
-					saveCurrentSongId(song);
+					saveCurrentSong(song);
 					AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
 					// Fire-and-forget artwork color extraction
@@ -946,7 +968,7 @@ export function useTrackPlayerSync() {
 				state._setCurrentSong(newCurrentSong);
 
 				// Persist & extract color asynchronously
-				saveCurrentSongId(newCurrentSong);
+				saveCurrentSong(newCurrentSong);
 				extractArtworkColor(newCurrentSong)
 					.then((color) => useAudioStore.getState()._setArtworkBgColor(color))
 					.catch(() => {});

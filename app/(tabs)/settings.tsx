@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Switch, TextInput, TouchableOpacity, useColorScheme } from 'react-native';
+import { ActivityIndicator, Alert, Image, StyleSheet, Switch, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
@@ -212,9 +212,20 @@ export default function SettingsScreen() {
 
 			{authState.isAuthenticated ? (
 				<Div flex={1} transparent style={{ gap: 24 }}>
-					<Div style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-						<Text type='h4'>Connected as: </Text>
-						<Text type='h4'>{authState.username}</Text>
+					<Div style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+						{authState.avatarUrl ? (
+							<Image source={{ uri: authState.avatarUrl }} style={styles.avatar} />
+						) : (
+							<View style={[styles.avatar, styles.avatarFallback]}>
+								<Text type="h3" colorVariant="primaryInvert">
+									{authState.username?.charAt(0)?.toUpperCase() ?? '?'}
+								</Text>
+							</View>
+						)}
+						<Div transparent style={{ flex: 1 }}>
+							<Text type="bodySM" colorVariant="muted">Connected as</Text>
+							<Text type='h4'>{authState.username}</Text>
+						</Div>
 					</Div>
 
 					{renderServerList()}
@@ -407,6 +418,16 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+	avatar: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+	},
+	avatarFallback: {
+		backgroundColor: Colors.brandPrimary,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
 	serverItem: {
 		flexDirection: 'row',
 		alignItems: 'center',

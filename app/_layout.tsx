@@ -146,6 +146,11 @@ export default function RootLayout() {
 								if (fetchedTracks.length > 0) {
 									console.log(`✅ Fetched ${fetchedTracks.length} tracks`);
 									setTracks(fetchedTracks);
+									// Retry playback restoration: initial restore may have failed
+									// because the library wasn't cached when initializePlayer ran.
+									if (!useAudioStore.getState().currentSong) {
+										useAudioStore.getState().restorePlaybackState().catch(() => {});
+									}
 									// Defer cache save so the UI renders before JSON.stringify blocks
 									InteractionManager.runAfterInteractions(() => {
 										saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
