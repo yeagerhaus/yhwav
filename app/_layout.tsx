@@ -1,6 +1,7 @@
 // Crypto polyfills removed - using expo-crypto instead
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
@@ -28,6 +29,24 @@ function AudioSync() {
 	useTrackPlayerSync();
 	return null;
 }
+
+const CustomDarkTheme = {
+	...DarkTheme,
+	colors: {
+		...DarkTheme.colors,
+		background: Colors.dark.background,
+		card: Colors.dark.background,
+	},
+};
+
+const CustomLightTheme = {
+	...DefaultTheme,
+	colors: {
+		...DefaultTheme.colors,
+		background: Colors.light.background,
+		card: Colors.light.background,
+	},
+};
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -78,6 +97,11 @@ export default function RootLayout() {
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
+
+	useEffect(() => {
+		const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+		SystemUI.setBackgroundColorAsync(bg);
+	}, [colorScheme]);
 
 	useEffect(() => {
 		hydrateDevSettings();
@@ -207,7 +231,7 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={styles.container}>
-			<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+			<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />
