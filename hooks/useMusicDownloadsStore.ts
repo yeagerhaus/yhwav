@@ -1,11 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import type { Album } from '@/types/album';
+import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 
 const STORAGE_KEY = 'MUSIC_DOWNLOADS';
 const PLAYLISTS_STORAGE_KEY = 'MUSIC_DOWNLOAD_PLAYLISTS';
+const ARTISTS_STORAGE_KEY = 'MUSIC_DOWNLOAD_ARTISTS';
+const ALBUMS_STORAGE_KEY = 'MUSIC_DOWNLOAD_ALBUMS';
 
 function safeSegment(id: string): string {
 	return encodeURIComponent(id).replace(/%/g, '_').slice(0, 120);
@@ -53,6 +57,8 @@ interface QueueProgress {
 interface MusicDownloadsState {
 	downloads: Record<string, MusicDownload>;
 	downloadedPlaylists: Record<string, DownloadedPlaylist>;
+	downloadedArtists: Record<string, Artist>;
+	downloadedAlbums: Record<string, Album>;
 	downloading: Set<string>;
 	queue: Song[];
 	queueTotal: number;
@@ -74,6 +80,10 @@ interface MusicDownloadsState {
 	savePlaylistForOffline: (playlist: Playlist, songs: Song[]) => Promise<void>;
 	removePlaylistForOffline: (playlistKey: string) => Promise<void>;
 	getOfflinePlaylist: (playlistKey: string) => DownloadedPlaylist | undefined;
+
+	saveArtistForOffline: (artist: Artist) => Promise<void>;
+	saveAlbumForOffline: (album: Album) => Promise<void>;
+	snapshotMetadataForSongs: (songs: Song[]) => Promise<void>;
 }
 
 let processing = false;
@@ -84,6 +94,14 @@ async function persistDownloads(downloads: Record<string, MusicDownload>) {
 
 async function persistPlaylists(playlists: Record<string, DownloadedPlaylist>) {
 	await AsyncStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(Object.values(playlists)));
+}
+
+async function persistArtists(artists: Record<string, Artist>) {
+	await AsyncStorage.setItem(ARTISTS_STORAGE_KEY, JSON.stringify(Object.values(artists)));
+}
+
+async function persistAlbums(albums: Record<string, Album>) {
+	await AsyncStorage.setItem(ALBUMS_STORAGE_KEY, JSON.stringify(Object.values(albums)));
 }
 
 async function processQueue(get: () => MusicDownloadsState, set: (partial: Partial<MusicDownloadsState> | ((s: MusicDownloadsState) => Partial<MusicDownloadsState>)) => void) {
@@ -151,6 +169,8 @@ async function processQueue(get: () => MusicDownloadsState, set: (partial: Parti
 export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => ({
 	downloads: {},
 	downloadedPlaylists: {},
+	downloadedArtists: {},
+	downloadedAlbums: {},
 	downloading: new Set(),
 	queue: [],
 	queueTotal: 0,
@@ -159,9 +179,11 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 
 	hydrate: async () => {
 		try {
-			const [rawDownloads, rawPlaylists] = await Promise.all([
+			const [rawDownloads, rawPlaylists, rawArtists, rawAlbums] = await Promise.all([
 				AsyncStorage.getItem(STORAGE_KEY),
 				AsyncStorage.getItem(PLAYLISTS_STORAGE_KEY),
+				AsyncStorage.getItem(ARTISTS_STORAGE_KEY),
+				AsyncStorage.getItem(ALBUMS_STORAGE_KEY),
 			]);
 
 			const downloads: Record<string, MusicDownload> = {};
@@ -176,7 +198,19 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 				for (const p of list) downloadedPlaylists[p.key] = p;
 			}
 
-			set({ downloads, downloadedPlaylists, hydrated: true });
+			const downloadedArtists: Record<string, Artist> = {};
+			if (rawArtists) {
+				const list: Artist[] = JSON.parse(rawArtists);
+				for (const a of list) downloadedArtists[a.key] = a;
+			}
+
+			const downloadedAlbums: Record<string, Album> = {};
+			if (rawAlbums) {
+				const list: Album[] = JSON.parse(rawAlbums);
+				for (const a of list) downloadedAlbums[a.id] = a;
+			}
+
+			set({ downloads, downloadedPlaylists, downloadedArtists, downloadedAlbums, hydrated: true });
 		} catch {
 			set({ hydrated: true });
 		}
@@ -189,6 +223,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			queue: [...s.queue, song],
 			queueTotal: s.queueTotal + 1,
 		}));
+		get().snapshotMetadataForSongs([song]);
 		processQueue(get, set);
 	},
 
@@ -201,6 +236,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			queue: [...s.queue, ...newSongs],
 			queueTotal: s.queueTotal + newSongs.length,
 		}));
+		get().snapshotMetadataForSongs(songs);
 		processQueue(get, set);
 	},
 
@@ -275,4 +311,98 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 	},
 
 	getOfflinePlaylist: (playlistKey: string) => get().downloadedPlaylists[playlistKey],
+
+	saveArtistForOffline: async (artist: Artist) => {
+		const next = { ...get().downloadedArtists, [artist.key]: artist };
+		set({ downloadedArtists: next });
+		await persistArtists(next);
+	},
+
+	saveAlbumForOffline: async (album: Album) => {
+		const next = { ...get().downloadedAlbums, [album.id]: album };
+		set({ downloadedAlbums: next });
+		await persistAlbums(next);
+	},
+
+	snapshotMetadataForSongs: async (songs: Song[]) => {
+		console.log(`[snapshot] called with ${songs.length} songs`);
+		const { useLibraryStore } = require('@/hooks/useLibraryStore');
+		const libState = useLibraryStore.getState() as {
+			artistsById: Record<string, Artist>;
+			artists: Artist[];
+			albumsById: Record<string, Album>;
+		};
+		const { artistsById, artists, albumsById } = libState;
+
+		console.log(`[snapshot] library has ${Object.keys(artistsById).length} artistsById, ${artists.length} artists array, ${Object.keys(albumsById).length} albumsById`);
+		if (artists.length > 0) {
+			console.log(`[snapshot] sample artist keys from artistsById:`, Object.keys(artistsById).slice(0, 5));
+		}
+
+		const { downloadedArtists, downloadedAlbums } = get();
+		console.log(`[snapshot] already have ${Object.keys(downloadedArtists).length} downloadedArtists, ${Object.keys(downloadedAlbums).length} downloadedAlbums`);
+
+		let artistsChanged = false;
+		let albumsChanged = false;
+		const nextArtists = { ...downloadedArtists };
+		const nextAlbums = { ...downloadedAlbums };
+
+		const seenArtistKeys = new Set<string>();
+		const seenAlbumKeys = new Set<string>();
+
+		for (const song of songs) {
+			if (song.artistKey && !seenArtistKeys.has(song.artistKey)) {
+				seenArtistKeys.add(song.artistKey);
+				console.log(`[snapshot] song "${song.title}" artistKey="${song.artistKey}" artist="${song.artist}"`);
+
+				let artist: Artist | undefined = artistsById[song.artistKey];
+				console.log(`[snapshot]   direct lookup artistsById["${song.artistKey}"]: ${artist ? artist.name : 'MISS'}`);
+
+				if (!artist) {
+					const ratingKey = song.artistKey.split('/').pop() || song.artistKey;
+					artist = artistsById[ratingKey];
+					console.log(`[snapshot]   ratingKey lookup artistsById["${ratingKey}"]: ${artist ? artist.name : 'MISS'}`);
+				}
+				if (!artist) {
+					artist = artists.find((a) => a.name === song.artist);
+					console.log(`[snapshot]   name lookup for "${song.artist}": ${artist ? `found key=${artist.key}` : 'MISS'}`);
+				}
+				if (artist) {
+					if (!nextArtists[artist.key]) {
+						console.log(`[snapshot]   ✅ saving artist key="${artist.key}" name="${artist.name}" thumb=${!!artist.thumb} art=${!!(artist as any).art}`);
+						nextArtists[artist.key] = artist;
+						artistsChanged = true;
+					} else {
+						console.log(`[snapshot]   already saved artist key="${artist.key}"`);
+					}
+				} else {
+					console.log(`[snapshot]   ❌ could not find artist for song "${song.title}"`);
+				}
+			}
+
+			const albumKey = `${song.album}\0${song.artist}`;
+			if (!seenAlbumKeys.has(albumKey)) {
+				seenAlbumKeys.add(albumKey);
+				const album = Object.values(albumsById).find(
+					(a) => a.title === song.album && a.artist === song.artist,
+				);
+				if (album && !nextAlbums[album.id]) {
+					console.log(`[snapshot]   ✅ saving album id="${album.id}" title="${album.title}"`);
+					nextAlbums[album.id] = album;
+					albumsChanged = true;
+				}
+			}
+		}
+
+		console.log(`[snapshot] result: artistsChanged=${artistsChanged} albumsChanged=${albumsChanged}`);
+		if (artistsChanged || albumsChanged) {
+			set({
+				...(artistsChanged ? { downloadedArtists: nextArtists } : {}),
+				...(albumsChanged ? { downloadedAlbums: nextAlbums } : {}),
+			});
+			if (artistsChanged) await persistArtists(nextArtists);
+			if (albumsChanged) await persistAlbums(nextAlbums);
+			console.log(`[snapshot] persisted ${Object.keys(nextArtists).length} artists, ${Object.keys(nextAlbums).length} albums`);
+		}
+	},
 }));

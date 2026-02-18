@@ -72,11 +72,23 @@ export default function ArtistDetailScreen() {
 	const queueCompleted = useMusicDownloadsStore((s) => s.queueCompleted);
 	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
 	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
+	const downloadedArtists = useMusicDownloadsStore((s) => s.downloadedArtists);
+	const downloadedAlbums = useMusicDownloadsStore((s) => s.downloadedAlbums);
 
-	const artist = artistsById[artistId ?? ''] || offlineArtists.find((a) => a.key === artistId);
+	// Prefer full library artist, fall back to persisted snapshot, then offline synthesis
+	const artist =
+		artistsById[artistId ?? ''] ||
+		downloadedArtists[artistId ?? ''] ||
+		offlineArtists.find((a) => a.key === artistId);
 
 	const artistTracks = useMemo(
-		() => (artist ? tracks.filter((t) => t.artistKey === artist.key) : []),
+		() =>
+			artist
+				? tracks.filter((t) => {
+						const normKey = t.artistKey.split('/').pop() || t.artistKey;
+						return normKey === artist.key || t.artistKey === artist.key;
+					})
+				: [],
 		[artist, tracks],
 	);
 
@@ -109,7 +121,38 @@ export default function ArtistDetailScreen() {
 	const sections = useMemo(() => {
 		if (!artist) return [];
 
-		const allAlbums = albums.filter((a) => a.artistKey === artist.key);
+		// Try matching albums by artistKey first (normalize Plex paths to ratingKey)
+		let allAlbums = albums.filter((a) => {
+			const normKey = a.artistKey?.split('/').pop() || a.artistKey;
+			return normKey === artist.key || a.artistKey === artist.key;
+		});
+
+		// Fallback: also match albums by artist name (handles key format mismatches)
+		if (allAlbums.length === 0) {
+			allAlbums = albums.filter((a) => a.artist === artist.name);
+		}
+
+		// Final fallback: derive album entries from the artist's tracks
+		if (allAlbums.length === 0 && artistTracks.length > 0) {
+			const albumMap = new Map<string, Album>();
+			for (const t of artistTracks) {
+				const key = t.album;
+				if (key && !albumMap.has(key)) {
+					const persisted = Object.values(downloadedAlbums).find(
+						(a) => a.title === t.album && a.artist === t.artist,
+					);
+					albumMap.set(key, persisted || {
+						id: `dl-${encodeURIComponent(t.album)}-${encodeURIComponent(t.artist)}`,
+						title: t.album,
+						artist: t.artist,
+						artistKey: t.artistKey,
+						artwork: t.artworkUrl || '',
+						thumb: t.artworkUrl,
+					});
+				}
+			}
+			allAlbums = Array.from(albumMap.values());
+		}
 
 		const grouped = new Map<AlbumCategory, Album[]>();
 		for (const album of allAlbums) {
@@ -124,14 +167,14 @@ export default function ArtistDetailScreen() {
 
 		const result: AlbumSection[] = [];
 		for (const category of CATEGORY_ORDER) {
-			const albums = grouped.get(category);
-			if (!albums || albums.length === 0) continue;
+			const catAlbums = grouped.get(category);
+			if (!catAlbums || catAlbums.length === 0) continue;
 
-			sortAlbums(albums);
+			sortAlbums(catAlbums);
 
 			result.push({
 				category,
-				albums: albums.map((album) => ({
+				albums: catAlbums.map((album) => ({
 					id: album.id,
 					album: album.title,
 					artwork: album.thumb || album.artwork,
@@ -142,7 +185,7 @@ export default function ArtistDetailScreen() {
 		}
 
 		return result;
-	}, [artist, albums]);
+	}, [artist, albums, artistTracks, downloadedAlbums]);
 
 	if (!artist) {
 		return (
