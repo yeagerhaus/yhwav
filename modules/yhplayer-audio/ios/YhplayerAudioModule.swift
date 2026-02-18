@@ -43,7 +43,7 @@ public final class YhplayerAudioModule: Module {
 	private var progressUpdateInterval: TimeInterval = 0.5
 	private var repeatMode: Int = 2 // 0=Off, 1=Track, 2=Queue
 	private var volume: Float = 1.0
-	private var rate: Float = 1.0
+	fileprivate var rate: Float = 1.0
 	private var currentItemObservation: NSKeyValueObservation?
 	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
@@ -99,72 +99,83 @@ public final class YhplayerAudioModule: Module {
 		}
 
 		AsyncFunction("add") { (tracks: [TrackRecord], insertAfterIndex: Int?) in
-			guard let player = self.queuePlayer else { return }
-			let afterIdx = insertAfterIndex ?? (self.trackOrder.isEmpty ? -1 : self.trackOrder.count - 1)
-			var insertAfter: AVPlayerItem?
-			if afterIdx >= 0, afterIdx < self.trackOrder.count {
-				let refId = self.trackOrder[afterIdx]
-				insertAfter = player.items().first { $0.associatedTrackId() == refId }
+			guard self.queuePlayer != nil else { return }
+			DispatchQueue.main.sync {
+				guard let player = self.queuePlayer else { return }
+				let afterIdx = insertAfterIndex ?? (self.trackOrder.isEmpty ? -1 : self.trackOrder.count - 1)
+				var insertAfter: AVPlayerItem?
+				if afterIdx >= 0, afterIdx < self.trackOrder.count {
+					let refId = self.trackOrder[afterIdx]
+					insertAfter = player.items().first { $0.associatedTrackId() == refId }
+				}
+				if insertAfter == nil, !player.items().isEmpty {
+					insertAfter = player.items().last
+				}
+				for track in tracks {
+					let item = self.createPlayerItem(url: track.url)
+					item.setAssociatedTrack(track)
+					self.trackMetadata[track.id] = track
+					player.insert(item, after: insertAfter)
+					insertAfter = item
+				}
+				if self.trackOrder.isEmpty {
+					self.trackOrder = tracks.map(\.id)
+				} else if afterIdx < 0 {
+					self.trackOrder.append(contentsOf: tracks.map(\.id))
+				} else {
+					let head = Array(self.trackOrder.prefix(afterIdx + 1))
+					let tail = Array(self.trackOrder.dropFirst(afterIdx + 1))
+					self.trackOrder = head + tracks.map(\.id) + tail
+				}
+				self.startProgressTimerIfNeeded()
 			}
-			if insertAfter == nil, !player.items().isEmpty {
-				insertAfter = player.items().last
-			}
-			for track in tracks {
-				let item = self.createPlayerItem(url: track.url)
-				item.setAssociatedTrack(track)
-				self.trackMetadata[track.id] = track
-				player.insert(item, after: insertAfter)
-				insertAfter = item
-			}
-			if self.trackOrder.isEmpty {
-				self.trackOrder = tracks.map(\.id)
-			} else if afterIdx < 0 {
-				self.trackOrder.append(contentsOf: tracks.map(\.id))
-			} else {
-				let head = Array(self.trackOrder.prefix(afterIdx + 1))
-				let tail = Array(self.trackOrder.dropFirst(afterIdx + 1))
-				self.trackOrder = head + tracks.map(\.id) + tail
-			}
-			DispatchQueue.main.async { self.startProgressTimerIfNeeded() }
 		}
 
 		AsyncFunction("reset") {
-			self.stopProgressTimer()
-			self.teardownAudioMetering()
-			self.queuePlayer?.removeAllItems()
-			self.trackMetadata.removeAll()
-			self.trackOrder.removeAll()
-			self.lastEmittedState = "stopped"
+			DispatchQueue.main.sync {
+				self.stopProgressTimer()
+				self.teardownAudioMetering()
+				self.queuePlayer?.removeAllItems()
+				self.trackMetadata.removeAll()
+				self.trackOrder.removeAll()
+				self.lastEmittedState = "stopped"
+			}
 		}
 
 		AsyncFunction("remove") { (indices: [Int]) in
-			guard let player = self.queuePlayer else { return }
-			let allItems = player.items()
-			for idx in indices.sorted(by: >) where idx >= 0 && idx < self.trackOrder.count {
-				let id = self.trackOrder[idx]
-				if let item = allItems.first(where: { $0.associatedTrackId() == id }) {
-					player.remove(item)
+			guard self.queuePlayer != nil else { return }
+			DispatchQueue.main.sync {
+				guard let player = self.queuePlayer else { return }
+				let allItems = player.items()
+				for idx in indices.sorted(by: >) where idx >= 0 && idx < self.trackOrder.count {
+					let id = self.trackOrder[idx]
+					if let item = allItems.first(where: { $0.associatedTrackId() == id }) {
+						player.remove(item)
+					}
+					self.trackOrder.remove(at: idx)
+					self.trackMetadata.removeValue(forKey: id)
 				}
-				self.trackOrder.remove(at: idx)
-				self.trackMetadata.removeValue(forKey: id)
 			}
 		}
 
 		AsyncFunction("removeUpcomingTracks") {
-			guard let player = self.queuePlayer else { return }
-			let current = player.currentItem
-			let items = player.items()
-			var foundCurrent = false
-			for item in items {
-				if item === current {
-					foundCurrent = true
-					continue
-				}
-				if foundCurrent {
-					player.remove(item)
-					if let id = item.associatedTrackId() {
-						self.trackOrder.removeAll { $0 == id }
-						self.trackMetadata.removeValue(forKey: id)
+			guard self.queuePlayer != nil else { return }
+			DispatchQueue.main.sync {
+				guard let player = self.queuePlayer else { return }
+				let current = player.currentItem
+				let items = player.items()
+				var foundCurrent = false
+				for item in items {
+					if item === current {
+						foundCurrent = true
+						continue
+					}
+					if foundCurrent {
+						player.remove(item)
+						if let id = item.associatedTrackId() {
+							self.trackOrder.removeAll { $0 == id }
+							self.trackMetadata.removeValue(forKey: id)
+						}
 					}
 				}
 			}
@@ -175,42 +186,53 @@ public final class YhplayerAudioModule: Module {
 			      fromIndex >= 0, toIndex >= 0,
 			      fromIndex < self.trackOrder.count, toIndex < self.trackOrder.count
 			else { return }
-			let id = self.trackOrder.remove(at: fromIndex)
-			self.trackOrder.insert(id, at: toIndex)
-			let currentIdx = self.currentActiveTrackIndex()
-			let wasPlaying = self.queuePlayer?.timeControlStatus == .playing
-			DispatchQueue.main.async { self.suppressTrackChangeEvents = true }
-			self.rebuildQueueFromOrder(makeCurrentIndex: currentIdx >= 0 ? currentIdx : nil)
-			DispatchQueue.main.async {
+			// Run on main with suppress (same as skip) so JS doesn't get intermediate track indices.
+			DispatchQueue.main.sync {
+				let id = self.trackOrder.remove(at: fromIndex)
+				self.trackOrder.insert(id, at: toIndex)
+				let currentIdx = self.currentActiveTrackIndex()
+				let wasPlaying = self.queuePlayer?.timeControlStatus == .playing
+				self.suppressTrackChangeEvents = true
+				self.rebuildQueueFromOrder(makeCurrentIndex: currentIdx >= 0 ? currentIdx : nil)
 				self.suppressTrackChangeEvents = false
+				if wasPlaying { self.queuePlayer?.rate = self.rate }
 			}
-			if wasPlaying { self.queuePlayer?.rate = self.rate }
 		}
 
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
-			DispatchQueue.main.async { self.suppressTrackChangeEvents = true }
-			self.rebuildQueueFromOrder(makeCurrentIndex: index)
-			player.rate = self.rate
-			DispatchQueue.main.async {
+			// Run on main and block until done so we set suppress before rebuild; otherwise
+			// currentItem observations fire for each advanceToNextItem() and JS receives
+			// wrong intermediate indices (e.g. selected song plays the next one, skip goes +2).
+			DispatchQueue.main.sync {
+				self.suppressTrackChangeEvents = true
+				self.rebuildQueueFromOrder(makeCurrentIndex: index)
+				player.rate = self.rate
 				self.suppressTrackChangeEvents = false
 				self.emitActiveTrackChanged(index: index)
+				self.startProgressTimerIfNeeded()
 			}
 		}
 
 		AsyncFunction("play") {
 			self.queuePlayer?.rate = self.rate
-			DispatchQueue.main.async { self.emitProgressUpdate() }
+			DispatchQueue.main.async {
+				self.startProgressTimerIfNeeded()
+				self.emitProgressUpdate()
+			}
 		}
 
 		AsyncFunction("pause") {
 			self.queuePlayer?.pause()
+			self.stopProgressTimer()
 			DispatchQueue.main.async { self.emitProgressUpdate() }
 		}
 
 		AsyncFunction("seekTo") { (position: Double) in
 			let cm = CMTime(seconds: position, preferredTimescale: 600)
-			self.queuePlayer?.seek(to: cm, toleranceBefore: .zero, toleranceAfter: .zero)
+			// Small tolerance avoids long keyframe-seeking on some streams; .zero can stall.
+			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
+			self.queuePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
 			DispatchQueue.main.async { self.emitProgressUpdate() }
 		}
 
@@ -235,21 +257,31 @@ public final class YhplayerAudioModule: Module {
 		}
 
 		Function("getPlaybackState") { () -> PlaybackStateRecord in
-			let (state, position, duration) = self.currentPlaybackState()
 			var record = PlaybackStateRecord()
-			record.state = state
-			record.position = position
-			record.duration = duration
-			record.buffered = nil
+			DispatchQueue.main.sync {
+				let (state, position, duration) = self.currentPlaybackState()
+				record.state = state
+				record.position = position
+				record.duration = duration
+				record.buffered = nil
+			}
 			return record
 		}
 
 		Function("getActiveTrackIndex") { () -> Int in
-			self.currentActiveTrackIndex()
+			var idx = -1
+			DispatchQueue.main.sync {
+				idx = self.currentActiveTrackIndex()
+			}
+			return idx
 		}
 
 		Function("getQueue") { () -> [TrackRecord] in
-			self.trackOrder.compactMap { id in self.trackMetadata[id] }
+			var result: [TrackRecord] = []
+			DispatchQueue.main.sync {
+				result = self.trackOrder.compactMap { id in self.trackMetadata[id] }
+			}
+			return result
 		}
 	}
 

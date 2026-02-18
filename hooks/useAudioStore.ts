@@ -452,10 +452,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			if (trackIndex !== -1) {
 				await TrackPlayer.skip(trackIndex);
 				if (position > 0) await TrackPlayer.seekTo(position);
+				// Restore paused: do not auto-play on app reload; wait for user to tap play.
+				await TrackPlayer.pause();
 			}
 
 			const color = await extractArtworkColor(currentSong);
-			set({ currentSong, queue, position, artworkBgColor: color });
+			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
 
 			if (isPartialRestore) {
 				console.log('⚠️ Partial restore (library not cached): showing last track, full queue pending');
