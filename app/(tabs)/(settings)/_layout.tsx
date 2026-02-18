@@ -32,6 +32,7 @@ export default function SettingsLayout() {
 			<Stack.Screen
 				name='account'
 				options={{
+					headerShown: true,
 					title: 'Account & Server',
 					header: () => <InternalHeader />,
 				}}
@@ -39,6 +40,7 @@ export default function SettingsLayout() {
 			<Stack.Screen
 				name='storage'
 				options={{
+					headerShown: true,
 					title: 'Storage & Data',
 					header: () => <InternalHeader />,
 				}}
@@ -46,6 +48,7 @@ export default function SettingsLayout() {
 			<Stack.Screen
 				name='developer'
 				options={{
+					headerShown: true,
 					title: 'Developer',
 					header: () => <InternalHeader />,
 				}}

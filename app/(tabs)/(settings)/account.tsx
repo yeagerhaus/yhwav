@@ -167,7 +167,7 @@ export default function AccountScreen() {
 	};
 
 	return (
-		<Main style={{ paddingHorizontal: 16, paddingTop: 100 }}>
+		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
 					Account & Server

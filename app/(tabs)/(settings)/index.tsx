@@ -54,22 +54,30 @@ export default function SettingsScreen() {
 			</Div>
 
 			{authState.isAuthenticated && (
-				<Div style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+				<Div transparent display='flex' flexDirection='row' justifyContent='space-between' alignItems='center' style={{ marginBottom: 24 }}>
+					<Div display='flex' flex={1} transparent style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
 					{authState.avatarUrl ? (
 						<Image source={{ uri: authState.avatarUrl }} style={styles.avatar} />
 					) : (
-						<View style={[styles.avatar, styles.avatarFallback]}>
+						<Div transparent style={[styles.avatar, styles.avatarFallback]}>
 							<Text type='h3' colorVariant='primaryInvert'>
 								{authState.username?.charAt(0)?.toUpperCase() ?? '?'}
 							</Text>
-						</View>
+						</Div>
 					)}
-					<Div transparent style={{ flex: 1 }}>
-						<Text type='bodySM' colorVariant='muted'>
-							Connected as
-						</Text>
-						<Text type='h4'>{authState.username}</Text>
+						<Div transparent display='flex' flex={1}>
+							<Text type='bodyXS' colorVariant='muted'>
+								Connected as
+							</Text>
+							<Text type='h3'>{authState.username}</Text>
+						</Div>
 					</Div>
+					{/* <SymbolView name='rectangle.portrait.and.arrow.right.fill' type='hierarchical' tintColor={Colors.textMuted} size={32} /> */}
+					<TouchableOpacity onPress={handleLogout}>
+						<Text type='link' colorVariant='brand'>
+							Logout
+						</Text>
+					</TouchableOpacity>
 				</Div>
 			)}
 
@@ -92,16 +100,6 @@ export default function SettingsScreen() {
 					/>
 				)}
 			</Div>
-
-			{authState.isAuthenticated && (
-				<Div transparent style={{ marginTop: 32 }}>
-					<TouchableOpacity style={DefaultStyles.dangerButton} onPress={handleLogout}>
-						<Text type='h3' colorVariant='primaryInvert'>
-							Logout
-						</Text>
-					</TouchableOpacity>
-				</Div>
-			)}
 		</Main>
 	);
 }
