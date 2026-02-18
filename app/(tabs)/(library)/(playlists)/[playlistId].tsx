@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
@@ -12,6 +11,7 @@ import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
 import { hexWithOpacity } from '@/utils/styles';
+import { SymbolView } from 'expo-symbols';
 
 const ITEM_HEIGHT = 70;
 
@@ -120,7 +120,7 @@ export default function DetailScreen() {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<Ionicons name='remove-circle' size={24} color={Colors.dangerSolid} />
+						<SymbolView name='minus.circle' size={24} tintColor={Colors.dangerSolid} />
 					</Pressable>
 					<Div style={styles.editSongInfo} transparent>
 						<Text numberOfLines={1} style={styles.editSongTitle}>
@@ -130,7 +130,7 @@ export default function DetailScreen() {
 							{item.artist}
 						</Text>
 					</Div>
-					<Ionicons name='reorder-three' size={24} color={Colors.textMuted} />
+					<SymbolView name='text.justify' size={24} tintColor={Colors.textMuted} />
 				</Pressable>
 			</ScaleDecorator>
 		),
@@ -170,7 +170,7 @@ export default function DetailScreen() {
 								placeholder='Playlist title'
 							/>
 							<Pressable onPress={handleDelete} style={styles.deleteButton}>
-								<Ionicons name='trash-outline' size={18} color={Colors.dangerSolid} />
+								<SymbolView name='trash' size={18} tintColor={Colors.dangerSolid} />
 								<Text type='body' colorVariant='danger'>
 									Delete Playlist
 								</Text>

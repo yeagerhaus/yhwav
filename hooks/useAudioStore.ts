@@ -200,9 +200,13 @@ async function extractArtworkColor(song: Song): Promise<string> {
 
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
+	const url = typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null;
+	if (song.source === 'podcast' && !url) {
+		throw new Error('Podcast episode has no playable URL');
+	}
 	return {
 		id: song.id.toString(),
-		url: song.uri,
+		url: url ?? song.uri ?? '',
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
@@ -210,14 +214,30 @@ function songToTrack(song: Song) {
 	};
 }
 
-/** If current song is a podcast with saved progress, seek to resume position. */
-async function maybeResumePodcast(song: Song): Promise<void> {
-	if (song.source !== 'podcast') return;
+/** Pending resume: seek is deferred until first progress (fixes local/downloaded files where seek before play() is ignored). */
+let pendingPodcastResume: { songId: string; position: number } | null = null;
+
+/** Resume position for a podcast: for downloaded episodes use the download record (resumeAt); otherwise progress store. */
+function getPodcastResumePosition(song: Song): number | undefined {
+	const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
 	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
 	const progress = usePodcastProgressStore.getState().getProgress(song.id);
-	if (progress && !progress.completed && progress.position > 10) {
-		await TrackPlayer.seekTo(progress.position);
-	}
+	const isDownloaded = usePodcastDownloadsStore.getState().isDownloaded(song.id);
+	const downloadResumeAt = isDownloaded ? usePodcastDownloadsStore.getState().getResumeAt(song.id) : undefined;
+
+	if (isDownloaded && downloadResumeAt != null && downloadResumeAt > 10) return downloadResumeAt;
+	if (progress?.completed) return undefined;
+	if (progress && progress.position > 10) return progress.position;
+	return undefined;
+}
+
+/** If current song is a podcast with saved progress, schedule resume. For downloaded episodes we use the download's resumeAt. */
+async function maybeResumePodcast(song: Song): Promise<void> {
+	if (song.source !== 'podcast') return;
+	const position = getPodcastResumePosition(song);
+	if (position == null) return;
+	await TrackPlayer.seekTo(position);
+	pendingPodcastResume = { songId: song.id, position };
 }
 
 // Podcast progress: debounced save while playing (latest position), immediate save on pause
@@ -234,6 +254,10 @@ function schedulePodcastProgressSave(episodeId: string, position: number, durati
 				usePodcastProgressStore
 					.getState()
 					.saveProgress(pendingPodcastProgress.episodeId, pendingPodcastProgress.position, pendingPodcastProgress.duration);
+				const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
+				if (usePodcastDownloadsStore.getState().isDownloaded(pendingPodcastProgress.episodeId)) {
+					usePodcastDownloadsStore.getState().updateResumeAt(pendingPodcastProgress.episodeId, pendingPodcastProgress.position).catch(() => {});
+				}
 				pendingPodcastProgress = null;
 			}
 			podcastProgressTimeout = null;
@@ -247,8 +271,14 @@ function savePodcastProgressImmediate(episodeId: string, position: number, durat
 		podcastProgressTimeout = null;
 	}
 	pendingPodcastProgress = null;
+	// Don't save 0/0 — this happens during reset()/add() race and would clobber real progress
+	if (position <= 0 && duration <= 0) return;
 	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
 	usePodcastProgressStore.getState().saveProgress(episodeId, position, duration);
+	const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
+	if (usePodcastDownloadsStore.getState().isDownloaded(episodeId)) {
+		usePodcastDownloadsStore.getState().updateResumeAt(episodeId, position).catch(() => {});
+	}
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -456,6 +486,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			const color = await extractArtworkColor(currentSong);
 			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
 
+			if (currentSong.source !== 'podcast') {
+				await TrackPlayer.setRate(1);
+				set({ playbackRate: 1 });
+			}
+
 			if (isPartialRestore) {
 				console.log('⚠️ Partial restore (library not cached): showing last track, full queue pending');
 			} else {
@@ -473,6 +508,27 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			'playSound',
 			async () => {
 				try {
+					// Podcast: require a playable URI (native layer creates empty asset otherwise → no sound)
+					if (song.source === 'podcast') {
+						const uri = song.uri;
+						if (typeof uri !== 'string' || uri.trim().length === 0) {
+							set({
+								error: 'This episode has no playable URL',
+								currentSong: song,
+								artworkBgColor: null,
+							});
+							return;
+						}
+					}
+
+					// If switching away from a podcast, save its progress NOW (before we update currentSong,
+					// because PlaybackActiveTrackChanged will see the new currentSong and skip the save).
+					const prev = get().currentSong;
+					if (prev?.source === 'podcast' && prev.id !== song.id) {
+						const { position: prevPos, duration: prevDur } = get();
+						savePodcastProgressImmediate(prev.id, prevPos, prevDur);
+					}
+
 					// Update UI immediately — don't wait for TrackPlayer
 					set({ error: null, currentSong: song });
 					saveCurrentSong(song);
@@ -485,8 +541,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 					const state = get();
 
-					// Compare queues using Zustand state — no bridge call needed
+					// Compare queues using Zustand state — no bridge call needed.
+					// Never use same-queue shortcut for podcasts: native queue can be out of sync (e.g. after
+					// restore or error recovery), so we always reset+add to guarantee playback.
 					const isSameQueue =
+						song.source !== 'podcast' &&
 						newQueue &&
 						state.queue.length === newQueue.length &&
 						state.queue.length > 0 &&
@@ -502,19 +561,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else if (newQueue) {
-						// New queue — reset and load
-						const queueToUse = state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
+						// New queue — reset and load. Podcasts: single-episode queue only (no next/prev, avoids slow 292-track add).
+						const queueToUse =
+							song.source === 'podcast'
+								? [song]
+								: state.isShuffled
+									? createShuffledQueue(newQueue, song)
+									: newQueue;
 
 						await TrackPlayer.reset();
 						await TrackPlayer.add(queueToUse.map(songToTrack));
 
 						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-						if (trackIndex !== -1) {
+						if (trackIndex !== -1 && (queueToUse.length > 1 || trackIndex > 0)) {
 							await TrackPlayer.skip(trackIndex);
 						}
 
-						saveQueueState(queueToUse, newQueue, song);
-						set({ queue: queueToUse, originalQueue: newQueue });
+						saveQueueState(queueToUse, song.source === 'podcast' ? [song] : newQueue, song);
+						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -525,6 +589,33 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						set({ queue: [song], originalQueue: [song] });
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
+					}
+
+					// Reset playback rate: always 1x for music; restore saved rate for podcasts
+					if (song.source !== 'podcast') {
+						if (get().playbackRate !== 1) {
+							await TrackPlayer.setRate(1);
+							set({ playbackRate: 1 });
+						}
+					} else {
+						const savedRateStr = await AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY);
+						const savedRate = savedRateStr ? Math.max(0.5, Math.min(2.0, Number.parseFloat(savedRateStr))) : 1;
+						if (get().playbackRate !== savedRate) {
+							await TrackPlayer.setRate(savedRate);
+							set({ playbackRate: savedRate });
+						}
+					}
+
+					// Ensure podcast has a progress entry so UI shows bar and we persist updates.
+					// Also clear stale "completed" flag if the user is re-playing an episode.
+					if (song.source === 'podcast') {
+						const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+						const existing = usePodcastProgressStore.getState().getProgress(song.id);
+						if (!existing) {
+							usePodcastProgressStore.getState().saveProgress(song.id, 0, song.duration || 0);
+						} else if (existing.completed && existing.position < existing.duration * 0.9) {
+							usePodcastProgressStore.getState().saveProgress(song.id, existing.position, existing.duration, false);
+						}
 					}
 				} catch (error) {
 					console.error('Error in playSound:', error);
@@ -899,6 +990,14 @@ export function useTrackPlayerSync() {
 				state._setDuration(duration);
 				lastProgressTimestamp = Date.now();
 
+				// Deferred podcast resume: for downloaded/local files, seek before play() is often ignored; seek now if we're still near 0.
+				if (pendingPodcastResume) {
+					if (state.currentSong?.id === pendingPodcastResume.songId && position < 10) {
+						await TrackPlayer.seekTo(pendingPodcastResume.position);
+					}
+					pendingPodcastResume = null;
+				}
+
 				// Sleep timer: stop playback when time is up
 				const { sleepTimerEndsAt } = useAudioStore.getState();
 				if (sleepTimerEndsAt != null && Date.now() >= sleepTimerEndsAt) {
@@ -930,23 +1029,22 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackQueueEnded) {
-				// Queue ended - TrackPlayer handles repeat modes automatically
-				// This event fires when the queue truly ends (no repeat or track repeat finished)
+				// Queue ended — mark podcast episode as completed
+				if (state.currentSong?.source === 'podcast') {
+					const dur = state.duration > 0 ? state.duration : state.position;
+					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
+				}
 				console.log('🎵 Queue ended, repeat mode:', state.repeatMode);
 			}
 
 			if (event.type === Event.PlaybackActiveTrackChanged) {
+				pendingPodcastResume = null; // no longer applicable to previous track
 				// Use the event index + our Zustand queue — no native bridge calls needed
 				const trackIndex = event.index;
 				if (trackIndex == null || trackIndex < 0 || trackIndex >= state.queue.length) return;
 
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
-
-				// Mark previous track as completed if it was a podcast (e.g. episode finished)
-				if (state.currentSong?.source === 'podcast') {
-					savePodcastProgressImmediate(state.currentSong.id, state.duration, state.duration);
-				}
 
 				const previousSongId = state.currentSong?.id ?? null;
 				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;

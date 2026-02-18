@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';
@@ -101,7 +100,7 @@ export function AddToPlaylistModal() {
 				) : null}
 
 				<Pressable style={styles.newPlaylistRow} onPress={handleNewPlaylist}>
-					<Ionicons name='add-circle' size={28} color={Colors.brandPrimary} />
+					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
 					<Text type='body' colorVariant='brand' style={styles.newPlaylistText}>
 						New Playlist...
 					</Text>

@@ -41,11 +41,37 @@ export const SongInfo = React.memo(() => {
 					},
 				},
 				{
-					label: 'Open in Podcasts',
-					systemImage: 'link.circle',
+					label: 'View Episode',
+					systemImage: 'doc.text',
 					onPress: () => {
+						if (!currentSong) return;
 						router.back();
-						setTimeout(() => router.push('/(tabs)/(podcasts)'), 100);
+						setTimeout(
+							() =>
+								router.push({
+									// @ts-expect-error dynamic route
+									pathname: '(podcasts)/episode/[episodeId]',
+									params: { episodeId: currentSong.id, feedId: currentSong.artistKey || '' },
+								}),
+							100,
+						);
+					},
+				},
+				{
+					label: 'Go to Show',
+					systemImage: 'mic.fill',
+					onPress: () => {
+						if (!currentSong) return;
+						router.back();
+						setTimeout(
+							() =>
+								router.push({
+									// @ts-expect-error dynamic route
+									pathname: '(podcasts)/[feedId]',
+									params: { feedId: currentSong.artistKey || '' },
+								}),
+							100,
+						);
 					},
 				},
 				{

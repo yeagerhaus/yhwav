@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { useCallback } from 'react';
 import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
 import { Div } from '../Div';
 import { Text } from '../Text';
@@ -20,16 +21,19 @@ interface PodcastShowItemProps {
 export default function PodcastShowItem({ item, size }: PodcastShowItemProps) {
 	const s = size ?? itemSize;
 	const iconSize = Math.round(60 * (s / itemSize));
+
+	const navigateToFeed = useCallback(() => {
+		router.push({
+			// @ts-expect-error dynamic route
+			pathname: '(podcasts)/[feedId]',
+			params: { feedId: item.id },
+		});
+	}, [item.id]);
+
 	return (
 		<Pressable
 			style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]}
-			onPress={() =>
-				router.push({
-					// @ts-expect-error
-					pathname: '(podcasts)/[feedId]',
-					params: { feedId: item.id },
-				})
-			}
+			onPress={navigateToFeed}
 		>
 			{item.artwork ? (
 				<Image

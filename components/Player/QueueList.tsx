@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Image, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
@@ -6,6 +5,7 @@ import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 import { Text } from '../Text';
+import { SymbolView } from 'expo-symbols';
 
 interface QueueListProps {
 	headerComponent: React.ReactElement;
@@ -79,7 +79,7 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<Ionicons name='remove-circle' size={22} color='rgba(255, 255, 255, 0.6)' />
+						<SymbolView name='minus.circle' size={22} tintColor='rgba(255, 255, 255, 0.6)' />
 					</Pressable>
 					<Image source={{ uri: item.artworkUrl || item.artwork }} style={styles.artwork} />
 					<Div transparent style={styles.songInfo}>
@@ -91,7 +91,7 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 						</Text>
 					</Div>
 					<Pressable onLongPress={drag} hitSlop={8} style={styles.dragHandle}>
-						<Ionicons name='reorder-three' size={24} color='rgba(255, 255, 255, 0.5)' />
+						<SymbolView name='text.justify' size={24} tintColor='rgba(255, 255, 255, 0.5)' />
 					</Pressable>
 				</Pressable>
 			</ScaleDecorator>
