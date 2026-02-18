@@ -2,7 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Div } from '@/components';
+import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -29,7 +29,10 @@ const MiniPlayerContent = React.memo(() => {
 	const isPlaying = useAudioStore((state) => state.isPlaying);
 	const togglePlayPause = useAudioStore((state) => state.togglePlayPause);
 	const skipToNext = useAudioStore((state) => state.skipToNext);
+	const skipBackward15 = useAudioStore((state) => state.skipBackward15);
+	const skipForward15 = useAudioStore((state) => state.skipForward15);
 
+	const isPodcast = currentSong?.source === 'podcast';
 	const artwork = React.useMemo(() => currentSong?.artworkUrl || currentSong?.artwork, [currentSong?.artworkUrl, currentSong?.artwork]);
 	const title = React.useMemo(() => currentSong?.title, [currentSong?.title]);
 
@@ -39,20 +42,43 @@ const MiniPlayerContent = React.memo(() => {
 		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<Div transparent style={styles.textContainer}>
-				<Text style={styles.title}>{title}</Text>
+				<Text style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
+					{title}
+				</Text>
 			</Div>
 			<Div transparent style={styles.controls}>
-				<Pressable style={styles.controlButton} onPress={togglePlayPause}>
-					<SymbolView
-						name={isPlaying ? 'pause.fill' : 'play.fill'}
-						type='hierarchical'
-						size={20}
-						tintColor={Colors.brandPrimary}
-					/>
-				</Pressable>
-				<Pressable style={styles.controlButton} onPress={skipToNext}>
-					<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brandPrimary} />
-				</Pressable>
+				{isPodcast ? (
+					<>
+						<Pressable style={styles.controlButton} onPress={skipBackward15}>
+							<SymbolView name='gobackward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+						</Pressable>
+						<Pressable style={styles.controlButton} onPress={togglePlayPause}>
+							<SymbolView
+								name={isPlaying ? 'pause.fill' : 'play.fill'}
+								type='hierarchical'
+								size={20}
+								tintColor={Colors.brandPrimary}
+							/>
+						</Pressable>
+						<Pressable style={styles.controlButton} onPress={skipForward15}>
+							<SymbolView name='goforward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+						</Pressable>
+					</>
+				) : (
+					<>
+						<Pressable style={styles.controlButton} onPress={togglePlayPause}>
+							<SymbolView
+								name={isPlaying ? 'pause.fill' : 'play.fill'}
+								type='hierarchical'
+								size={20}
+								tintColor={Colors.brandPrimary}
+							/>
+						</Pressable>
+						<Pressable style={styles.controlButton} onPress={skipToNext}>
+							<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brandPrimary} />
+						</Pressable>
+					</>
+				)}
 			</Div>
 		</Div>
 	);

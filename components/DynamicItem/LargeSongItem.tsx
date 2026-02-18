@@ -53,13 +53,11 @@ const styles = StyleSheet.create({
 		backgroundColor: '#eee',
 	},
 	title: {
-		color: '#FFFFFF',
 		fontSize: 14,
 		fontWeight: '600',
 		textAlign: 'center',
 	},
 	artist: {
-		color: '#666',
 		fontSize: 14,
 		textAlign: 'center',
 	},

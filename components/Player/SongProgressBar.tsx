@@ -1,13 +1,14 @@
-import { useCallback } from 'react';
-import { View } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
 	configureReanimatedLogger,
+	Easing,
 	ReanimatedLogLevel,
 	runOnJS,
 	useAnimatedStyle,
 	useDerivedValue,
 	useSharedValue,
+	withTiming,
 } from 'react-native-reanimated';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { Div } from '../Div';
@@ -17,9 +18,13 @@ configureReanimatedLogger({
 	strict: false,
 });
 
+const PROGRESS_UPDATE_INTERVAL_MS = 500;
+
 export function SongProgressBar() {
 	const position = useAudioStore((state) => state.position);
 	const duration = useAudioStore((state) => state.duration);
+	const isPlaying = useAudioStore((state) => state.isPlaying);
+	const playbackRate = useAudioStore((state) => state.playbackRate);
 	const seekTo = useAudioStore((state) => state.seekTo);
 
 	const containerWidth = useSharedValue(0);
@@ -27,13 +32,39 @@ export function SongProgressBar() {
 	const isScrubbing = useSharedValue(false);
 	const scrubbingProgress = useSharedValue(0);
 
+	// Animated progress that interpolates smoothly between native updates
+	const animatedProgress = useSharedValue(0);
+
+	// On each native position update, animate smoothly to the next expected position
+	useEffect(() => {
+		if (duration === 0) {
+			animatedProgress.value = 0;
+			return;
+		}
+		const currentPercent = Math.min(100, Math.max(0, (position / duration) * 100));
+		if (isPlaying) {
+			// Animate from current position to where we expect to be at the next update
+			const nextPercent = Math.min(
+				100,
+				currentPercent + (playbackRate * PROGRESS_UPDATE_INTERVAL_MS / 1000 / duration) * 100,
+			);
+			animatedProgress.value = currentPercent;
+			animatedProgress.value = withTiming(nextPercent, {
+				duration: PROGRESS_UPDATE_INTERVAL_MS,
+				easing: Easing.linear,
+			});
+		} else {
+			// Paused — snap to exact position
+			animatedProgress.value = currentPercent;
+		}
+	}, [position, duration, isPlaying, playbackRate]);
+
 	const progress = useDerivedValue(() => {
 		if (isScrubbing.value) {
 			return scrubbingProgress.value;
 		}
-		if (duration === 0) return 0;
-		return (position / duration) * 100;
-	}, [position, duration]);
+		return animatedProgress.value;
+	});
 
 	const handleSeek = useCallback(
 		(newPosition: number) => {
@@ -45,13 +76,11 @@ export function SongProgressBar() {
 	const panGesture = Gesture.Pan()
 		.onStart((event) => {
 			isScrubbing.value = true;
-			// Calculate position relative to container
 			const relativeX = event.absoluteX - containerX.value;
 			const progressPercent = (relativeX / containerWidth.value) * 100;
 			scrubbingProgress.value = Math.max(0, Math.min(100, progressPercent));
 		})
 		.onUpdate((event) => {
-			// Calculate position relative to container
 			const relativeX = event.absoluteX - containerX.value;
 			const progressPercent = (relativeX / containerWidth.value) * 100;
 			scrubbingProgress.value = Math.max(0, Math.min(100, progressPercent));
@@ -63,7 +92,6 @@ export function SongProgressBar() {
 		});
 
 	const tapGesture = Gesture.Tap().onStart((event) => {
-		// Calculate position relative to container
 		const relativeX = event.absoluteX - containerX.value;
 		const progressPercent = (relativeX / containerWidth.value) * 100;
 		const clampedProgress = Math.max(0, Math.min(100, progressPercent));
@@ -93,7 +121,6 @@ export function SongProgressBar() {
 					onLayout={(event) => {
 						const layout = event.nativeEvent.layout;
 						containerWidth.value = layout.width;
-						// Measure absolute position
 						event.target.measure((_x, _y, _width, _height, pageX) => {
 							containerX.value = pageX;
 						});

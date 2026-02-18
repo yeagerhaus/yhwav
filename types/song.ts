@@ -19,4 +19,6 @@ export interface Song {
 	titleLower?: string;
 	artistLower?: string;
 	albumLower?: string;
+	// When set, player UI shows podcast controls (15s skip, speed; no queue/next/prev)
+	source?: 'podcast';
 }

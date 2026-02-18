@@ -14,6 +14,10 @@ import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
+import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
+import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -72,10 +76,24 @@ export default function RootLayout() {
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
+	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 
 	useEffect(() => {
 		hydrateDevSettings();
-	}, [hydrateDevSettings]);
+		hydrateOfflineMode();
+	}, [hydrateDevSettings, hydrateOfflineMode]);
+
+	const hydratePodcast = usePodcastStore((s) => s.hydrate);
+	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
+	const hydratePodcastDownloads = usePodcastDownloadsStore((s) => s.hydrate);
+	useEffect(() => {
+		hydratePodcastProgress();
+		hydratePodcastDownloads();
+		hydratePodcast().then(() => {
+			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
+			if (feeds.length > 0) fetchAllFeeds();
+		});
+	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads]);
 
 	useEffect(() => {
 		const init = async () => {

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
 import type { Song } from '@/types';
+import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 
 // Import store directly to avoid circular dependency
 let useLibraryStore: any;
@@ -85,6 +86,9 @@ export async function clearLibraryCache() {
  * Returns the number of tracks fetched, or 0 on failure.
  */
 export async function clearCacheAndReload(): Promise<number> {
+	if (getIsOfflineMode()) {
+		return 0;
+	}
 	const { fetchAllTracks, fetchAllAlbums, fetchAllArtists } = require('@/utils/plex');
 	const store = getStore();
 

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
+import { create } from 'zustand';
 import TrackPlayer, {
 	Capability,
 	Event,
@@ -10,8 +11,7 @@ import TrackPlayer, {
 	State,
 	usePlaybackState,
 	useTrackPlayerEvents,
-} from 'react-native-track-player';
-import { create } from 'zustand';
+} from '@/lib/playerAdapter';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 
@@ -24,6 +24,7 @@ export const STORAGE_REPEAT_MODE_KEY = 'REPEAT_MODE';
 export const STORAGE_SHUFFLE_KEY = 'SHUFFLE_MODE';
 export const STORAGE_VOLUME_KEY = 'VOLUME';
 export const STORAGE_PLAYBACK_RATE_KEY = 'PLAYBACK_RATE';
+export const STORAGE_SLEEP_TIMER_ENDS_AT_KEY = 'SLEEP_TIMER_ENDS_AT';
 
 // Lightweight queue persistence — save only IDs, resolve from library store
 function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song | null) {
@@ -65,7 +66,7 @@ interface AudioState {
 	isPlaying: boolean;
 	position: number;
 	duration: number;
-	repeatMode: RepeatMode;
+	repeatMode: number;
 	isShuffled: boolean;
 	volume: number;
 	playbackRate: number;
@@ -79,6 +80,8 @@ interface AudioState {
 	skipToNext: () => Promise<void>;
 	skipToPrevious: () => Promise<void>;
 	seekTo: (position: number) => Promise<void>;
+	skipBackward15: () => Promise<void>;
+	skipForward15: () => Promise<void>;
 
 	// Queue management
 	addToQueue: (songs: Song[]) => Promise<void>;
@@ -93,6 +96,11 @@ interface AudioState {
 	toggleShuffle: () => Promise<void>;
 	setVolume: (volume: number) => Promise<void>;
 	setPlaybackRate: (rate: number) => Promise<void>;
+
+	// Sleep timer (JS-based; works on all platforms)
+	sleepTimerEndsAt: number | null;
+	setSleepTimer: (minutes: number | null) => void;
+	getSleepTimerRemainingSeconds: () => number | null;
 
 	// Internal state management
 	_setIsPlaying: (isPlaying: boolean) => void;
@@ -136,8 +144,7 @@ let prewarmedUrl: string | null = null;
 let lastErrorRetryAt = 0;
 
 // Natural advance (track ended → next started): latency tracking (excludes skips)
-let naturalAdvanceEnd: ((metadata?: Record<string, unknown>) => void) | null = null;
-let naturalAdvanceEndSongId: string | null = null;
+let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
 
@@ -200,6 +207,49 @@ function songToTrack(song: Song) {
 	};
 }
 
+/** If current song is a podcast with saved progress, seek to resume position. */
+async function maybeResumePodcast(song: Song): Promise<void> {
+	if (song.source !== 'podcast') return;
+	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+	const progress = usePodcastProgressStore.getState().getProgress(song.id);
+	if (progress && !progress.completed && progress.position > 10) {
+		await TrackPlayer.seekTo(progress.position);
+	}
+}
+
+// Podcast progress: debounced save while playing (latest position), immediate save on pause
+let podcastProgressTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingPodcastProgress: { episodeId: string; position: number; duration: number } | null = null;
+const PODCAST_PROGRESS_DEBOUNCE_MS = 3000;
+
+function schedulePodcastProgressSave(episodeId: string, position: number, duration: number) {
+	pendingPodcastProgress = { episodeId, position, duration };
+	if (podcastProgressTimeout == null) {
+		podcastProgressTimeout = setTimeout(() => {
+			if (pendingPodcastProgress) {
+				const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+				usePodcastProgressStore.getState().saveProgress(
+					pendingPodcastProgress.episodeId,
+					pendingPodcastProgress.position,
+					pendingPodcastProgress.duration,
+				);
+				pendingPodcastProgress = null;
+			}
+			podcastProgressTimeout = null;
+		}, PODCAST_PROGRESS_DEBOUNCE_MS);
+	}
+}
+
+function savePodcastProgressImmediate(episodeId: string, position: number, duration: number) {
+	if (podcastProgressTimeout) {
+		clearTimeout(podcastProgressTimeout);
+		podcastProgressTimeout = null;
+	}
+	pendingPodcastProgress = null;
+	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+	usePodcastProgressStore.getState().saveProgress(episodeId, position, duration);
+}
+
 export const useAudioStore = create<AudioState>((set, get) => ({
 	// Initial state
 	currentSong: null,
@@ -215,6 +265,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	isBuffering: false,
 	error: null,
 	artworkBgColor: null,
+	sleepTimerEndsAt: null,
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -263,7 +314,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					Capability.SkipToPrevious,
 					Capability.SeekTo,
 				],
-				progressUpdateEventInterval: 1,
+				progressUpdateEventInterval: 0.5,
 			});
 
 			// Restore saved state
@@ -277,6 +328,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					savedShuffleStr,
 					savedVolumeStr,
 					savedRateStr,
+					savedSleepTimerEndsAtStr,
 				] = await Promise.all([
 					AsyncStorage.getItem(STORAGE_SONG_KEY),
 					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
@@ -286,11 +338,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
 					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
 					AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY),
+					AsyncStorage.getItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY),
 				]);
 
 				// Restore settings
 				if (savedRepeatStr) {
-					const repeatMode = Number.parseInt(savedRepeatStr) as RepeatMode;
+					const repeatMode = Number.parseInt(savedRepeatStr, 10);
 					set({ repeatMode });
 					await TrackPlayer.setRepeatMode(repeatMode);
 				}
@@ -309,6 +362,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					const rate = Number.parseFloat(savedRateStr);
 					set({ playbackRate: rate });
 					await TrackPlayer.setRate(rate);
+				}
+
+				if (savedSleepTimerEndsAtStr) {
+					const endsAt = Number.parseInt(savedSleepTimerEndsAtStr, 10);
+					if (endsAt > Date.now()) {
+						set({ sleepTimerEndsAt: endsAt });
+					} else {
+						await AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
+					}
 				}
 
 				// Restore queue and current song from IDs
@@ -418,6 +480,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						if (trackIndex !== -1) {
 							await TrackPlayer.skip(trackIndex);
 						}
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else if (newQueue) {
 						// New queue — reset and load
@@ -434,12 +497,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						saveQueueState(queueToUse, newQueue, song);
 						set({ queue: queueToUse, originalQueue: newQueue });
 
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else {
 						// Single song
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
 						set({ queue: [song], originalQueue: [song] });
+						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					}
 				} catch (error) {
@@ -544,6 +609,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
+	},
+
+	skipBackward15: async () => {
+		const { position, seekTo } = get();
+		await seekTo(Math.max(0, position - 15));
+	},
+
+	skipForward15: async () => {
+		const { position, duration, seekTo } = get();
+		await seekTo(Math.min(duration, position + 15));
 	},
 
 	// Add to queue
@@ -735,6 +810,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			console.error('Error setting playback rate:', error);
 		}
 	},
+
+	setSleepTimer: (minutes: number | null) => {
+		if (minutes == null) {
+			set({ sleepTimerEndsAt: null });
+			AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY).catch(() => {});
+			return;
+		}
+		const endsAt = Date.now() + minutes * 60 * 1000;
+		set({ sleepTimerEndsAt: endsAt });
+		AsyncStorage.setItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt)).catch(() => {});
+	},
+
+	getSleepTimerRemainingSeconds: () => {
+		const endsAt = get().sleepTimerEndsAt;
+		if (endsAt == null) return null;
+		const rem = Math.ceil((endsAt - Date.now()) / 1000);
+		return rem <= 0 ? null : rem;
+	},
 }));
 
 // Hook to sync TrackPlayer events with the store
@@ -749,6 +842,11 @@ export function useTrackPlayerSync() {
 			state._setIsPlaying(true);
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
+			// Save podcast progress immediately on pause so resume position is accurate
+			if (state.currentSong?.source === 'podcast') {
+				const s = useAudioStore.getState();
+				savePodcastProgressImmediate(state.currentSong.id, s.position, s.duration);
+			}
 		}
 
 		// Handle buffering
@@ -769,34 +867,46 @@ export function useTrackPlayerSync() {
 			Event.RemotePause,
 			Event.RemoteNext,
 			Event.RemotePrevious,
+			Event.RemoteSeek,
 		],
 		async (event) => {
 			// Get fresh state for each event
 			const state = useAudioStore.getState();
 
 			if (event.type === Event.PlaybackProgressUpdated) {
-				state._setPosition(event.position);
-				state._setDuration(event.duration);
+				const position = event.position ?? 0;
+				const duration = event.duration ?? 0;
+				state._setPosition(position);
+				state._setDuration(duration);
+				lastProgressTimestamp = Date.now();
 
-				const remaining = event.duration - event.position;
-
-				// Start latency timer when current track is about to end (natural advance only)
-				if (remaining > 0 && remaining < 0.5 && state.currentSong && naturalAdvanceEndSongId !== state.currentSong.id) {
-					naturalAdvanceEnd = performanceMonitor.startTimer('playback-natural-advance-latency');
-					naturalAdvanceEndSongId = state.currentSong.id;
+				// Sleep timer: stop playback when time is up
+				const { sleepTimerEndsAt } = useAudioStore.getState();
+				if (sleepTimerEndsAt != null && Date.now() >= sleepTimerEndsAt) {
+					await TrackPlayer.pause();
+					useAudioStore.getState().setSleepTimer(null);
 				}
 
-				// Pre-warm HTTP connection for next track when nearing end of current
-				if (remaining > 0 && remaining < 30 && state.queue.length > 1 && state.currentSong) {
+				const remaining = duration - position;
+
+				// Pre-fetch first 256KB of next track to warm OS HTTP cache
+				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
 					const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
 					if (currentIndex !== -1) {
 						const nextIndex = (currentIndex + 1) % state.queue.length;
 						const nextSong = state.queue[nextIndex];
 						if (nextSong && nextSong.uri !== prewarmedUrl) {
 							prewarmedUrl = nextSong.uri;
-							fetch(nextSong.uri, { method: 'HEAD' }).catch(() => {});
+							fetch(nextSong.uri, { headers: { Range: 'bytes=0-262143' } })
+								.then((r) => r.arrayBuffer())
+								.catch(() => {});
 						}
 					}
+				}
+
+				// Save podcast progress (debounced) so we can resume later
+				if (state.currentSong?.source === 'podcast') {
+					schedulePodcastProgressSave(state.currentSong.id, position, duration);
 				}
 			}
 
@@ -814,27 +924,20 @@ export function useTrackPlayerSync() {
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
 
+				// Mark previous track as completed if it was a podcast (e.g. episode finished)
+				if (state.currentSong?.source === 'podcast') {
+					savePodcastProgressImmediate(state.currentSong.id, state.duration, state.duration);
+				}
+
 				const previousSongId = state.currentSong?.id ?? null;
-				const isNaturalAdvance =
-					naturalAdvanceEnd != null &&
-					naturalAdvanceEndSongId != null &&
-					naturalAdvanceEndSongId === previousSongId &&
-					Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
-				if (isNaturalAdvance && naturalAdvanceEnd) {
-					naturalAdvanceEnd({
-						fromSongId: previousSongId,
-						toSongId: newCurrentSong.id,
-						fromIndex: state.queue.findIndex((s) => s.id === previousSongId),
-						toIndex: trackIndex,
-					});
+				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
+				if (isNaturalAdvance) {
+					// Measure gap from last progress update to now — captures the
+					// actual audible silence between tracks regardless of duration accuracy
+					const gapMs = Date.now() - lastProgressTimestamp;
 					if (__DEV__) {
-						const latencyMs = performanceMonitor.getMetricsByName('playback-natural-advance-latency').slice(-1)[0]?.duration;
-						console.log(
-							`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id}${latencyMs != null ? ` (${latencyMs.toFixed(0)}ms latency)` : ''}`,
-						);
+						console.log(`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
 					}
-					naturalAdvanceEnd = null;
-					naturalAdvanceEndSongId = null;
 				}
 
 				// Reset pre-warm tracker for the new track
@@ -892,6 +995,10 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.RemotePrevious) {
 				lastUserSkipAt = Date.now();
 				await state.skipToPrevious();
+			}
+
+			if (event.type === Event.RemoteSeek) {
+				await state.seekTo(event.position ?? 0);
 			}
 		},
 	);
