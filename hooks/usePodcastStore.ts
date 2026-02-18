@@ -5,6 +5,7 @@ import type { PodcastEpisode, PodcastFeed } from '@/types';
 import { fetchAndParseFeed } from '@/utils/podcast-rss';
 
 const STORAGE_KEY = 'PODCAST_RSS_FEEDS';
+const EPISODES_CACHE_KEY = 'PODCAST_EPISODES_CACHE';
 
 interface PersistedFeed {
 	id: string;
@@ -21,6 +22,7 @@ interface PodcastState {
 	addingUrl: string | null;
 	error: string | null;
 	hydrated: boolean;
+	lastFetchedAt: number | null;
 
 	addFeed: (url: string) => Promise<void>;
 	removeFeed: (id: string) => void;
@@ -45,6 +47,23 @@ async function persistFeeds(feeds: PodcastFeed[]) {
 	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toPersist));
 }
 
+async function persistEpisodes(episodesByFeedId: Record<string, PodcastEpisode[]>) {
+	try {
+		await AsyncStorage.setItem(EPISODES_CACHE_KEY, JSON.stringify(episodesByFeedId));
+	} catch {}
+}
+
+async function loadCachedEpisodes(): Promise<Record<string, PodcastEpisode[]>> {
+	try {
+		const raw = await AsyncStorage.getItem(EPISODES_CACHE_KEY);
+		if (!raw) return {};
+		const parsed = JSON.parse(raw);
+		return typeof parsed === 'object' && parsed !== null ? parsed : {};
+	} catch {
+		return {};
+	}
+}
+
 export const usePodcastStore = create<PodcastState>((set, get) => ({
 	feeds: [],
 	episodesByFeedId: {},
@@ -52,14 +71,15 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 	addingUrl: null,
 	error: null,
 	hydrated: false,
+	lastFetchedAt: null,
 
 	clearError: () => set({ error: null }),
 
 	hydrate: async () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const [raw, cachedEpisodes] = await Promise.all([AsyncStorage.getItem(STORAGE_KEY), loadCachedEpisodes()]);
 			if (!raw) {
-				set({ hydrated: true });
+				set({ hydrated: true, episodesByFeedId: cachedEpisodes });
 				return;
 			}
 			const parsed: PersistedFeed[] = JSON.parse(raw);
@@ -70,7 +90,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				imageUrl: p.imageUrl,
 				addedAt: p.addedAt,
 			}));
-			set({ feeds, hydrated: true });
+			set({ feeds, episodesByFeedId: cachedEpisodes, hydrated: true });
 		} catch {
 			set({ hydrated: true });
 		}
@@ -103,13 +123,14 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				addedAt: Date.now(),
 			};
 			const newFeeds = [...feeds, newFeed];
+			const newEpisodes = { ...get().episodesByFeedId, [id]: parsed.episodes };
 			set({
 				feeds: newFeeds,
-				episodesByFeedId: { ...get().episodesByFeedId, [id]: parsed.episodes },
+				episodesByFeedId: newEpisodes,
 				addingUrl: null,
 				error: null,
 			});
-			await persistFeeds(newFeeds);
+			await Promise.all([persistFeeds(newFeeds), persistEpisodes(newEpisodes)]);
 		} catch (err: any) {
 			set({
 				addingUrl: null,
@@ -125,7 +146,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 		const newEpisodes = { ...episodesByFeedId };
 		delete newEpisodes[id];
 		set({ feeds: newFeeds, episodesByFeedId: newEpisodes });
-		persistFeeds(newFeeds).catch(() => {});
+		Promise.all([persistFeeds(newFeeds), persistEpisodes(newEpisodes)]).catch(() => {});
 	},
 
 	fetchFeed: async (urlOrId: string) => {
@@ -158,11 +179,13 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				set({ feeds: updated });
 				await persistFeeds(updated);
 			}
+			const newEpisodes = { ...episodesByFeedId, [id]: parsed.episodes };
 			set({
-				episodesByFeedId: { ...episodesByFeedId, [id]: parsed.episodes },
+				episodesByFeedId: newEpisodes,
 				isLoading: false,
 				error: null,
 			});
+			persistEpisodes(newEpisodes).catch(() => {});
 		} catch (err: any) {
 			set({
 				isLoading: false,
@@ -194,7 +217,8 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 			episodesByFeedId,
 			isLoading: false,
 			error: hadError ? 'Some feeds failed to refresh' : null,
+			lastFetchedAt: Date.now(),
 		});
-		await persistFeeds(updatedFeeds);
+		await Promise.all([persistFeeds(updatedFeeds), persistEpisodes(episodesByFeedId)]);
 	},
 }));

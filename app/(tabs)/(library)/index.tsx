@@ -1,14 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { Colors } from '@/constants';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
-import { fetchRecentlyPlayed } from '@/utils/plex';
 
 const ITEM_SIZE = 175;
+const SECTION_LIMIT = 15;
 
 const SECTIONS = [
 	{ title: 'Playlists', icon: 'music.note.list', route: '/(tabs)/(library)/(playlists)' },
@@ -22,44 +21,33 @@ export default function LibraryScreen() {
 	const { tracks, albums, recentlyPlayed, playlists } = useOfflineFilteredLibrary();
 	const trackCount = tracks.length;
 	const [refreshing, setRefreshing] = useState(false);
-	const setRecentlyPlayed = useLibraryStore((s) => s.setRecentlyPlayed);
+	const hasHydrated = tracks.length > 0;
 
 	const recentlyAdded = useMemo(
 		() =>
 			[...albums]
 				.filter((a) => a.addedAt != null)
 				.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0))
-				.slice(0, 25),
+				.slice(0, SECTION_LIMIT),
 		[albums],
 	);
 
-	// const mostPlayedArtists = useMemo(
-	// 	() =>
-	// 		artists
-	// 			.filter((a) => a.viewCount != null && a.viewCount > 0)
-	// 			.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
-	// 			.slice(0, 25),
-	// 	[artists],
-	// );
+	const recentPlaylists = useMemo(
+		() =>
+			[...playlists]
+				.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null)
+				.sort((a, b) => (b.lastViewedAt ?? 0) - (a.lastViewedAt ?? 0))
+				.slice(0, SECTION_LIMIT),
+		[playlists],
+	);
 
-	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null), [playlists]);
-
-	useEffect(() => {
-		fetchRecentlyPlayed(25)
-			.then(setRecentlyPlayed)
-			.catch((err) => console.warn('Failed to fetch recently played:', err));
-	}, [setRecentlyPlayed]);
+	const limitedRecentlyPlayed = useMemo(() => recentlyPlayed.slice(0, SECTION_LIMIT), [recentlyPlayed]);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
-		await Promise.all([
-			clearCacheAndReload(),
-			fetchRecentlyPlayed(25)
-				.then(setRecentlyPlayed)
-				.catch((err) => console.warn('Failed to fetch recently played:', err)),
-		]);
+		await clearCacheAndReload();
 		setRefreshing(false);
-	}, [setRecentlyPlayed]);
+	}, []);
 
 	return (
 		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}>
@@ -77,9 +65,11 @@ export default function LibraryScreen() {
 			<Div transparent display='flex' flex={1} gap={16} style={{ paddingBottom: 40 }}>
 				<HomeSection
 					title='Recently Played'
-					data={recentlyPlayed}
+					data={limitedRecentlyPlayed}
 					keyExtractor={(item) => item.id}
-					renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={recentlyPlayed} size={ITEM_SIZE} />}
+					renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />}
+					isLoading={!hasHydrated}
+					itemSize={ITEM_SIZE}
 				/>
 
 				<HomeSection
@@ -93,6 +83,8 @@ export default function LibraryScreen() {
 							size={ITEM_SIZE}
 						/>
 					)}
+					isLoading={!hasHydrated}
+					itemSize={ITEM_SIZE}
 				/>
 
 				{/* <HomeSection
@@ -103,8 +95,8 @@ export default function LibraryScreen() {
 				/> */}
 
 				<HomeSection
-					title='Your Playlists'
-					data={audioPlaylists}
+					title='Recent Playlists'
+					data={recentPlaylists}
 					keyExtractor={(item) => item.key ?? item.id}
 					renderItem={(item) => (
 						<DynamicItem
@@ -118,6 +110,8 @@ export default function LibraryScreen() {
 							size={ITEM_SIZE}
 						/>
 					)}
+					isLoading={!hasHydrated}
+					itemSize={ITEM_SIZE}
 				/>
 			</Div>
 		</Main>

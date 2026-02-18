@@ -1,11 +1,14 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors } from '@/constants';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+
+const REFRESH_THROTTLE_MS = 60_000;
 
 type FormattedShow = {
 	id: string;
@@ -15,10 +18,23 @@ type FormattedShow = {
 };
 
 export default function PodcastsScreen() {
-	const { feeds, episodesByFeedId, isLoading, addFeed, fetchAllFeeds } = usePodcastStore();
+	const { feeds, episodesByFeedId, isLoading, hydrated, addFeed, fetchAllFeeds, lastFetchedAt } = usePodcastStore();
 	const [refreshing, setRefreshing] = useState(false);
 	const isOffline = useOfflineModeStore((s) => s.offlineMode);
 	const downloads = usePodcastDownloadsStore((s) => s.downloads);
+	const isBackgroundRefreshing = useRef(false);
+
+	useFocusEffect(
+		useCallback(() => {
+			if (isOffline || !hydrated || feeds.length === 0 || isBackgroundRefreshing.current) return;
+			const elapsed = lastFetchedAt ? Date.now() - lastFetchedAt : Infinity;
+			if (elapsed < REFRESH_THROTTLE_MS) return;
+			isBackgroundRefreshing.current = true;
+			fetchAllFeeds().finally(() => {
+				isBackgroundRefreshing.current = false;
+			});
+		}, [isOffline, hydrated, feeds.length, lastFetchedAt, fetchAllFeeds]),
+	);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
@@ -76,7 +92,7 @@ export default function PodcastsScreen() {
 		[handleAddFeed],
 	);
 
-	if (isLoading && feeds.length === 0) {
+	if (!hydrated && isLoading && feeds.length === 0) {
 		return (
 			<Main>
 				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>

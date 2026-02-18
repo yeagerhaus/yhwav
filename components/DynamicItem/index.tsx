@@ -19,9 +19,10 @@ export interface DynamicItemProps {
 	showImageUrl?: string;
 	/** For podcastEpisode: enables download/remove-download button */
 	feed?: PodcastFeed;
+	playlistRatingKey?: string;
 }
 
-export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl, feed }: DynamicItemProps) {
+export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl, feed, playlistRatingKey }: DynamicItemProps) {
 	switch (type) {
 		case 'list':
 			return <ListItem item={item} onPress={onPress} />;
@@ -45,7 +46,7 @@ export function DynamicItem({ item, type, onPress, queue, listItem, size, showTi
 		case 'artist':
 			return <ArtistItem item={item} />;
 		case 'song':
-			return <SongItem item={item} queue={queue} listItem={listItem} />;
+			return <SongItem item={item} queue={queue} listItem={listItem} playlistRatingKey={playlistRatingKey} />;
 		case 'largeSong':
 			return <LargeSongItem item={item} queue={queue} size={size} />;
 		default:

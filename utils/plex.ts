@@ -17,6 +17,7 @@ export {
 	movePlaylistItem,
 	plexClient,
 	removeFromPlaylist,
+	scrobble,
 	testPlexServer,
 	updatePlaylistMetadata,
 } from './plex-client';
