@@ -5,8 +5,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Dimensions, LayoutAnimation } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { Div } from '@/components';
 import { ExpandedPlayer } from '@/components/BottomSheet/ExpandedPlayer';
-import { Div, Text } from '@/components';
 import { useRootScale } from '@/ctx/RootScaleContext';
 
 // Constants moved outside component to prevent recalculation

@@ -48,7 +48,13 @@ export default function SearchPlaylistItem({ playlist, query, onPress }: SearchP
 					<SymbolView name='music.note.list' size={24} tintColor='#ddd' />
 				</Div>
 			)}
-			<Div transparent style={[styles.infoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+			<Div
+				transparent
+				style={[
+					styles.infoContainer,
+					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
+				]}
+			>
 				<Div transparent style={styles.info}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.title}>
 						{highlightText(playlist.title, query)}

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
-import type { Song } from '@/types';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
+import type { Song } from '@/types';
 
 // Import store directly to avoid circular dependency
 let useLibraryStore: any;

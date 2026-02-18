@@ -4,8 +4,8 @@ import { Image, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'reac
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
-import { Text } from '../Text';
 import { Div } from '../Div';
+import { Text } from '../Text';
 
 interface QueueListProps {
 	headerComponent: React.ReactElement;
@@ -33,15 +33,9 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 	const reorderQueue = useAudioStore((s) => s.reorderQueue);
 	const playSound = useAudioStore((s) => s.playSound);
 
-	const currentIndex = useMemo(
-		() => (currentSong ? queue.findIndex((s) => s.id === currentSong.id) : -1),
-		[queue, currentSong],
-	);
+	const currentIndex = useMemo(() => (currentSong ? queue.findIndex((s) => s.id === currentSong.id) : -1), [queue, currentSong]);
 
-	const nextUpSongs = useMemo(
-		() => (currentIndex >= 0 ? queue.slice(currentIndex + 1) : []),
-		[queue, currentIndex],
-	);
+	const nextUpSongs = useMemo(() => (currentIndex >= 0 ? queue.slice(currentIndex + 1) : []), [queue, currentIndex]);
 
 	const handleRemove = useCallback(
 		(localIndex: number) => {
@@ -51,7 +45,7 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 	);
 
 	const handleReorder = useCallback(
-		({ data, from, to }: { data: Song[]; from: number; to: number }) => {
+		({ data: _data, from, to }: { data: Song[]; from: number; to: number }) => {
 			const globalFrom = currentIndex + 1 + from;
 			const globalTo = currentIndex + 1 + to;
 			reorderQueue(globalFrom, globalTo);
@@ -85,15 +79,19 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<Ionicons name="remove-circle" size={22} color="rgba(255, 255, 255, 0.6)" />
+						<Ionicons name='remove-circle' size={22} color='rgba(255, 255, 255, 0.6)' />
 					</Pressable>
 					<Image source={{ uri: item.artworkUrl || item.artwork }} style={styles.artwork} />
 					<Div transparent style={styles.songInfo}>
-						<Text numberOfLines={1} style={styles.title}>{item.title}</Text>
-						<Text numberOfLines={1} style={styles.artist}>{item.artist}</Text>
+						<Text numberOfLines={1} style={styles.title}>
+							{item.title}
+						</Text>
+						<Text numberOfLines={1} style={styles.artist}>
+							{item.artist}
+						</Text>
 					</Div>
 					<Pressable onLongPress={drag} hitSlop={8} style={styles.dragHandle}>
-						<Ionicons name="reorder-three" size={24} color="rgba(255, 255, 255, 0.5)" />
+						<Ionicons name='reorder-three' size={24} color='rgba(255, 255, 255, 0.5)' />
 					</Pressable>
 				</Pressable>
 			</ScaleDecorator>
@@ -101,43 +99,51 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 		[handlePlaySong, handleRemove],
 	);
 
-	const listHeader = useMemo(() => (
-		<View>
-			<View onLayout={handlePlayerLayout}>
-				{headerComponent}
-			</View>
+	const listHeader = useMemo(
+		() => (
+			<View>
+				<View onLayout={handlePlayerLayout}>{headerComponent}</View>
 
-			{/* Now Playing */}
-			{currentSong && (
-				<View style={styles.section}>
-					<Text style={styles.sectionHeader}>NOW PLAYING</Text>
-					<View style={styles.nowPlayingRow}>
-						<Image source={{ uri: currentSong.artworkUrl || currentSong.artwork }} style={styles.artwork} />
-						<Div transparent style={styles.songInfo}>
-							<Text numberOfLines={1} style={styles.title}>{currentSong.title}</Text>
-							<Text numberOfLines={1} style={styles.artist}>{currentSong.artist}</Text>
-						</Div>
+				{/* Now Playing */}
+				{currentSong && (
+					<View style={styles.section}>
+						<Text style={styles.sectionHeader}>NOW PLAYING</Text>
+						<View style={styles.nowPlayingRow}>
+							<Image source={{ uri: currentSong.artworkUrl || currentSong.artwork }} style={styles.artwork} />
+							<Div transparent style={styles.songInfo}>
+								<Text numberOfLines={1} style={styles.title}>
+									{currentSong.title}
+								</Text>
+								<Text numberOfLines={1} style={styles.artist}>
+									{currentSong.artist}
+								</Text>
+							</Div>
+						</View>
 					</View>
-				</View>
-			)}
-
-			{/* Next Up header */}
-			<View style={styles.nextUpHeader}>
-				<Text style={styles.sectionHeader}>NEXT UP</Text>
-				{nextUpSongs.length > 0 && (
-					<Pressable onPress={clearQueue} hitSlop={8}>
-						<Text style={styles.clearButton}>Clear</Text>
-					</Pressable>
 				)}
-			</View>
-		</View>
-	), [headerComponent, currentSong, nextUpSongs.length, clearQueue, handlePlayerLayout]);
 
-	const emptyComponent = useMemo(() => (
-		<View style={styles.emptyContainer}>
-			<Text style={styles.emptyText}>No upcoming songs</Text>
-		</View>
-	), []);
+				{/* Next Up header */}
+				<View style={styles.nextUpHeader}>
+					<Text style={styles.sectionHeader}>NEXT UP</Text>
+					{nextUpSongs.length > 0 && (
+						<Pressable onPress={clearQueue} hitSlop={8}>
+							<Text style={styles.clearButton}>Clear</Text>
+						</Pressable>
+					)}
+				</View>
+			</View>
+		),
+		[headerComponent, currentSong, nextUpSongs.length, clearQueue, handlePlayerLayout],
+	);
+
+	const emptyComponent = useMemo(
+		() => (
+			<View style={styles.emptyContainer}>
+				<Text style={styles.emptyText}>No upcoming songs</Text>
+			</View>
+		),
+		[],
+	);
 
 	return (
 		<DraggableFlatList

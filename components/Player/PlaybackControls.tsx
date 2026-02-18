@@ -17,30 +17,14 @@ export const PlaybackControls = React.memo(() => {
 
 	return (
 		<Div transparent style={styles.buttonContainer}>
-			<Pressable
-				style={styles.button}
-				onPress={isPodcast ? skipBackward15 : skipToPrevious}
-			>
-				<SymbolView
-					name={isPodcast ? 'gobackward.15' : 'backward.fill'}
-					type='hierarchical'
-					size={35}
-					tintColor='#fff'
-				/>
+			<Pressable style={styles.button} onPress={isPodcast ? skipBackward15 : skipToPrevious}>
+				<SymbolView name={isPodcast ? 'gobackward.15' : 'backward.fill'} type='hierarchical' size={35} tintColor='#fff' />
 			</Pressable>
 			<Pressable style={[styles.button, styles.playButton]} onPress={togglePlayPause}>
 				<SymbolView name={isPlaying ? 'pause.fill' : 'play.fill'} type='hierarchical' size={40} tintColor='#fff' />
 			</Pressable>
-			<Pressable
-				style={styles.button}
-				onPress={isPodcast ? skipForward15 : skipToNext}
-			>
-				<SymbolView
-					name={isPodcast ? 'goforward.15' : 'forward.fill'}
-					type='hierarchical'
-					size={35}
-					tintColor='#fff'
-				/>
+			<Pressable style={styles.button} onPress={isPodcast ? skipForward15 : skipToNext}>
+				<SymbolView name={isPodcast ? 'goforward.15' : 'forward.fill'} type='hierarchical' size={35} tintColor='#fff' />
 			</Pressable>
 		</Div>
 	);

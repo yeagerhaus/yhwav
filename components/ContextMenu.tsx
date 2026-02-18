@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
-import { Modal, Pressable, type StyleProp, TouchableOpacity, View, type ViewStyle } from 'react-native';
+import { Modal, Pressable, type StyleProp, TouchableOpacity, type View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/Text';
 import { Colors, DefaultStyles } from '@/constants/styles';
 import { Div } from './Div';
@@ -50,7 +50,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 				{children}
 			</Pressable>
 
-			<Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
 				<TouchableOpacity style={DefaultStyles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
 					<Div
 						style={[
@@ -89,7 +89,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 										/>
 									) : null}
 									<Text
-										type="body"
+										type='body'
 										colorVariant={item.destructive ? 'danger' : 'primaryInvert'}
 										style={[item.disabled && styles.menuItemDisabledText]}
 									>

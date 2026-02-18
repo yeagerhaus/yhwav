@@ -1,4 +1,4 @@
-import { FlatList, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { FlatList, type StyleProp, type ViewStyle } from 'react-native';
 import { Div } from './Div';
 import { Text } from './Text';
 
@@ -15,7 +15,9 @@ export function HomeSection<T>({ title, data, renderItem, keyExtractor, style }:
 
 	return (
 		<Div transparent style={style} display='flex' gap={16}>
-			<Text type='h2' style={{ paddingHorizontal: 16 }}>{title}</Text>
+			<Text type='h2' style={{ paddingHorizontal: 16 }}>
+				{title}
+			</Text>
 			<FlatList
 				horizontal
 				data={data}

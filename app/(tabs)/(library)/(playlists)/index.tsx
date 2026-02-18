@@ -53,7 +53,10 @@ export default function PlaylistsScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div transparent style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}>
+			<Div
+				transparent
+				style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}
+			>
 				<Text type='h1'>Playlists</Text>
 				<Pressable onPress={handleCreatePlaylist} hitSlop={8}>
 					<Ionicons name='add-circle-outline' size={28} color='#7f62f5' />
@@ -78,9 +81,13 @@ export default function PlaylistsScreen() {
 			<Main>
 				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 					<Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8 }}>Playlists</Text>
-					<Text type="body" colorVariant="muted">No playlists found</Text>
+					<Text type='body' colorVariant='muted'>
+						No playlists found
+					</Text>
 					<Pressable onPress={handleCreatePlaylist} style={{ marginTop: 16 }}>
-						<Text type="body" colorVariant="brand">Create Playlist</Text>
+						<Text type='body' colorVariant='brand'>
+							Create Playlist
+						</Text>
 					</Pressable>
 				</Div>
 			</Main>

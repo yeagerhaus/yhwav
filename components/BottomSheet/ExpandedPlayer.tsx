@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemeColor } from '@/hooks';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useUltraBlurColors } from '@/hooks/useUltraBlurColors';
 import { Div } from '../Div';
@@ -12,7 +13,6 @@ import { QueueList } from '../Player/QueueList';
 import { SongInfo } from '../Player/SongInfo';
 import { SongProgressBar } from '../Player/SongProgressBar';
 import { TimeDisplay } from '../Player/TimeDisplay';
-import { useThemeColor } from '@/hooks';
 
 interface ExpandedPlayerProps {
 	scrollComponent?: (props: any) => React.ReactElement;

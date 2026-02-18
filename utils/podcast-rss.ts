@@ -31,10 +31,7 @@ function first<T>(value: T | T[] | undefined): T | undefined {
 	return Array.isArray(value) ? value[0] : value;
 }
 
-export async function fetchAndParseFeed(
-	feedUrl: string,
-	feedId: string,
-): Promise<ParsedFeed> {
+export async function fetchAndParseFeed(feedUrl: string, feedId: string): Promise<ParsedFeed> {
 	const response = await fetch(feedUrl, {
 		headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
 	});
@@ -51,17 +48,13 @@ export async function fetchAndParseFeed(
 	const parsed = parser.parse(xml);
 
 	// RSS: rss.channel; Atom: feed
-	const channel =
-		parsed?.rss?.channel ?? parsed?.feed ?? parsed?.channel;
+	const channel = parsed?.rss?.channel ?? parsed?.feed ?? parsed?.channel;
 	if (!channel) {
 		throw new Error('Invalid feed: no channel or feed root');
 	}
 
 	const rawTitle = channel.title;
-	const title =
-		typeof rawTitle === 'string'
-			? rawTitle
-			: textOrUndefined(first(rawTitle));
+	const title = typeof rawTitle === 'string' ? rawTitle : textOrUndefined(first(rawTitle));
 
 	// Channel image: RSS <image><url>, or itunes:image @_href
 	const rawImage = channel.image;
@@ -69,17 +62,12 @@ export async function fetchAndParseFeed(
 	if (typeof rawImage === 'string') {
 		imageUrl = rawImage;
 	} else if (rawImage != null && typeof rawImage === 'object') {
-		imageUrl =
-			rawImage['@_href'] ??
-			rawImage.url ??
-			textOrUndefined(first(rawImage.url));
+		imageUrl = rawImage['@_href'] ?? rawImage.url ?? textOrUndefined(first(rawImage.url));
 	}
 	const rawItunesImage = channel['itunes:image'];
 	if (!imageUrl && rawItunesImage) {
 		const t =
-			typeof rawItunesImage === 'string'
-				? rawItunesImage
-				: rawItunesImage['@_href'] ?? textOrUndefined(first(rawItunesImage));
+			typeof rawItunesImage === 'string' ? rawItunesImage : (rawItunesImage['@_href'] ?? textOrUndefined(first(rawItunesImage)));
 		if (t) imageUrl = t;
 	}
 
@@ -92,55 +80,31 @@ export async function fetchAndParseFeed(
 	for (let index = 0; index < items.length; index++) {
 		const item = items[index];
 		const enclosure = first(item?.enclosure) ?? item?.enclosure;
-		const enclosureUrl =
-			enclosure?.['@_url'] ?? (typeof enclosure?.url === 'string' ? enclosure.url : undefined);
+		const enclosureUrl = enclosure?.['@_url'] ?? (typeof enclosure?.url === 'string' ? enclosure.url : undefined);
 		if (!enclosureUrl) continue;
 
 		const rawItemTitle = item?.title;
-		const itemTitle =
-			typeof rawItemTitle === 'string'
-				? rawItemTitle
-				: textOrUndefined(first(rawItemTitle)) ?? 'Untitled';
+		const itemTitle = typeof rawItemTitle === 'string' ? rawItemTitle : (textOrUndefined(first(rawItemTitle)) ?? 'Untitled');
 
 		const rawLink = item?.link;
-		const link =
-			typeof rawLink === 'string'
-				? rawLink
-				: rawLink?.['@_href'] ?? textOrUndefined(first(rawLink));
+		const link = typeof rawLink === 'string' ? rawLink : (rawLink?.['@_href'] ?? textOrUndefined(first(rawLink)));
 
 		const rawGuid = item?.guid ?? item?.id;
-		const guid =
-			typeof rawGuid === 'string'
-				? rawGuid
-				: textOrUndefined(first(rawGuid)) ?? link ?? `ep-${index}`;
+		const guid = typeof rawGuid === 'string' ? rawGuid : (textOrUndefined(first(rawGuid)) ?? link ?? `ep-${index}`);
 		const id = `${feedId}|${guid}`;
 
 		const rawPubDate = item?.pubDate ?? item?.published ?? item?.updated;
-		const pubDate =
-			typeof rawPubDate === 'string'
-				? rawPubDate
-				: textOrUndefined(first(rawPubDate));
+		const pubDate = typeof rawPubDate === 'string' ? rawPubDate : textOrUndefined(first(rawPubDate));
 
-		const rawDesc =
-			item?.description ?? item?.summary ?? item?.content ?? item?.['content:encoded'];
-		const description =
-			typeof rawDesc === 'string'
-				? rawDesc
-				: textOrUndefined(first(rawDesc));
+		const rawDesc = item?.description ?? item?.summary ?? item?.content ?? item?.['content:encoded'];
+		const description = typeof rawDesc === 'string' ? rawDesc : textOrUndefined(first(rawDesc));
 
-		const rawDuration =
-			item?.['itunes:duration'] ?? item?.duration;
-		const durationSeconds = parseDuration(
-			typeof rawDuration === 'string'
-				? rawDuration
-				: textOrUndefined(first(rawDuration)),
-		);
+		const rawDuration = item?.['itunes:duration'] ?? item?.duration;
+		const durationSeconds = parseDuration(typeof rawDuration === 'string' ? rawDuration : textOrUndefined(first(rawDuration)));
 
 		const rawItemImage = item?.['itunes:image'];
 		const itemImageUrl =
-			typeof rawItemImage === 'string'
-				? rawItemImage
-				: rawItemImage?.['@_href'] ?? textOrUndefined(first(rawItemImage));
+			typeof rawItemImage === 'string' ? rawItemImage : (rawItemImage?.['@_href'] ?? textOrUndefined(first(rawItemImage)));
 
 		episodes.push({
 			id,

@@ -1,9 +1,9 @@
 import { fetch } from 'expo/fetch';
+import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
-import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
 

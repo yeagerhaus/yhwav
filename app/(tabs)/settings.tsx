@@ -3,7 +3,6 @@ import { ActivityIndicator, Alert, Image, StyleSheet, Switch, TextInput, Touchab
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
-import { useAudioStore } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -12,7 +11,7 @@ import { plexAuthService } from '@/utils/plex-auth';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function SettingsScreen() {
-	const colorScheme = useColorScheme();
+	const _colorScheme = useColorScheme();
 	const backgroundColor = useThemeColor({ light: Colors.light.background, dark: Colors.dark.background }, 'background');
 	const [plexToken, setPlexToken] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +168,9 @@ export default function SettingsScreen() {
 		if (!authState.servers.length) {
 			return (
 				<Div style={DefaultStyles.section} transparent>
-					<Text type="h3" style={DefaultStyles.sectionTitle}>No Servers Found</Text>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						No Servers Found
+					</Text>
 					<Text style={DefaultStyles.sectionDescription}>Make sure your Plex server is running and accessible.</Text>
 				</Div>
 			);
@@ -178,24 +179,36 @@ export default function SettingsScreen() {
 		return (
 			<Div style={DefaultStyles.section} transparent>
 				<Div style={DefaultStyles.sectionHeader} transparent>
-					<Text type="h3" style={DefaultStyles.sectionTitle}>Available Servers</Text>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Available Servers
+					</Text>
 					<TouchableOpacity onPress={handleRefreshServers} disabled={isLoading}>
-						<Text type="label" colorVariant="brand">Refresh</Text>
+						<Text type='label' colorVariant='brand'>
+							Refresh
+						</Text>
 					</TouchableOpacity>
 				</Div>
 
 				{authState.servers.map((server) => (
 					<TouchableOpacity
 						key={server.id}
-						style={[styles.serverItem, { backgroundColor: hexWithOpacity(backgroundColor, 0.5) }, authState.selectedServer?.id === server.id && styles.selectedServerItem]}
+						style={[
+							styles.serverItem,
+							{ backgroundColor: hexWithOpacity(backgroundColor, 0.5) },
+							authState.selectedServer?.id === server.id && styles.selectedServerItem,
+						]}
 						onPress={() => handleSelectServer(server.id)}
 					>
 						<Div transparent style={styles.serverInfo}>
-							<Text type="h4" style={styles.serverName}>{server.name}</Text>
-							<Text type="bodySM" colorVariant="secondary" style={styles.serverDetails}>
+							<Text type='h4' style={styles.serverName}>
+								{server.name}
+							</Text>
+							<Text type='bodySM' colorVariant='secondary' style={styles.serverDetails}>
 								{server.local ? 'Local' : 'Remote'} • 192.168.X.X:X
 							</Text>
-							<Text type="bodyXS" colorVariant="secondary" style={styles.serverId}>ID: XXXX</Text>
+							<Text type='bodyXS' colorVariant='secondary' style={styles.serverId}>
+								ID: XXXX
+							</Text>
 						</Div>
 						{authState.selectedServer?.id === server.id && <Text style={styles.selectedIndicator}>✓</Text>}
 					</TouchableOpacity>
@@ -207,7 +220,9 @@ export default function SettingsScreen() {
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
-				<Text type='h1' style={{ marginBottom: 16 }}>Settings</Text>
+				<Text type='h1' style={{ marginBottom: 16 }}>
+					Settings
+				</Text>
 			</Div>
 
 			{authState.isAuthenticated ? (
@@ -217,13 +232,15 @@ export default function SettingsScreen() {
 							<Image source={{ uri: authState.avatarUrl }} style={styles.avatar} />
 						) : (
 							<View style={[styles.avatar, styles.avatarFallback]}>
-								<Text type="h3" colorVariant="primaryInvert">
+								<Text type='h3' colorVariant='primaryInvert'>
 									{authState.username?.charAt(0)?.toUpperCase() ?? '?'}
 								</Text>
 							</View>
 						)}
 						<Div transparent style={{ flex: 1 }}>
-							<Text type="bodySM" colorVariant="muted">Connected as</Text>
+							<Text type='bodySM' colorVariant='muted'>
+								Connected as
+							</Text>
 							<Text type='h4'>{authState.username}</Text>
 						</Div>
 					</Div>
@@ -231,12 +248,14 @@ export default function SettingsScreen() {
 					{renderServerList()}
 
 					<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-						<Text type="h3" style={DefaultStyles.sectionTitle}>Offline mode</Text>
+						<Text type='h3' style={DefaultStyles.sectionTitle}>
+							Offline mode
+						</Text>
 						<Text style={[DefaultStyles.sectionDescription, { marginBottom: 8 }]}>
 							Use only cached data and downloads; no new fetches for library or podcasts.
 						</Text>
 						<Div style={styles.switchRow} transparent>
-							<Text type="body">Offline mode</Text>
+							<Text type='body'>Offline mode</Text>
 							<Switch
 								value={offlineMode}
 								onValueChange={setOfflineMode}
@@ -253,22 +272,26 @@ export default function SettingsScreen() {
 					>
 						{isLoading ? (
 							<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-								<ActivityIndicator size="large" color={Colors.brandPrimary} />
+								<ActivityIndicator size='large' color={Colors.brandPrimary} />
 							</Div>
 						) : (
-							<Text type="h3">Clear Cache & Reload Library</Text>
+							<Text type='h3'>Clear Cache & Reload Library</Text>
 						)}
 					</TouchableOpacity>
 
 					<TouchableOpacity style={DefaultStyles.dangerButton} onPress={handleLogout}>
-						<Text type="h3" colorVariant="primaryInvert">Logout</Text>
+						<Text type='h3' colorVariant='primaryInvert'>
+							Logout
+						</Text>
 					</TouchableOpacity>
 
 					{__DEV__ && (
 						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-							<Text type="h3" style={DefaultStyles.sectionTitle}>Developer</Text>
+							<Text type='h3' style={DefaultStyles.sectionTitle}>
+								Developer
+							</Text>
 							<Div style={styles.switchRow} transparent>
-								<Text type="body">Show performance debugger</Text>
+								<Text type='body'>Show performance debugger</Text>
 								<Switch
 									value={showPerformanceDebugger}
 									onValueChange={setShowPerformanceDebugger}
@@ -282,37 +305,43 @@ export default function SettingsScreen() {
 			) : (
 				<>
 					<Div style={DefaultStyles.section}>
-						<Text type="h2">Connect to Plex</Text>
+						<Text type='h2'>Connect to Plex</Text>
 						<Text style={DefaultStyles.sectionDescription}>Sign in with your Plex account to access your media servers.</Text>
 					</Div>
 
 					{!pinCode ? (
 						<Div style={DefaultStyles.section}>
 							<TouchableOpacity
-								style={[DefaultStyles.primaryButton, styles.connectButtonPadding, isLoading && DefaultStyles.buttonDisabled]}
+								style={[
+									DefaultStyles.primaryButton,
+									styles.connectButtonPadding,
+									isLoading && DefaultStyles.buttonDisabled,
+								]}
 								onPress={handlePinLogin}
 								disabled={isLoading}
 							>
 								{isLoading ? (
 									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size="large" color={Colors.brandPrimary} />
+										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								) : (
-									<Text type="body" colorVariant="primaryInvert">Sign in with Plex</Text>
+									<Text type='body' colorVariant='primaryInvert'>
+										Sign in with Plex
+									</Text>
 								)}
 							</TouchableOpacity>
 						</Div>
 					) : (
 						<Div style={DefaultStyles.section}>
 							<Div style={DefaultStyles.pinContainer}>
-								<Text type="body">Enter this code on plex.tv/activate</Text>
+								<Text type='body'>Enter this code on plex.tv/activate</Text>
 								<Div style={DefaultStyles.pinCodeContainer}>
 									<Text style={styles.pinCode}>{pinCode}</Text>
 								</Div>
-								{pinStatus && <Text type="body">{pinStatus}</Text>}
+								{pinStatus && <Text type='body'>{pinStatus}</Text>}
 								{isLoading && (
 									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size="large" color={Colors.brandPrimary} />
+										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								)}
 							</Div>
@@ -324,14 +353,18 @@ export default function SettingsScreen() {
 									setIsLoading(false);
 								}}
 							>
-								<Text type="body" colorVariant="primaryInvert">Cancel</Text>
+								<Text type='body' colorVariant='primaryInvert'>
+									Cancel
+								</Text>
 							</TouchableOpacity>
 						</Div>
 					)}
 
 					<Div style={DefaultStyles.section}>
 						<TouchableOpacity style={styles.advancedToggle} onPress={() => setShowAdvanced(!showAdvanced)}>
-							<Text type="body" style={styles.advancedToggleText}>{showAdvanced ? '▼' : '▶'} Advanced: Manual Token Entry</Text>
+							<Text type='body' style={styles.advancedToggleText}>
+								{showAdvanced ? '▼' : '▶'} Advanced: Manual Token Entry
+							</Text>
 						</TouchableOpacity>
 
 						{showAdvanced && (
@@ -347,10 +380,10 @@ export default function SettingsScreen() {
 											style={DefaultStyles.input}
 											value={plexToken}
 											onChangeText={setPlexToken}
-											placeholder="Enter your Plex token"
+											placeholder='Enter your Plex token'
 											placeholderTextColor={Colors.textMuted}
 											secureTextEntry
-											autoCapitalize="none"
+											autoCapitalize='none'
 											autoCorrect={false}
 										/>
 										<Div style={DefaultStyles.buttonRow}>
@@ -361,31 +394,45 @@ export default function SettingsScreen() {
 													setPlexToken('');
 												}}
 											>
-												<Text type="body" colorVariant="primaryInvert">Cancel</Text>
+												<Text type='body' colorVariant='primaryInvert'>
+													Cancel
+												</Text>
 											</TouchableOpacity>
 											<TouchableOpacity
-												style={[DefaultStyles.primaryButton, styles.flex1, isLoading && DefaultStyles.buttonDisabled]}
+												style={[
+													DefaultStyles.primaryButton,
+													styles.flex1,
+													isLoading && DefaultStyles.buttonDisabled,
+												]}
 												onPress={handleTokenLogin}
 												disabled={isLoading}
 											>
 												{isLoading ? (
-													<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-														<ActivityIndicator size="large" color={Colors.brandPrimary} />
+													<Div
+														style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}
+													>
+														<ActivityIndicator size='large' color={Colors.brandPrimary} />
 													</Div>
 												) : (
-													<Text type="body" colorVariant="primaryInvert">Connect</Text>
+													<Text type='body' colorVariant='primaryInvert'>
+														Connect
+													</Text>
 												)}
 											</TouchableOpacity>
 										</Div>
 									</Div>
 								) : (
 									<TouchableOpacity style={styles.tokenButton} onPress={() => setShowTokenInput(true)}>
-										<Text type="label" colorVariant="primaryInvert">Enter Token Manually</Text>
+										<Text type='label' colorVariant='primaryInvert'>
+											Enter Token Manually
+										</Text>
 									</TouchableOpacity>
 								)}
 
 								<Div style={styles.helpSection}>
-									<Text type="body" style={styles.helpTitle}>How to get your Plex token:</Text>
+									<Text type='body' style={styles.helpTitle}>
+										How to get your Plex token:
+									</Text>
 									<Text style={DefaultStyles.sectionDescription}>
 										1. Go to plex.tv and sign in{'\n'}
 										2. Go to Settings → Network → Advanced{'\n'}
@@ -399,9 +446,11 @@ export default function SettingsScreen() {
 
 					{__DEV__ && (
 						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-							<Text type="h3" style={DefaultStyles.sectionTitle}>Developer</Text>
+							<Text type='h3' style={DefaultStyles.sectionTitle}>
+								Developer
+							</Text>
 							<Div style={styles.switchRow} transparent>
-								<Text type="body">Show performance debugger</Text>
+								<Text type='body'>Show performance debugger</Text>
 								<Switch
 									value={showPerformanceDebugger}
 									onValueChange={setShowPerformanceDebugger}

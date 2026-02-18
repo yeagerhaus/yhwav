@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { Text } from '@/components/Text';
@@ -10,7 +10,6 @@ import { toPlayableSong } from '@/types';
 import type { PodcastDownload, PodcastEpisode, PodcastFeed } from '@/types/podcast';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
-import { Ionicons } from '@expo/vector-icons';
 
 function formatDuration(seconds: number | undefined): string {
 	if (seconds == null || seconds <= 0) return '';
@@ -45,7 +44,8 @@ function isDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload
 }
 
 const PodcastEpisodeItem = React.memo(
-	({ episode, showTitle, showImageUrl, queue, listItem = true, feed }: PodcastEpisodeItemProps) => {
+	// biome-ignore lint/correctness/noUnusedFunctionParameters: feed is used via alias _feed
+	({ episode, showTitle, showImageUrl, queue, listItem = true, feed: _feed }: PodcastEpisodeItemProps) => {
 		const colorScheme = useColorScheme();
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
@@ -56,15 +56,9 @@ const PodcastEpisodeItem = React.memo(
 		const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
 		const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
 
-		const isCurrentSong = useMemo(
-			() => currentSong?.id === episode.id,
-			[episode.id, currentSong?.id],
-		);
+		const _isCurrentSong = useMemo(() => currentSong?.id === episode.id, [episode.id, currentSong?.id]);
 
-		const localUri = useMemo(
-			() => (isDownload(episode) ? episode.localUri : getLocalUri(episode.id)),
-			[episode, getLocalUri],
-		);
+		const localUri = useMemo(() => (isDownload(episode) ? episode.localUri : getLocalUri(episode.id)), [episode, getLocalUri]);
 
 		const handlePress = useCallback(() => {
 			const song = toPlayableSong(episode, showTitle, showImageUrl, localUri);
@@ -72,12 +66,12 @@ const PodcastEpisodeItem = React.memo(
 		}, [episode, showTitle, showImageUrl, queue, playSound, localUri]);
 
 		const handleDownloadPress = useCallback(() => {
-			if (!feed || isDownload(episode)) {
+			if (!_feed || isDownload(episode)) {
 				removeDownload(episode.id).catch(() => {});
 				return;
 			}
-			downloadEpisode(episode as PodcastEpisode, feed).catch(() => {});
-		}, [feed, episode, removeDownload, downloadEpisode]);
+			downloadEpisode(episode as PodcastEpisode, _feed).catch(() => {});
+		}, [_feed, episode, removeDownload, downloadEpisode]);
 
 		const subtitle = useMemo(() => {
 			const parts: string[] = [];
@@ -94,17 +88,19 @@ const PodcastEpisodeItem = React.memo(
 		}, [episode]);
 
 		const canResume = progress && !progress.completed && progress.position > 10;
-		const progressPercent =
-			progress && progress.duration > 0 ? Math.min(1, progress.position / progress.duration) : 0;
+		const progressPercent = progress && progress.duration > 0 ? Math.min(1, progress.position / progress.duration) : 0;
 
 		return (
 			<Pressable onPress={handlePress} style={styles.row}>
-				<Div style={[styles.info, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
+				<Div
+					style={[styles.info, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}
+					transparent
+				>
 					<Div style={styles.titleRow} transparent>
-						<Text type="h3" numberOfLines={1} style={[styles.title, { flex: 1 }]}>
+						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1 }]}>
 							{episode.title}
 						</Text>
-						{feed != null && (
+						{_feed != null && (
 							<Pressable
 								onPress={(e) => {
 									e.stopPropagation();
@@ -115,29 +111,29 @@ const PodcastEpisodeItem = React.memo(
 								disabled={isDownloading}
 							>
 								{isDownloading ? (
-									<ActivityIndicator size="small" color={Colors.brandPrimary} />
+									<ActivityIndicator size='small' color={Colors.brandPrimary} />
 								) : isDownloaded || isDownload(episode) ? (
-									<Ionicons name="checkmark-circle" size={22} color={Colors.brandPrimary} />
+									<Ionicons name='checkmark-circle' size={22} color={Colors.brandPrimary} />
 								) : (
-									<Ionicons name="download-outline" size={22} color={Colors.brandPrimary} />
+									<Ionicons name='download-outline' size={22} color={Colors.brandPrimary} />
 								)}
 							</Pressable>
 						)}
 					</Div>
 					{description != null && (
 						<Div style={styles.subtitleRow} transparent>
-							<Text type="bodySM" numberOfLines={4} style={styles.subtitle}>
+							<Text type='bodySM' numberOfLines={4} style={styles.subtitle}>
 								{description}
 							</Text>
 						</Div>
 					)}
 					<Div style={styles.subtitleRow} transparent>
 						{canResume && (
-							<Text type="bodyXS" numberOfLines={1} style={[styles.subtitle, styles.resumeLabel]}>
+							<Text type='bodyXS' numberOfLines={1} style={[styles.subtitle, styles.resumeLabel]}>
 								Resume from {formatDuration(Math.floor(progress.position))}
 							</Text>
 						)}
-						<Text type="bodyXS" numberOfLines={1} style={styles.subtitle}>
+						<Text type='bodyXS' numberOfLines={1} style={styles.subtitle}>
 							{subtitle}
 						</Text>
 					</Div>

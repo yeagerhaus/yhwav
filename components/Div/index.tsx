@@ -1,7 +1,7 @@
 import { BlurView, type BlurViewProps } from 'expo-blur';
 import { GlassView } from 'expo-glass-effect';
-import { View } from 'react-native';
 import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
+import { View } from 'react-native';
 import { ThemedView } from './ThemedView';
 
 export interface DivProps extends ViewProps {
@@ -21,21 +21,9 @@ export interface DivProps extends ViewProps {
 	darkColor?: string;
 }
 
-export function Div({
-	flex,
-	display,
-	children,
-	useBlur,
-	useGlass,
-	transparent,
-	...props
-}: DivProps) {
+export function Div({ flex, display, children, useBlur, useGlass, transparent, ...props }: DivProps) {
 	if (useBlur) {
-		return (
-			<BlurView {...props}>
-				{children}
-			</BlurView>
-		);
+		return <BlurView {...props}>{children}</BlurView>;
 	}
 	if (useGlass) {
 		return (
@@ -45,15 +33,7 @@ export function Div({
 		);
 	}
 	if (transparent) {
-		return (
-			<View {...props}>
-				{children}
-			</View>
-		);
+		return <View {...props}>{children}</View>;
 	}
-	return (
-		<ThemedView {...props}>
-			{children}
-		</ThemedView>
-	);
+	return <ThemedView {...props}>{children}</ThemedView>;
 }

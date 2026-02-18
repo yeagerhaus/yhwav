@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
-import { Text } from '../Text';
 import type { Song } from '@/types/song';
+import { Text } from '../Text';
 
 const screenWidth = Dimensions.get('window').width;
 const itemSize = screenWidth / 2 - 24;

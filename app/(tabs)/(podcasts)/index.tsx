@@ -1,9 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors } from '@/constants';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
-import { Ionicons } from '@expo/vector-icons';
 
 type FormattedShow = {
 	id: string;
@@ -57,7 +57,10 @@ export default function PodcastsScreen() {
 
 	const listHeaderComponent = useMemo(
 		() => (
-			<Div transparent style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}>
+			<Div
+				transparent
+				style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}
+			>
 				<Text type='h1'>Podcasts</Text>
 				<Pressable onPress={handleAddFeed} hitSlop={8}>
 					<Ionicons name='add-circle-outline' size={28} color={Colors.brandPrimary} />

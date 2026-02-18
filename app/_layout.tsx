@@ -5,11 +5,12 @@ import { useEffect } from 'react';
 import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
 LogBox.ignoreAllLogs();
-import { Colors } from '@/constants';
+
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
+import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
@@ -32,8 +33,7 @@ function AnimatedStack() {
 	const router = useRouter();
 	const colorScheme = useColorScheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
-	const screenBackground =
-		colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+	const screenBackground = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -149,7 +149,10 @@ export default function RootLayout() {
 									// Retry playback restoration: initial restore may have failed
 									// because the library wasn't cached when initializePlayer ran.
 									if (!useAudioStore.getState().currentSong) {
-										useAudioStore.getState().restorePlaybackState().catch(() => {});
+										useAudioStore
+											.getState()
+											.restorePlaybackState()
+											.catch(() => {});
 									}
 									// Defer cache save so the UI renders before JSON.stringify blocks
 									InteractionManager.runAfterInteractions(() => {

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import type { PodcastEpisode, PodcastFeed } from '@/types';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
+import type { PodcastEpisode, PodcastFeed } from '@/types';
 import { fetchAndParseFeed } from '@/utils/podcast-rss';
 
 const STORAGE_KEY = 'PODCAST_RSS_FEEDS';
@@ -154,11 +154,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				await persistFeeds(newFeeds);
 				set({ feeds: newFeeds });
 			} else {
-				const updated = feeds.map((f) =>
-					f.id === id
-						? { ...f, title: parsed.title, imageUrl: parsed.imageUrl }
-						: f,
-				);
+				const updated = feeds.map((f) => (f.id === id ? { ...f, title: parsed.title, imageUrl: parsed.imageUrl } : f));
 				set({ feeds: updated });
 				await persistFeeds(updated);
 			}
@@ -188,11 +184,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 			try {
 				const parsed = await fetchAndParseFeed(feed.url, feed.id);
 				episodesByFeedId[feed.id] = parsed.episodes;
-				updatedFeeds = updatedFeeds.map((f) =>
-					f.id === feed.id
-						? { ...f, title: parsed.title, imageUrl: parsed.imageUrl }
-						: f,
-				);
+				updatedFeeds = updatedFeeds.map((f) => (f.id === feed.id ? { ...f, title: parsed.title, imageUrl: parsed.imageUrl } : f));
 			} catch {
 				hadError = true;
 			}

@@ -91,28 +91,37 @@ export function AddToPlaylistModal() {
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
 			<Animated.View style={[DefaultStyles.sheet, sheetStyle]}>
 				<Div style={styles.handle} />
-				<Text type="h3" colorVariant="primaryInvert" style={styles.title}>Add to Playlist</Text>
+				<Text type='h3' colorVariant='primaryInvert' style={styles.title}>
+					Add to Playlist
+				</Text>
 				{label ? (
-					<Text type="body" colorVariant="secondary" style={styles.songName} numberOfLines={1}>
+					<Text type='body' colorVariant='secondary' style={styles.songName} numberOfLines={1}>
 						{label}
 					</Text>
 				) : null}
 
 				<Pressable style={styles.newPlaylistRow} onPress={handleNewPlaylist}>
-					<Ionicons name="add-circle" size={28} color={Colors.brandPrimary} />
-					<Text type="body" colorVariant="brand" style={styles.newPlaylistText}>New Playlist...</Text>
+					<Ionicons name='add-circle' size={28} color={Colors.brandPrimary} />
+					<Text type='body' colorVariant='brand' style={styles.newPlaylistText}>
+						New Playlist...
+					</Text>
 				</Pressable>
 
 				<FlatList
 					data={audioPlaylists}
 					keyExtractor={(item) => item.id}
 					renderItem={({ item }) => (
-						<Pressable style={[DefaultStyles.row, DefaultStyles.listRowBorder, styles.rowBorder]} onPress={() => handleSelect(item.ratingKey)}>
-							<SymbolView name="music.note.list" size={22} tintColor={Colors.gray400} />
-							<Text type="body" colorVariant="primaryInvert" style={styles.playlistName} numberOfLines={1}>
+						<Pressable
+							style={[DefaultStyles.row, DefaultStyles.listRowBorder, styles.rowBorder]}
+							onPress={() => handleSelect(item.ratingKey)}
+						>
+							<SymbolView name='music.note.list' size={22} tintColor={Colors.gray400} />
+							<Text type='body' colorVariant='primaryInvert' style={styles.playlistName} numberOfLines={1}>
 								{item.title}
 							</Text>
-							<Text type="bodySM" colorVariant="secondary" style={styles.trackCount}>{item.leafCount ?? 0}</Text>
+							<Text type='bodySM' colorVariant='secondary' style={styles.trackCount}>
+								{item.leafCount ?? 0}
+							</Text>
 						</Pressable>
 					)}
 					style={styles.list}

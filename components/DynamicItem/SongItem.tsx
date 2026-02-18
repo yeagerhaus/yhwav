@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import { State, usePlaybackState } from '@/lib/playerAdapter';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
@@ -10,6 +9,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
 import { ContextMenu, type ContextMenuItem } from '../ContextMenu';
 import { Div } from '../Div';
@@ -100,7 +100,13 @@ const SongItem = React.memo(
 							</Text>
 						)}
 					</Div>
-					<Div style={[styles.songInfoContainerList, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
+					<Div
+						style={[
+							styles.songInfoContainerList,
+							{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
+						]}
+						transparent
+					>
 						<Div style={styles.songInfo} transparent>
 							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 								{item.title}
@@ -150,7 +156,13 @@ const SongItem = React.memo(
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
 					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 				</Div>
-				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+				<Div
+					transparent
+					style={[
+						styles.songInfoContainer,
+						{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
+					]}
+				>
 					<Div transparent style={styles.songInfo}>
 						<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 							{item.title}

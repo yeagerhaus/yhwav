@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors, DefaultStyles, DefaultSharedComponents } from '@/constants/styles';
+import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
-import { hexWithOpacity } from '@/utils/styles';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
+import { hexWithOpacity } from '@/utils/styles';
 
 const ITEM_HEIGHT = 70;
 
@@ -120,7 +120,7 @@ export default function DetailScreen() {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<Ionicons name="remove-circle" size={24} color={Colors.dangerSolid} />
+						<Ionicons name='remove-circle' size={24} color={Colors.dangerSolid} />
 					</Pressable>
 					<Div style={styles.editSongInfo} transparent>
 						<Text numberOfLines={1} style={styles.editSongTitle}>
@@ -130,7 +130,7 @@ export default function DetailScreen() {
 							{item.artist}
 						</Text>
 					</Div>
-					<Ionicons name="reorder-three" size={24} color={Colors.textMuted} />
+					<Ionicons name='reorder-three' size={24} color={Colors.textMuted} />
 				</Pressable>
 			</ScaleDecorator>
 		),
@@ -141,17 +141,23 @@ export default function DetailScreen() {
 		() => (
 			<Div style={{ alignItems: 'center', paddingTop: 64 }} transparent>
 				{artwork && (
-					<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }} resizeMode='contain' />
+					<Image
+						source={{ uri: artwork }}
+						style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
+						resizeMode='contain'
+					/>
 				)}
 				<Div style={{ paddingVertical: 16, width: '100%' }} transparent>
 					{editor.isEditing ? (
 						<Div transparent>
 							<Div transparent style={styles.editHeader}>
 								<Pressable onPress={handleCancel}>
-									<Text type="body" colorVariant="muted">Cancel</Text>
+									<Text type='body' colorVariant='muted'>
+										Cancel
+									</Text>
 								</Pressable>
 								<Pressable onPress={handleSave} disabled={editor.isSaving}>
-									<Text type="body" colorVariant="brand" style={editor.isSaving ? { opacity: 0.5 } : undefined}>
+									<Text type='body' colorVariant='brand' style={editor.isSaving ? { opacity: 0.5 } : undefined}>
 										{editor.isSaving ? 'Saving...' : 'Save'}
 									</Text>
 								</Pressable>
@@ -161,11 +167,13 @@ export default function DetailScreen() {
 								onChangeText={setEditTitle}
 								style={styles.titleInput}
 								placeholderTextColor={Colors.textMuted}
-								placeholder="Playlist title"
+								placeholder='Playlist title'
 							/>
 							<Pressable onPress={handleDelete} style={styles.deleteButton}>
-								<Ionicons name="trash-outline" size={18} color={Colors.dangerSolid} />
-								<Text type="body" colorVariant="danger">Delete Playlist</Text>
+								<Ionicons name='trash-outline' size={18} color={Colors.dangerSolid} />
+								<Text type='body' colorVariant='danger'>
+									Delete Playlist
+								</Text>
 							</Pressable>
 						</Div>
 					) : (
@@ -174,15 +182,17 @@ export default function DetailScreen() {
 								<Div style={{ flex: 1 }} transparent>
 									{playlist && (
 										<Div style={{ marginBottom: 16 }} transparent>
-											<Text type="h2">{playlist.title}</Text>
-											<Text type="body" colorVariant="muted">
+											<Text type='h2'>{playlist.title}</Text>
+											<Text type='body' colorVariant='muted'>
 												{playlist.summary || `${playlist.leafCount || 0} tracks`}
 											</Text>
 										</Div>
 									)}
 								</Div>
 								<Pressable onPress={handleEdit} style={styles.editButton}>
-									<Text type="body" colorVariant="brand" style={styles.editButtonText}>Edit</Text>
+									<Text type='body' colorVariant='brand' style={styles.editButtonText}>
+										Edit
+									</Text>
 								</Pressable>
 							</Div>
 						</Div>

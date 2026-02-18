@@ -1,6 +1,5 @@
 import { ScrollView, StyleSheet } from 'react-native';
-import { Div, Text } from '@/components';
-import { SearchAlbumItem, SearchArtistItem, SearchPlaylistItem, SearchSongItem } from '@/components';
+import { Div, SearchAlbumItem, SearchArtistItem, SearchPlaylistItem, SearchSongItem, Text } from '@/components';
 import { useSearch } from '@/hooks';
 import type { Album, Artist, Playlist, Song } from '@/types';
 

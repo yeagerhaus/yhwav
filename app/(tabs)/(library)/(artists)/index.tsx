@@ -1,23 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
 import type { Artist } from '@/types';
 
 export default function ArtistsScreen() {
-	const router = useRouter();
+	const _router = useRouter();
 	const { artists } = useArtists();
 
 	const sorted = useMemo(() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })), [artists]);
 
 	const keyExtractor = useCallback((item: Artist) => item.key, []);
 
-	const renderItem = useCallback(
-		({ item }: { item: Artist }) => <DynamicItem item={item} type='artist' />,
-		[],
-	);
+	const renderItem = useCallback(({ item }: { item: Artist }) => <DynamicItem item={item} type='artist' />, []);
 
 	const listHeaderComponent = useMemo(
 		() => (
@@ -55,5 +52,3 @@ export default function ArtistsScreen() {
 		</Main>
 	);
 }
-
-

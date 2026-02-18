@@ -6,11 +6,10 @@ import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
+import { useArtists } from '@/hooks/useArtists';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
 import { Div } from '../Div';
-import { useArtists } from '@/hooks/useArtists';
-import { useAudioStore } from '@/hooks/useAudioStore';
 
 interface SearchAlbumItemProps {
 	album: Album;
@@ -77,7 +76,13 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+			<Div
+				transparent
+				style={[
+					styles.albumInfoContainer,
+					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
+				]}
+			>
 				<Div transparent style={styles.albumInfo}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}

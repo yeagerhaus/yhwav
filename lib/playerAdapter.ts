@@ -204,8 +204,7 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 			if (!nativeName) continue;
 			const sub = YhplayerAudioModule.addListener(nativeName, (payload: unknown) => {
 				const p = payload as Record<string, unknown>;
-				const toNum = (v: unknown): number | undefined =>
-					typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+				const toNum = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 				const idx = p?.track ?? p?.index;
 				callbackRef.current({
 					type: eventName,

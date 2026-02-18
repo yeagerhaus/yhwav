@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
 import { Div } from '../Div';

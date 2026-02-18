@@ -1,8 +1,8 @@
 import type React from 'react';
 import { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { OverlayContext, type OverlayView } from './OverlayContext';
+import { StyleSheet } from 'react-native';
 import { Div } from '../Div';
+import { OverlayContext, type OverlayView } from './OverlayContext';
 
 export const OverlayProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [views, setViews] = useState<OverlayView[]>([]);

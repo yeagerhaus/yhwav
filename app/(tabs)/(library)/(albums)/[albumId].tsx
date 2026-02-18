@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image } from 'react-native';
-import ImageColors from 'react-native-image-colors';	
+import ImageColors from 'react-native-image-colors';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -59,14 +59,26 @@ export default function AlbumDetailScreen() {
 			<Div style={{ paddingHorizontal: 16 }} transparent>
 				{artwork && (
 					<Div transparent style={{ width: '100%', alignItems: 'center' }}>
-						<Image source={{ uri: artwork }} style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }} resizeMode='contain' />
+						<Image
+							source={{ uri: artwork }}
+							style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
+							resizeMode='contain'
+						/>
 					</Div>
 				)}
 				<Div style={{ paddingVertical: 16 }} transparent>
 					<Div style={{ marginBottom: 16 }} transparent>
 						<Text type='h2'>{albumTitle}</Text>
-						{artistName && <Text type="body" colorVariant="muted">{artistName}</Text>}
-						{album?.year && <Text type="bodySM" colorVariant="secondary">{album.year}</Text>}
+						{artistName && (
+							<Text type='body' colorVariant='muted'>
+								{artistName}
+							</Text>
+						)}
+						{album?.year && (
+							<Text type='bodySM' colorVariant='secondary'>
+								{album.year}
+							</Text>
+						)}
 					</Div>
 					<FlatList
 						scrollEnabled={false}

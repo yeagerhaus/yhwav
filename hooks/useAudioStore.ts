@@ -231,11 +231,9 @@ function schedulePodcastProgressSave(episodeId: string, position: number, durati
 		podcastProgressTimeout = setTimeout(() => {
 			if (pendingPodcastProgress) {
 				const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
-				usePodcastProgressStore.getState().saveProgress(
-					pendingPodcastProgress.episodeId,
-					pendingPodcastProgress.position,
-					pendingPodcastProgress.duration,
-				);
+				usePodcastProgressStore
+					.getState()
+					.saveProgress(pendingPodcastProgress.episodeId, pendingPodcastProgress.position, pendingPodcastProgress.duration);
 				pendingPodcastProgress = null;
 			}
 			podcastProgressTimeout = null;
@@ -322,13 +320,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 			// Restore saved settings
 			try {
-				const [
-					savedRepeatStr,
-					savedShuffleStr,
-					savedVolumeStr,
-					savedRateStr,
-					savedSleepTimerEndsAtStr,
-				] = await Promise.all([
+				const [savedRepeatStr, savedShuffleStr, savedVolumeStr, savedRateStr, savedSleepTimerEndsAtStr] = await Promise.all([
 					AsyncStorage.getItem(STORAGE_REPEAT_MODE_KEY),
 					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
 					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
@@ -385,14 +377,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		if (get().currentSong !== null) return;
 
 		try {
-			const [savedSongStr, savedSongDataStr, savedQueueStr, savedOriginalQueueStr, savedPosStr] =
-				await Promise.all([
-					AsyncStorage.getItem(STORAGE_SONG_KEY),
-					AsyncStorage.getItem(STORAGE_SONG_DATA_KEY),
-					AsyncStorage.getItem(STORAGE_QUEUE_KEY),
-					AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
-					AsyncStorage.getItem(STORAGE_POSITION_KEY),
-				]);
+			const [savedSongStr, savedSongDataStr, savedQueueStr, savedOriginalQueueStr, savedPosStr] = await Promise.all([
+				AsyncStorage.getItem(STORAGE_SONG_KEY),
+				AsyncStorage.getItem(STORAGE_SONG_DATA_KEY),
+				AsyncStorage.getItem(STORAGE_QUEUE_KEY),
+				AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
+				AsyncStorage.getItem(STORAGE_POSITION_KEY),
+			]);
 
 			if (!savedSongStr && !savedSongDataStr) return;
 
@@ -412,7 +403,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				}
 			}
 			if (!currentSong && savedSongDataStr) {
-				try { currentSong = JSON.parse(savedSongDataStr) as Song; } catch {}
+				try {
+					currentSong = JSON.parse(savedSongDataStr) as Song;
+				} catch {}
 			}
 			if (!currentSong) return;
 
@@ -426,7 +419,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					const queueIds: string[] =
 						Array.isArray(parsed) && typeof parsed[0] === 'string'
 							? parsed
-							: Array.isArray(parsed) ? parsed.map((s: any) => s.id) : [];
+							: Array.isArray(parsed)
+								? parsed.map((s: any) => s.id)
+								: [];
 					queue = resolveIdsToSongs(queueIds);
 				} catch {}
 			}
@@ -440,7 +435,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					const origIds: string[] =
 						Array.isArray(origParsed) && typeof origParsed[0] === 'string'
 							? origParsed
-							: Array.isArray(origParsed) ? origParsed.map((s: any) => s.id) : [];
+							: Array.isArray(origParsed)
+								? origParsed.map((s: any) => s.id)
+								: [];
 					const resolvedOrig = resolveIdsToSongs(origIds);
 					if (resolvedOrig.length > 0) set({ originalQueue: resolvedOrig });
 				} catch {}

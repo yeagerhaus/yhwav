@@ -22,8 +22,7 @@ export default function PodcastFeedScreen() {
 
 	// When offline or fetch failed: show only downloaded episodes for this feed
 	const episodes = useMemo(
-		(): (PodcastEpisode | PodcastDownload)[] =>
-			fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly,
+		(): (PodcastEpisode | PodcastDownload)[] => (fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly),
 		[fetchedEpisodes, downloadedOnly],
 	);
 
@@ -33,10 +32,7 @@ export default function PodcastFeedScreen() {
 	}, [feedId, feed, fetchedEpisodes.length, fetchFeed]);
 
 	const showTitle = feed?.title || feed?.url || 'Show';
-	const showImageUrl = useMemo(
-		() => feed?.imageUrl || episodes.find((ep) => ep.imageUrl)?.imageUrl,
-		[feed?.imageUrl, episodes],
-	);
+	const showImageUrl = useMemo(() => feed?.imageUrl || episodes.find((ep) => ep.imageUrl)?.imageUrl, [feed?.imageUrl, episodes]);
 
 	const songs: Song[] = useMemo(
 		() =>
@@ -52,7 +48,7 @@ export default function PodcastFeedScreen() {
 		({ item }: { item: PodcastEpisode | PodcastDownload }) => (
 			<DynamicItem
 				item={item}
-				type="podcastEpisode"
+				type='podcastEpisode'
 				queue={songs}
 				listItem
 				showTitle={showTitle}

@@ -46,9 +46,7 @@ export function toPlayableSong(
 	showImageUrl?: string,
 	localUri?: string,
 ): Song {
-	const resolvedUri =
-		localUri ??
-		(isPodcastDownload(episode) ? episode.localUri : episode.enclosureUrl);
+	const resolvedUri = localUri ?? (isPodcastDownload(episode) ? episode.localUri : episode.enclosureUrl);
 	return {
 		id: episode.id,
 		title: episode.title,

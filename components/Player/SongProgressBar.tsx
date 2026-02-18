@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
 	configureReanimatedLogger,
@@ -44,10 +44,7 @@ export function SongProgressBar() {
 		const currentPercent = Math.min(100, Math.max(0, (position / duration) * 100));
 		if (isPlaying) {
 			// Animate from current position to where we expect to be at the next update
-			const nextPercent = Math.min(
-				100,
-				currentPercent + (playbackRate * PROGRESS_UPDATE_INTERVAL_MS / 1000 / duration) * 100,
-			);
+			const nextPercent = Math.min(100, currentPercent + ((playbackRate * PROGRESS_UPDATE_INTERVAL_MS) / 1000 / duration) * 100);
 			animatedProgress.value = currentPercent;
 			animatedProgress.value = withTiming(nextPercent, {
 				duration: PROGRESS_UPDATE_INTERVAL_MS,

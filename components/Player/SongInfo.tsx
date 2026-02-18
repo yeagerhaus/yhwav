@@ -2,9 +2,9 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
 import { Dimensions, Image, StyleSheet } from 'react-native';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -18,6 +18,7 @@ export const SongInfo = React.memo(() => {
 	const { artists } = useArtists();
 	const { albums } = useAlbums();
 	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
+	const markAsPlayed = usePodcastProgressStore((state) => state.markAsPlayed);
 
 	if (!currentSong) return null;
 
@@ -29,8 +30,6 @@ export const SongInfo = React.memo(() => {
 	// Find matching artist/album by name to get their ratingKey for navigation
 	const matchedArtist = artists.find((a) => a.name === currentSong.artist);
 	const matchedAlbum = albums.find((a) => a.title === currentSong.album && a.artist === currentSong.artist);
-
-	const markAsPlayed = usePodcastProgressStore((state) => state.markAsPlayed);
 
 	const menuItems: ContextMenuItem[] = isPodcast
 		? [

@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { FlatList, Image, StyleSheet, View } from 'react-native';
+import { FlatList, Image, StyleSheet } from 'react-native';
 import { Div, DynamicItem } from '@/components';
-import { Text } from '@/components/Text';
 import { Main } from '@/components/Main';
+import { Text } from '@/components/Text';
 import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
@@ -121,7 +121,9 @@ export default function ArtistDetailScreen() {
 			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
 				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
 				<Div transparent>
-					<Text type='h1' style={{ marginBottom: 4 }}>{artist.name}</Text>
+					<Text type='h1' style={{ marginBottom: 4 }}>
+						{artist.name}
+					</Text>
 					{artist.genres.length > 0 && <Text style={styles.genres}>{artist.genres.join(', ')}</Text>}
 					{artist.country && <Text style={styles.country}>{artist.country}</Text>}
 				</Div>

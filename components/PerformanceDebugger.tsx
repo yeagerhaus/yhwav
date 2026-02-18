@@ -16,14 +16,16 @@ function formatBytes(bytes: number): string {
 	const k = 1024;
 	const sizes = ['B', 'KB', 'MB', 'GB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+	return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
 }
 
 /** Get memory info when available (Chrome debugger, Node, or Hermes) */
 function getMemoryUsage(): { used: string; total: string; limit?: string } | null {
 	try {
 		// Chrome / V8 (e.g. when using React Native debugger)
-		const perf = global.performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } };
+		const perf = global.performance as Performance & {
+			memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number };
+		};
 		if (perf?.memory) {
 			return {
 				used: formatBytes(perf.memory.usedJSHeapSize),
@@ -71,51 +73,74 @@ export function PerformanceDebugger() {
 		<>
 			<Div useGlass style={styles.toggleButton}>
 				<Pressable onPress={() => setVisible(!visible)}>
-					<Text type='body' style={styles.toggleButtonText}>{'</>'} Debug</Text>
+					<Text type='body' style={styles.toggleButtonText}>
+						{'</>'} Debug
+					</Text>
 				</Pressable>
 			</Div>
 
 			{visible && (
 				<Div useBlur style={styles.container}>
 					<ScrollView style={styles.scrollView}>
-						<Text type="h3" style={styles.title}>Performance Monitor</Text>
+						<Text type='h3' style={styles.title}>
+							Performance Monitor
+						</Text>
 
 						<Div transparent style={styles.section}>
-							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Memory</Text>
+							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+								Memory
+							</Text>
 							{memory ? (
 								<>
-									<Text type="bodySM" style={styles.metric}>Heap used: {memory.used}</Text>
-									<Text type="bodySM" style={styles.metric}>Heap total: {memory.total}</Text>
+									<Text type='bodySM' style={styles.metric}>
+										Heap used: {memory.used}
+									</Text>
+									<Text type='bodySM' style={styles.metric}>
+										Heap total: {memory.total}
+									</Text>
 									{memory.limit != null && (
-										<Text type="bodySM" style={styles.metric}>Heap limit: {memory.limit}</Text>
+										<Text type='bodySM' style={styles.metric}>
+											Heap limit: {memory.limit}
+										</Text>
 									)}
 								</>
 							) : (
-								<Text type="bodySM" style={styles.metric}>Unavailable (use Chrome debugger for heap stats)</Text>
+								<Text type='bodySM' style={styles.metric}>
+									Unavailable (use Chrome debugger for heap stats)
+								</Text>
 							)}
 						</Div>
 
 						<Div transparent style={styles.section}>
-							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Key Metrics</Text>
-							<Text type="bodySM" style={styles.metric}>playSound avg: {avgPlaySound.toFixed(2)}ms</Text>
-							<Text type="bodySM" style={styles.metric}>skipToNext avg: {avgSkip.toFixed(2)}ms</Text>
-							<Text type="bodySM" style={styles.metric}>Total metrics: {metrics.length}</Text>
+							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+								Key Metrics
+							</Text>
+							<Text type='bodySM' style={styles.metric}>
+								playSound avg: {avgPlaySound.toFixed(2)}ms
+							</Text>
+							<Text type='bodySM' style={styles.metric}>
+								skipToNext avg: {avgSkip.toFixed(2)}ms
+							</Text>
+							<Text type='bodySM' style={styles.metric}>
+								Total metrics: {metrics.length}
+							</Text>
 						</Div>
 
 						<Div transparent style={styles.section}>
-							<Text type="label" colorVariant="brand" style={styles.sectionTitle}>Slowest Operations</Text>
+							<Text type='label' colorVariant='brand' style={styles.sectionTitle}>
+								Slowest Operations
+							</Text>
 							{slowest.map((m, i) => (
-								<Text key={i} type="bodySM" style={styles.metric}>
+								<Text key={i} type='bodySM' style={styles.metric}>
 									{m.name}: {m.duration.toFixed(2)}ms
 								</Text>
 							))}
 						</Div>
 
-						<Pressable
-							style={[DefaultStyles.primaryButton, styles.debugButton]}
-							onPress={() => performanceMonitor.logReport()}
-						>
-							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Log Full Report</Text>
+						<Pressable style={[DefaultStyles.primaryButton, styles.debugButton]} onPress={() => performanceMonitor.logReport()}>
+							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+								Log Full Report
+							</Text>
 						</Pressable>
 
 						<Pressable
@@ -125,7 +150,9 @@ export function PerformanceDebugger() {
 								setMetrics([]);
 							}}
 						>
-							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Clear Metrics</Text>
+							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+								Clear Metrics
+							</Text>
 						</Pressable>
 
 						<Pressable
@@ -135,7 +162,9 @@ export function PerformanceDebugger() {
 								console.log('\n📋 Full JSON Export:\n', performanceMonitor.exportMetrics());
 							}}
 						>
-							<Text type="body" colorVariant="primaryInvert" style={DefaultStyles.center}>Export for Analysis</Text>
+							<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
+								Export for Analysis
+							</Text>
 						</Pressable>
 					</ScrollView>
 				</Div>

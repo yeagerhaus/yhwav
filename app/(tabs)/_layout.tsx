@@ -23,10 +23,10 @@ export default function TabLayout() {
 				<Label>Library</Label>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='(podcasts)'>
-				<Icon 
+				<Icon
 					// @ts-expect-error <these are valid icons, just not typed>
-					sf={{ default: 'apple.podcasts.pages.fill', selected: 'apple.podcasts.pages.fill' }} 
-					selectedColor={Colors.brandPrimary} 
+					sf={{ default: 'apple.podcasts.pages.fill', selected: 'apple.podcasts.pages.fill' }}
+					selectedColor={Colors.brandPrimary}
 				/>
 				<Label>Podcasts</Label>
 			</NativeTabs.Trigger>
@@ -35,7 +35,7 @@ export default function TabLayout() {
 				<Label>Settings</Label>
 			</NativeTabs.Trigger>
 
-			{/* // biome-ignore lint/a11y/useSemanticElements: role=search is intentional for a11y in native tab bar */}
+			{/* biome-ignore lint/a11y/useSemanticElements: NativeTabs.Trigger does not support semantic <search>; role=search is intentional for a11y */}
 			<NativeTabs.Trigger name='search' role='search'>
 				<Icon sf={{ default: 'magnifyingglass', selected: 'magnifyingglass' }} selectedColor={Colors.brandPrimary} />
 				<Label>Search</Label>

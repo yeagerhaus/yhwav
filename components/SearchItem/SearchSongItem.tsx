@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import { State, usePlaybackState } from '@/lib/playerAdapter';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
@@ -11,6 +10,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 
@@ -100,7 +100,13 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 			</Div>
-			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}>
+			<Div
+				transparent
+				style={[
+					styles.songInfoContainer,
+					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
+				]}
+			>
 				<Div transparent style={styles.songInfo}>
 					<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}

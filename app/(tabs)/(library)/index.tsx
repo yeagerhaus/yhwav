@@ -1,8 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
-import { DynamicItem, HomeSection } from '@/components';
-import { Div, Main, Text } from '@/components';
+import { FlatList, RefreshControl } from 'react-native';
+import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { Colors } from '@/constants';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
@@ -91,7 +90,11 @@ export default function LibraryScreen() {
 					data={recentlyAdded}
 					keyExtractor={(item) => item.id}
 					renderItem={(item) => (
-						<DynamicItem type='album' item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }} size={ITEM_SIZE} />
+						<DynamicItem
+							type='album'
+							item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
+							size={ITEM_SIZE}
+						/>
 					)}
 				/>
 

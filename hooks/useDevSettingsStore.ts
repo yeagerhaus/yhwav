@@ -10,7 +10,7 @@ interface DevSettingsState {
 	hydrate: () => Promise<void>;
 }
 
-export const useDevSettingsStore = create<DevSettingsState>((set, get) => ({
+export const useDevSettingsStore = create<DevSettingsState>((set, _get) => ({
 	showPerformanceDebugger: false,
 	hydrated: false,
 

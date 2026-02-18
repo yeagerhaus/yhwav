@@ -3,8 +3,8 @@ import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { RepeatMode } from '@/lib/playerAdapter';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { RepeatMode } from '@/lib/playerAdapter';
 
 const SPEED_OPTIONS = [0.5, 1, 1.25, 1.5, 2];
 

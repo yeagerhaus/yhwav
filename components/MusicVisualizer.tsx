@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, useColorScheme } from 'react-native';
-import { Div } from './Div';
 import { Colors } from '@/constants/styles';
 import { isAvailable, YhplayerAudioModule } from '@/modules/yhplayer-audio';
+import { Div } from './Div';
 
 interface Props {
 	isPlaying: boolean;
@@ -27,7 +27,7 @@ const REF_FLOOR = 0.04; // never divide by less (avoids blowing up in silence)
 
 function levelToBarScale(level: number): number {
 	const clamped = Math.min(1, Math.max(0, level));
-	const curved = Math.pow(clamped, LEVEL_CURVE);
+	const curved = clamped ** LEVEL_CURVE;
 	const scaled = curved * LEVEL_GAIN;
 	return BAR_SCALE_MIN + scaled * (BAR_SCALE_MAX - BAR_SCALE_MIN);
 }
@@ -136,11 +136,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 				{animatedValues.map((value, index) => (
 					<Animated.View
 						key={index}
-						style={[
-							styles.bar,
-							{ backgroundColor: Colors.brandPrimary },
-							{ transform: [{ scaleY: value }] },
-						]}
+						style={[styles.bar, { backgroundColor: Colors.brandPrimary }, { transform: [{ scaleY: value }] }]}
 					/>
 				))}
 			</Div>
