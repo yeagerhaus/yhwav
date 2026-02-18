@@ -200,7 +200,9 @@ async function extractArtworkColor(song: Song): Promise<string> {
 
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
-	const url = typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null;
+	const { useMusicDownloadsStore } = require('@/hooks/useMusicDownloadsStore');
+	const localUri = song.localUri || useMusicDownloadsStore.getState().getLocalUri(song.id);
+	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}

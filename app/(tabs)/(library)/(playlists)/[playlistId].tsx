@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
@@ -28,6 +29,40 @@ export default function DetailScreen() {
 	// ratingKey is the numeric ID needed for CRUD API calls
 	const ratingKey = playlist?.ratingKey ?? '';
 	const editor = usePlaylistEditor(ratingKey, playlistId);
+
+	const dlDownloads = useMusicDownloadsStore((s) => s.downloads);
+	const dlDownloading = useMusicDownloadsStore((s) => s.downloading);
+	const dlQueue = useMusicDownloadsStore((s) => s.queue);
+	const dlQueueTotal = useMusicDownloadsStore((s) => s.queueTotal);
+	const dlQueueCompleted = useMusicDownloadsStore((s) => s.queueCompleted);
+	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
+	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
+
+	const downloadedCount = useMemo(
+		() => songs.filter((s) => !!dlDownloads[s.id]).length,
+		[songs, dlDownloads],
+	);
+	const isFullyDownloaded = songs.length > 0 && downloadedCount === songs.length;
+	const isDlActive = useMemo(
+		() => songs.some((s) => dlDownloading.has(s.id) || dlQueue.some((q) => q.id === s.id)),
+		[songs, dlDownloading, dlQueue],
+	);
+
+	const handleDownloadPlaylist = useCallback(() => {
+		if (isFullyDownloaded) {
+			removeDownloads(songs.map((s) => s.id));
+		} else {
+			downloadTracks(songs);
+		}
+	}, [isFullyDownloaded, songs, downloadTracks, removeDownloads]);
+
+	const dlLabel = isDlActive
+		? `Downloading${dlQueueTotal > 0 ? ` ${dlQueueCompleted}/${dlQueueTotal}` : '…'}`
+		: isFullyDownloaded
+			? 'Remove Download'
+			: downloadedCount > 0
+				? `Download (${songs.length - downloadedCount} remaining)`
+				: 'Download';
 
 	useEffect(() => {
 		if (!playlistId) return;
@@ -189,18 +224,36 @@ export default function DetailScreen() {
 										</Div>
 									)}
 								</Div>
-								<Pressable onPress={handleEdit} style={styles.editButton}>
-									<Text type='body' colorVariant='brand' style={styles.editButtonText}>
-										Edit
-									</Text>
-								</Pressable>
+								<Div transparent style={{ flexDirection: 'row', gap: 8 }}>
+									{songs.length > 0 && (
+										<Pressable onPress={handleDownloadPlaylist} disabled={isDlActive} style={styles.downloadBtn}>
+											{isDlActive ? (
+												<ActivityIndicator size='small' color={Colors.brandPrimary} />
+											) : (
+												<SymbolView
+													name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
+													size={18}
+													tintColor={Colors.brandPrimary}
+												/>
+											)}
+											<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+												{dlLabel}
+											</Text>
+										</Pressable>
+									)}
+									<Pressable onPress={handleEdit} style={styles.editButton}>
+										<Text type='body' colorVariant='brand' style={styles.editButtonText}>
+											Edit
+										</Text>
+									</Pressable>
+								</Div>
 							</Div>
 						</Div>
 					)}
 				</Div>
 			</Div>
 		),
-		[artwork, playlist, editor.isEditing, editor.isSaving, editTitle, handleEdit, handleCancel, handleSave, handleDelete],
+		[artwork, playlist, editor.isEditing, editor.isSaving, editTitle, handleEdit, handleCancel, handleSave, handleDelete, songs, isDlActive, isFullyDownloaded, dlLabel, handleDownloadPlaylist],
 	);
 
 	if (editor.isEditing) {
@@ -297,5 +350,14 @@ const styles = StyleSheet.create({
 	editSongArtist: {
 		fontSize: 13,
 		color: Colors.textMuted,
+	},
+	downloadBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		paddingVertical: 6,
+		paddingHorizontal: 14,
+		borderRadius: 16,
+		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.15),
 	},
 });

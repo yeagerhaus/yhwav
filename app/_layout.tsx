@@ -16,6 +16,7 @@ import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -86,14 +87,16 @@ export default function RootLayout() {
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
 	const hydratePodcastDownloads = usePodcastDownloadsStore((s) => s.hydrate);
+	const hydrateMusicDownloads = useMusicDownloadsStore((s) => s.hydrate);
 	useEffect(() => {
 		hydratePodcastProgress();
 		hydratePodcastDownloads();
+		hydrateMusicDownloads();
 		hydratePodcast().then(() => {
 			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
 			if (feeds.length > 0) fetchAllFeeds();
 		});
-	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads]);
+	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads, hydrateMusicDownloads]);
 
 	useEffect(() => {
 		const init = async () => {

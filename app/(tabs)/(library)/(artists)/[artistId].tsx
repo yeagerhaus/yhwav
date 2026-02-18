@@ -1,11 +1,13 @@
+import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
-import { FlatList, Image, StyleSheet } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
 import { Colors, DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Album } from '@/types/album';
 
@@ -27,7 +29,6 @@ function classifyAlbum(album: Album): AlbumCategory {
 
 function sortAlbums(albums: Album[]): Album[] {
 	return albums.sort((a, b) => {
-		// Sort by release date desc (newest first)
 		if (a.originallyAvailableAt && b.originallyAvailableAt) {
 			const cmp = b.originallyAvailableAt.localeCompare(a.originallyAvailableAt);
 			if (cmp !== 0) return cmp;
@@ -36,7 +37,6 @@ function sortAlbums(albums: Album[]): Album[] {
 		} else if (b.originallyAvailableAt) {
 			return 1;
 		}
-		// Fallback to year desc
 		if (a.year != null && b.year != null) {
 			const cmp = b.year - a.year;
 			if (cmp !== 0) return cmp;
@@ -45,7 +45,6 @@ function sortAlbums(albums: Album[]): Album[] {
 		} else if (b.year != null) {
 			return 1;
 		}
-		// Final fallback: title asc
 		return a.title.localeCompare(b.title);
 	});
 }
@@ -64,16 +63,54 @@ interface AlbumSection {
 export default function ArtistDetailScreen() {
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
-	const { albums } = useOfflineFilteredLibrary();
+	const { albums, tracks } = useOfflineFilteredLibrary();
+
+	const downloads = useMusicDownloadsStore((s) => s.downloads);
+	const downloading = useMusicDownloadsStore((s) => s.downloading);
+	const queueStore = useMusicDownloadsStore((s) => s.queue);
+	const queueTotal = useMusicDownloadsStore((s) => s.queueTotal);
+	const queueCompleted = useMusicDownloadsStore((s) => s.queueCompleted);
+	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
+	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
 
 	const artist = artistsById[artistId ?? ''];
+
+	const artistTracks = useMemo(
+		() => (artist ? tracks.filter((t) => t.artistKey === artist.key) : []),
+		[artist, tracks],
+	);
+
+	const downloadedCount = useMemo(
+		() => artistTracks.filter((t) => !!downloads[t.id]).length,
+		[artistTracks, downloads],
+	);
+	const isFullyDownloaded = artistTracks.length > 0 && downloadedCount === artistTracks.length;
+	const isActive = useMemo(
+		() => artistTracks.some((s) => downloading.has(s.id) || queueStore.some((q) => q.id === s.id)),
+		[artistTracks, downloading, queueStore],
+	);
+
+	const handleDownload = useCallback(() => {
+		if (isFullyDownloaded) {
+			removeDownloads(artistTracks.map((t) => t.id));
+		} else {
+			downloadTracks(artistTracks);
+		}
+	}, [isFullyDownloaded, artistTracks, downloadTracks, removeDownloads]);
+
+	const downloadLabel = isActive
+		? `Downloading${queueTotal > 0 ? ` ${queueCompleted}/${queueTotal}` : '…'}`
+		: isFullyDownloaded
+			? 'Remove Download'
+			: downloadedCount > 0
+				? `Download (${artistTracks.length - downloadedCount} remaining)`
+				: `Download (${artistTracks.length} tracks)`;
 
 	const sections = useMemo(() => {
 		if (!artist) return [];
 
 		const allAlbums = albums.filter((a) => a.artistKey === artist.key);
 
-		// Group albums by category
 		const grouped = new Map<AlbumCategory, Album[]>();
 		for (const album of allAlbums) {
 			const category = classifyAlbum(album);
@@ -85,7 +122,6 @@ export default function ArtistDetailScreen() {
 			}
 		}
 
-		// Build sections in display order, sorting each group
 		const result: AlbumSection[] = [];
 		for (const category of CATEGORY_ORDER) {
 			const albums = grouped.get(category);
@@ -134,6 +170,22 @@ export default function ArtistDetailScreen() {
 						</Text>
 					</Div>
 				) : null}
+				{artistTracks.length > 0 && (
+					<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
+						{isActive ? (
+							<ActivityIndicator size='small' color={Colors.brandPrimary} />
+						) : (
+							<SymbolView
+								name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
+								size={20}
+								tintColor={Colors.brandPrimary}
+							/>
+						)}
+						<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+							{downloadLabel}
+						</Text>
+					</Pressable>
+				)}
 				{sections.map((section) => (
 					<Div key={section.category} transparent>
 						<Text style={styles.sectionHeader}>{section.category}</Text>
@@ -163,4 +215,11 @@ const styles = StyleSheet.create({
 	bioContainer: { marginBottom: 16 },
 	bio: { fontSize: 14, color: Colors.gray400, lineHeight: 20 },
 	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
+	downloadButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginBottom: 16,
+		paddingVertical: 8,
+	},
 });

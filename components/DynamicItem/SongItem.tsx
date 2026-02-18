@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
@@ -9,6 +9,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
 import { ContextMenu, type ContextMenuItem } from '../ContextMenu';
@@ -26,6 +27,13 @@ const SongItem = React.memo(
 		const playSound = useAudioStore((state) => state.playSound);
 		const playNext = useAudioStore((state) => state.playNext);
 		const addToQueue = useAudioStore((state) => state.addToQueue);
+
+		const downloaded = useMusicDownloadsStore((s) => s.isDownloaded(item.id));
+		const downloading = useMusicDownloadsStore((s) => s.isDownloading(item.id));
+		const queued = useMusicDownloadsStore((s) => s.isQueued(item.id));
+		const downloadTrack = useMusicDownloadsStore((s) => s.downloadTrack);
+		const removeDownload = useMusicDownloadsStore((s) => s.removeDownload);
+
 		const isCurrentSong = useMemo(() => {
 			return item.id === String(currentSong?.id);
 		}, [item.id, currentSong?.id]);
@@ -81,12 +89,31 @@ const SongItem = React.memo(
 					}
 				},
 			},
+			downloaded
+				? {
+						label: 'Remove Download',
+						systemImage: 'trash',
+						destructive: true,
+						onPress: () => removeDownload(item.id),
+					}
+				: {
+						label: 'Download',
+						systemImage: 'arrow.down.circle',
+						disabled: downloading || queued,
+						onPress: () => downloadTrack(item),
+					},
 			{
 				label: 'Share',
 				systemImage: 'square.and.arrow.up',
 				onPress: () => console.log('Share'),
 			},
 		];
+
+		const downloadIndicator = downloading || queued ? (
+			<ActivityIndicator size='small' color={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+		) : downloaded ? (
+			<SymbolView name='arrow.down.circle.fill' size={14} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+		) : null;
 
 		if (listItem) {
 			return (
@@ -115,6 +142,7 @@ const SongItem = React.memo(
 								{item.id === String(currentSong?.id) && (
 									<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
 								)}
+								{downloadIndicator}
 								<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
 									{item.artist}
 								</Text>
@@ -171,6 +199,7 @@ const SongItem = React.memo(
 							{item.id === String(currentSong?.id) && (
 								<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
 							)}
+							{downloadIndicator}
 							<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}
 							</Text>
@@ -206,7 +235,6 @@ const SongItem = React.memo(
 		);
 	},
 	(prevProps, nextProps) => {
-		// Custom comparison for better memoization
 		return (
 			prevProps.item.id === nextProps.item.id &&
 			prevProps.item.title === nextProps.item.title &&

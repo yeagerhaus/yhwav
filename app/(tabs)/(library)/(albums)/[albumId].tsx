@@ -1,9 +1,12 @@
+import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, Image } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { Colors } from '@/constants/styles';
 import { useAlbums } from '@/hooks/useAlbums';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Song } from '@/types/song';
 
@@ -14,6 +17,14 @@ export default function AlbumDetailScreen() {
 	const [songs, setSongs] = useState<Song[]>([]);
 	const [_bgColor, setBgColor] = useState<string>('#FA2D48');
 
+	const downloads = useMusicDownloadsStore((s) => s.downloads);
+	const downloading = useMusicDownloadsStore((s) => s.downloading);
+	const queue = useMusicDownloadsStore((s) => s.queue);
+	const queueTotal = useMusicDownloadsStore((s) => s.queueTotal);
+	const queueCompleted = useMusicDownloadsStore((s) => s.queueCompleted);
+	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
+	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
+
 	const album = albumsById[albumId ?? ''];
 	const artwork = album?.thumb || album?.artwork || null;
 	const artistName = album?.artist || null;
@@ -22,10 +33,8 @@ export default function AlbumDetailScreen() {
 	useEffect(() => {
 		if (!albumId || !allTracks.length) return;
 
-		// Filter tracks by album ratingKey if we have album metadata, else fallback to name match
 		let filtered: Song[];
 		if (album) {
-			// Try matching by parentKey (some tracks store "/library/metadata/<ratingKey>")
 			filtered = allTracks.filter((song) => song.album === album.title && song.artist === album.artist);
 		} else {
 			const decoded = decodeURIComponent(albumId);
@@ -54,6 +63,32 @@ export default function AlbumDetailScreen() {
 		}
 	}, [artwork, albumId]);
 
+	const downloadedCount = useMemo(
+		() => songs.filter((s) => !!downloads[s.id]).length,
+		[songs, downloads],
+	);
+	const isFullyDownloaded = songs.length > 0 && downloadedCount === songs.length;
+	const isActive = useMemo(
+		() => songs.some((s) => downloading.has(s.id) || queue.some((q) => q.id === s.id)),
+		[songs, downloading, queue],
+	);
+
+	const handleDownload = useCallback(() => {
+		if (isFullyDownloaded) {
+			removeDownloads(songs.map((s) => s.id));
+		} else {
+			downloadTracks(songs);
+		}
+	}, [isFullyDownloaded, songs, downloadTracks, removeDownloads]);
+
+	const downloadLabel = isActive
+		? `Downloading${queueTotal > 0 ? ` ${queueCompleted}/${queueTotal}` : '…'}`
+		: isFullyDownloaded
+			? 'Remove Download'
+			: downloadedCount > 0
+				? `Download (${songs.length - downloadedCount} remaining)`
+				: 'Download';
+
 	return (
 		<Main>
 			<Div style={{ paddingHorizontal: 16 }} transparent>
@@ -80,6 +115,22 @@ export default function AlbumDetailScreen() {
 							</Text>
 						)}
 					</Div>
+					{songs.length > 0 && (
+						<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
+							{isActive ? (
+								<ActivityIndicator size='small' color={Colors.brandPrimary} />
+							) : (
+								<SymbolView
+									name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
+									size={20}
+									tintColor={Colors.brandPrimary}
+								/>
+							)}
+							<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+								{downloadLabel}
+							</Text>
+						</Pressable>
+					)}
 					<FlatList
 						scrollEnabled={false}
 						data={songs}
@@ -92,3 +143,13 @@ export default function AlbumDetailScreen() {
 		</Main>
 	);
 }
+
+const styles = StyleSheet.create({
+	downloadButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginBottom: 16,
+		paddingVertical: 8,
+	},
+});
