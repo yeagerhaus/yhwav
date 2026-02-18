@@ -138,6 +138,31 @@ const TrackPlayer = {
 		if (p?.setRepeatMode) await p.setRepeatMode(mode);
 	},
 
+	async setEqualizerBands(bands: Array<{ frequency: number; gain: number }>) {
+		const p = getPlayer();
+		if (p?.setEqualizerBands) await p.setEqualizerBands(bands);
+	},
+
+	async setEqualizerEnabled(enabled: boolean) {
+		const p = getPlayer();
+		if (p?.setEqualizerEnabled) await p.setEqualizerEnabled(enabled);
+	},
+
+	async setOutputGain(gainDb: number) {
+		const p = getPlayer();
+		if (p?.setOutputGain) await p.setOutputGain(gainDb);
+	},
+
+	async setNormalizationEnabled(enabled: boolean) {
+		const p = getPlayer();
+		if (p?.setNormalizationEnabled) await p.setNormalizationEnabled(enabled);
+	},
+
+	async setMonoAudioEnabled(enabled: boolean) {
+		const p = getPlayer();
+		if (p?.setMonoAudioEnabled) await p.setMonoAudioEnabled(enabled);
+	},
+
 	async getPlaybackState() {
 		const p = getPlayer();
 		if (!p) return { state: State.Stopped, position: 0, duration: 0, buffered: undefined };

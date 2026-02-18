@@ -1,6 +1,7 @@
 // Crypto polyfills removed - using expo-crypto instead
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
@@ -16,6 +17,7 @@ import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
@@ -28,6 +30,24 @@ function AudioSync() {
 	useTrackPlayerSync();
 	return null;
 }
+
+const CustomDarkTheme = {
+	...DarkTheme,
+	colors: {
+		...DarkTheme.colors,
+		background: Colors.dark.background,
+		card: Colors.dark.background,
+	},
+};
+
+const CustomLightTheme = {
+	...DefaultTheme,
+	colors: {
+		...DefaultTheme.colors,
+		background: Colors.light.background,
+		card: Colors.light.background,
+	},
+};
 
 function AnimatedStack() {
 	const { scale } = useRootScale();
@@ -50,7 +70,7 @@ function AnimatedStack() {
 	return (
 		<Div style={{ flex: 1, backgroundColor: screenBackground }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
-				<Stack>
+				<Stack screenOptions={{ contentStyle: { backgroundColor: screenBackground } }}>
 					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: screenBackground } }} />
 					<Stack.Screen
 						name='music/[id]'
@@ -78,11 +98,18 @@ export default function RootLayout() {
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
+	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
+
+	useEffect(() => {
+		const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+		SystemUI.setBackgroundColorAsync(bg);
+	}, [colorScheme]);
 
 	useEffect(() => {
 		hydrateDevSettings();
 		hydrateOfflineMode();
-	}, [hydrateDevSettings, hydrateOfflineMode]);
+		hydratePlaybackSettings();
+	}, [hydrateDevSettings, hydrateOfflineMode, hydratePlaybackSettings]);
 
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
@@ -207,7 +234,7 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={styles.container}>
-			<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+			<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />

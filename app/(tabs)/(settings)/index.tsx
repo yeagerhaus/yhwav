@@ -88,6 +88,11 @@ export default function SettingsScreen() {
 					onPress={() => router.push('/(tabs)/(settings)/account')}
 				/>
 				<SettingsRow
+					label='Playback'
+					icon='waveform'
+					onPress={() => router.push('/(tabs)/(settings)/playback')}
+				/>
+				<SettingsRow
 					label='Storage & Data'
 					icon='externaldrive'
 					onPress={() => router.push('/(tabs)/(settings)/storage')}

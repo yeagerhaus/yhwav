@@ -16,9 +16,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		resizeMode: 'contain',
 		backgroundColor: '#000000',
 	},
+	backgroundColor: '#080808',
 	ios: {
 		supportsTablet: true,
 		bundleIdentifier: 'com.alpineiq.yhplayer',
+		backgroundColor: '#080808',
 	},
 	android: {
 		adaptiveIcon: {

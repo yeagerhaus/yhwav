@@ -1,11 +1,15 @@
 import { Stack, useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
+import { useColorScheme } from 'react-native';
 import { InternalHeader } from '@/components/navigation/InternalHeader';
+import { Colors } from '@/constants';
 
 export default function SettingsLayout() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const lastPathnameRef = useRef<string>('');
+	const colorScheme = useColorScheme();
+	const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
 
 	useFocusEffect(
 		useCallback(() => {
@@ -27,7 +31,7 @@ export default function SettingsLayout() {
 	);
 
 	return (
-		<Stack screenOptions={{ headerShown: false }}>
+		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }}>
 			<Stack.Screen name='index' />
 			<Stack.Screen
 				name='account'
@@ -42,6 +46,14 @@ export default function SettingsLayout() {
 				options={{
 					headerShown: true,
 					title: 'Storage & Data',
+					header: () => <InternalHeader />,
+				}}
+			/>
+			<Stack.Screen
+				name='playback'
+				options={{
+					headerShown: true,
+					title: 'Playback',
 					header: () => <InternalHeader />,
 				}}
 			/>
