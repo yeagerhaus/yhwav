@@ -39,6 +39,7 @@ interface PodcastDownloadsState {
 	getDownloadedEpisodesForFeed: (feedId: string) => PodcastDownload[];
 	isDownloading: (episodeId: string) => boolean;
 	isDownloaded: (episodeId: string) => boolean;
+	removeAllDownloads: () => Promise<void>;
 }
 
 async function persistDownloads(downloads: Record<string, PodcastDownload>) {
@@ -163,4 +164,15 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 	isDownloading: (episodeId: string) => get().downloading.has(episodeId),
 
 	isDownloaded: (episodeId: string) => !!get().downloads[episodeId],
+
+	removeAllDownloads: async () => {
+		const { downloads } = get();
+		for (const entry of Object.values(downloads)) {
+			try {
+				await FileSystem.deleteAsync(entry.localUri, { idempotent: true });
+			} catch {}
+		}
+		set({ downloads: {}, downloading: new Set() });
+		await persistDownloads({});
+	},
 }));
