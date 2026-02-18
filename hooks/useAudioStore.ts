@@ -14,6 +14,7 @@ import TrackPlayer, {
 } from '@/lib/playerAdapter';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
+import { queueScrobble } from '@/utils/scrobble-queue';
 
 // Storage keys
 export const STORAGE_QUEUE_KEY = 'SONG_QUEUE';
@@ -150,6 +151,11 @@ let lastErrorRetryAt = 0;
 let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
+
+function scrobbleSong(song: Song) {
+	if (song.source === 'podcast') return;
+	queueScrobble(song).catch(() => {});
+}
 
 // Debounced position save (max once per 2 seconds)
 let positionSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1033,11 +1039,11 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackQueueEnded) {
-				// Queue ended — mark podcast episode as completed
 				if (state.currentSong?.source === 'podcast') {
 					const dur = state.duration > 0 ? state.duration : state.position;
 					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
 				}
+				if (state.currentSong) scrobbleSong(state.currentSong);
 				console.log('🎵 Queue ended, repeat mode:', state.repeatMode);
 			}
 
@@ -1050,15 +1056,14 @@ export function useTrackPlayerSync() {
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
 
-				const previousSongId = state.currentSong?.id ?? null;
+				const previousSong = state.currentSong;
 				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
 				if (isNaturalAdvance) {
-					// Measure gap from last progress update to now — captures the
-					// actual audible silence between tracks regardless of duration accuracy
 					const gapMs = Date.now() - lastProgressTimestamp;
 					if (__DEV__) {
-						console.log(`🎵 Natural advance: ${previousSongId ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
+						console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
 					}
+					if (previousSong) scrobbleSong(previousSong);
 				}
 
 				// Reset pre-warm tracker for the new track

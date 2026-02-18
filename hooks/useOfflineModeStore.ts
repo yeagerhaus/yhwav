@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { flushPendingScrobbles } from '@/utils/scrobble-queue';
 
 const STORAGE_KEY = 'OFFLINE_MODE';
 
@@ -17,6 +18,7 @@ export const useOfflineModeStore = create<OfflineModeState>((set) => ({
 	setOfflineMode: (value: boolean) => {
 		set({ offlineMode: value });
 		AsyncStorage.setItem(STORAGE_KEY, value ? '1' : '0').catch(() => {});
+		if (!value) flushPendingScrobbles().catch(() => {});
 	},
 
 	hydrate: async () => {

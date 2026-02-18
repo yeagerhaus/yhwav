@@ -25,6 +25,7 @@ import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
+import { initScrobbleQueue } from '@/utils/scrobble-queue';
 
 function AudioSync() {
 	useTrackPlayerSync();
@@ -151,7 +152,8 @@ export default function RootLayout() {
 				console.log('✅ Audio player initialized');
 
 				if (authLoaded && plexAuthService.isAuthenticated()) {
-					// Fetch albums, artists, playlists & recently played immediately (small payloads, no caching needed)
+					initScrobbleQueue().catch(() => {});
+
 					const fetchAlbumsAndArtists = () => {
 						fetchAllAlbums()
 							.then((albums) => setAlbums(albums))
