@@ -1,9 +1,10 @@
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants/styles';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { toPlayableSong } from '@/types';
 import type { PodcastEpisode } from '@/types/podcast';
 import type { Song } from '@/types/song';
@@ -41,6 +42,7 @@ const PodcastEpisodeItem = React.memo(
 		const colorScheme = useColorScheme();
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
+		const progress = usePodcastProgressStore((state) => state.progressByEpisodeId[episode.id]);
 
 		const isCurrentSong = useMemo(
 			() => currentSong?.id === episode.id,
@@ -61,18 +63,36 @@ const PodcastEpisodeItem = React.memo(
 			return parts.length > 0 ? parts.join(' · ') : showTitle;
 		}, [episode.pubDate, episode.durationSeconds, showTitle]);
 
+		const canResume = progress && !progress.completed && progress.position > 10;
+		const progressPercent =
+			progress && progress.duration > 0 ? Math.min(1, progress.position / progress.duration) : 0;
+
 		return (
 			<Pressable onPress={handlePress} style={styles.row}>
 				<Div style={[styles.info, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]} transparent>
-					<Text type="defaultSemiBold" numberOfLines={1} style={styles.title}>
+					<Text type="h3" numberOfLines={1} style={styles.title}>
 						{episode.title}
 					</Text>
 					<Div style={styles.subtitleRow} transparent>
-						{isCurrentSong && <SymbolView name="music.note" size={12} tintColor={Colors.brandPrimary} />}
-						<Text type="subtitle" numberOfLines={1} style={styles.subtitle}>
+						<Text type="bodySM" numberOfLines={4} style={styles.subtitle}>
+							{episode.description}
+						</Text>
+					</Div>
+					<Div style={styles.subtitleRow} transparent>
+						{canResume && (
+							<Text type="bodyXS" numberOfLines={1} style={[styles.subtitle, styles.resumeLabel]}>
+								Resume from {formatDuration(Math.floor(progress.position))}
+							</Text>
+						)}
+						<Text type="bodyXS" numberOfLines={1} style={styles.subtitle}>
 							{subtitle}
 						</Text>
 					</Div>
+					{canResume && progressPercent > 0 && (
+						<View style={styles.progressTrack}>
+							<View style={[styles.progressFill, { width: `${progressPercent * 100}%` }]} />
+						</View>
+					)}
 				</Div>
 			</Pressable>
 		);
@@ -98,7 +118,7 @@ const styles = StyleSheet.create({
 	},
 	info: {
 		flex: 1,
-		gap: 4,
+		gap: 8,
 		borderBottomWidth: StyleSheet.hairlineWidth,
 		paddingBottom: 4,
 		paddingRight: 4,
@@ -110,13 +130,27 @@ const styles = StyleSheet.create({
 		gap: 4,
 	},
 	title: {
-		fontSize: 15,
 		fontWeight: '400',
 	},
 	subtitle: {
-		fontSize: 14,
 		fontWeight: '400',
 		opacity: 0.6,
 		marginTop: -4,
+	},
+	resumeLabel: {
+		color: Colors.brandPrimary,
+		marginRight: 6,
+	},
+	progressTrack: {
+		height: 3,
+		borderRadius: 1.5,
+		backgroundColor: 'rgba(128,128,128,0.3)',
+		marginTop: 4,
+		overflow: 'hidden',
+	},
+	progressFill: {
+		height: '100%',
+		borderRadius: 1.5,
+		backgroundColor: Colors.brandPrimary,
 	},
 });

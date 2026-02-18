@@ -70,21 +70,18 @@ const styles = StyleSheet.create({
 		backgroundColor: '#eee',
 	},
 	name: {
-		color: '#FFFFFF',
 		fontSize: 14,
 		fontWeight: '600',
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},
 	artist: {
-		color: '#666',
 		fontSize: 14,
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},
 	count: {
 		fontSize: 10,
-		color: '#666',
 		textAlign: 'center',
 	},
 });

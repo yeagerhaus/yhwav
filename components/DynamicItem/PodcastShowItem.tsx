@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
 		backgroundColor: '#eee',
 	},
 	name: {
-		color: '#FFFFFF',
 		fontSize: 14,
 		fontWeight: '600',
 		textAlign: 'center',
@@ -78,7 +77,6 @@ const styles = StyleSheet.create({
 	},
 	count: {
 		fontSize: 10,
-		color: '#666',
 		textAlign: 'center',
 	},
 });

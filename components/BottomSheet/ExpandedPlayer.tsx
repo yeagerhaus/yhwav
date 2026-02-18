@@ -12,6 +12,7 @@ import { QueueList } from '../Player/QueueList';
 import { SongInfo } from '../Player/SongInfo';
 import { SongProgressBar } from '../Player/SongProgressBar';
 import { TimeDisplay } from '../Player/TimeDisplay';
+import { useThemeColor } from '@/hooks';
 
 interface ExpandedPlayerProps {
 	scrollComponent?: (props: any) => React.ReactElement;
@@ -29,7 +30,8 @@ export const ExpandedPlayer = React.memo(
 		const insets = useSafeAreaInsets();
 
 		// Fallback: single-color gradient using artworkBgColor
-		const fallbackColor = isPodcast ? '#000000' : artworkBgColor || '#000000';
+		const podcastFallbackColor = useThemeColor({ light: '#FFFFFF', dark: '#000000' }, 'background');
+		const fallbackColor = isPodcast ? podcastFallbackColor : artworkBgColor || '#000000';
 
 		const MemoizedScrollComponent = React.useMemo(() => {
 			return ScrollComponentToUse;

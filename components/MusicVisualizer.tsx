@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, useColorScheme } from 'react-native';
 import { Div } from './Div';
 import { useThemeColor } from '@/hooks';
+import { Colors } from '@/constants/styles';
 
 interface Props {
 	isPlaying: boolean;
@@ -62,6 +63,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 					key={index}
 					style={[
 						styles.bar,
+						{ backgroundColor: Colors.brandPrimary },
 						{
 							transform: [
 								{
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
 	bar: {
 		width: 2.5,
 		height: 16,
-		backgroundColor: '#fff',
 		borderRadius: 1,
 	},
 });

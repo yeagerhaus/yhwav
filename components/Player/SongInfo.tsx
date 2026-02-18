@@ -9,6 +9,7 @@ import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 
 const { width } = Dimensions.get('window');
 
@@ -29,8 +30,17 @@ export const SongInfo = React.memo(() => {
 	const matchedArtist = artists.find((a) => a.name === currentSong.artist);
 	const matchedAlbum = albums.find((a) => a.title === currentSong.album && a.artist === currentSong.artist);
 
+	const markAsPlayed = usePodcastProgressStore((state) => state.markAsPlayed);
+
 	const menuItems: ContextMenuItem[] = isPodcast
 		? [
+				{
+					label: 'Mark as played',
+					systemImage: 'checkmark.circle',
+					onPress: () => {
+						if (currentSong) markAsPlayed(currentSong.id);
+					},
+				},
 				{
 					label: 'Open in Podcasts',
 					systemImage: 'link.circle',

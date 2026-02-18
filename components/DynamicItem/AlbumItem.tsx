@@ -63,14 +63,12 @@ const styles = StyleSheet.create({
 		maxWidth: itemSize,
 	},
 	artist: {
-		color: '#666',
 		fontSize: 14,
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},
 	year: {
 		fontSize: 10,
-		color: '#666',
 		textAlign: 'center',
 		maxWidth: itemSize,
 	},
