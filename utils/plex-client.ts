@@ -836,7 +836,7 @@ export class PlexClient {
 			'/:/scrobble',
 			{
 				identifier: 'com.plexapp.plugins.library',
-				key: `/library/metadata/${ratingKey}`,
+				key: ratingKey,
 			},
 			{ retries: 0, timeout: 10000 },
 		);

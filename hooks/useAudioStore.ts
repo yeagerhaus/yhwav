@@ -76,9 +76,10 @@ interface AudioState {
 	isBuffering: boolean;
 	error: string | null;
 	artworkBgColor: string | null;
+	currentPlaylistRatingKey: string | null;
 
 	// Playback actions
-	playSound: (song: Song, queue?: Song[]) => Promise<void>;
+	playSound: (song: Song, queue?: Song[], options?: { playlistRatingKey?: string }) => Promise<void>;
 	togglePlayPause: () => Promise<void>;
 	skipToNext: () => Promise<void>;
 	skipToPrevious: () => Promise<void>;
@@ -310,6 +311,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	isBuffering: false,
 	error: null,
 	artworkBgColor: null,
+	currentPlaylistRatingKey: null,
 	sleepTimerEndsAt: null,
 
 	// Internal setters
@@ -516,7 +518,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	},
 
 	// Play sound
-	playSound: async (song: Song, newQueue?: Song[]) => {
+	playSound: async (song: Song, newQueue?: Song[], options?: { playlistRatingKey?: string }) => {
 		lastUserSkipAt = Date.now(); // user-initiated track change, not natural advance
 		return performanceMonitor.trackAsync(
 			'playSound',
@@ -543,8 +545,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						savePodcastProgressImmediate(prev.id, prevPos, prevDur);
 					}
 
-					// Update UI immediately — don't wait for TrackPlayer
-					set({ error: null, currentSong: song });
+					// Track playlist context for scrobbling
+					set({
+						error: null,
+						currentSong: song,
+						currentPlaylistRatingKey: options?.playlistRatingKey ?? null,
+					});
 					saveCurrentSong(song);
 					AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
 
