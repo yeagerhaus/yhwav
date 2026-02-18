@@ -84,6 +84,7 @@ interface MusicDownloadsState {
 	saveArtistForOffline: (artist: Artist) => Promise<void>;
 	saveAlbumForOffline: (album: Album) => Promise<void>;
 	snapshotMetadataForSongs: (songs: Song[]) => Promise<void>;
+	removeAllDownloads: () => Promise<void>;
 }
 
 let processing = false;
@@ -404,5 +405,28 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			if (albumsChanged) await persistAlbums(nextAlbums);
 			console.log(`[snapshot] persisted ${Object.keys(nextArtists).length} artists, ${Object.keys(nextAlbums).length} albums`);
 		}
+	},
+
+	removeAllDownloads: async () => {
+		const { downloads } = get();
+		for (const entry of Object.values(downloads)) {
+			try {
+				await FileSystem.deleteAsync(entry.localUri, { idempotent: true });
+			} catch {}
+		}
+		set({
+			downloads: {},
+			downloadedPlaylists: {},
+			downloadedArtists: {},
+			downloadedAlbums: {},
+			downloading: new Set(),
+			queue: [],
+			queueTotal: 0,
+			queueCompleted: 0,
+		});
+		await persistDownloads({});
+		await persistPlaylists({});
+		await persistArtists({});
+		await persistAlbums({});
 	},
 }));

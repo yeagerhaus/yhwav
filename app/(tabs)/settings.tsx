@@ -4,7 +4,9 @@ import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -24,6 +26,10 @@ export default function SettingsScreen() {
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
 	const offlineMode = useOfflineModeStore((state) => state.offlineMode);
 	const setOfflineMode = useOfflineModeStore((state) => state.setOfflineMode);
+	const musicDownloadCount = useMusicDownloadsStore((s) => Object.keys(s.downloads).length);
+	const podcastDownloadCount = usePodcastDownloadsStore((s) => Object.keys(s.downloads).length);
+	const removeAllMusicDownloads = useMusicDownloadsStore((s) => s.removeAllDownloads);
+	const removeAllPodcastDownloads = usePodcastDownloadsStore((s) => s.removeAllDownloads);
 
 	useEffect(() => {
 		// Load existing auth state
@@ -164,6 +170,37 @@ export default function SettingsScreen() {
 		}
 	};
 
+	const totalDownloads = musicDownloadCount + podcastDownloadCount;
+
+	const handleRemoveAllDownloads = () => {
+		if (totalDownloads === 0) {
+			Alert.alert('No Downloads', 'There are no downloaded files to remove.');
+			return;
+		}
+		Alert.alert(
+			'Remove All Downloads',
+			`This will delete ${totalDownloads} downloaded file${totalDownloads === 1 ? '' : 's'} (${musicDownloadCount} music, ${podcastDownloadCount} podcast). This cannot be undone.`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Remove All',
+					style: 'destructive',
+					onPress: async () => {
+						setIsLoading(true);
+						try {
+							await Promise.all([removeAllMusicDownloads(), removeAllPodcastDownloads()]);
+							Alert.alert('Done', 'All downloads have been removed.');
+						} catch (error: any) {
+							Alert.alert('Error', error.message);
+						} finally {
+							setIsLoading(false);
+						}
+					},
+				},
+			],
+		);
+	};
+
 	const renderServerList = () => {
 		if (!authState.servers.length) {
 			return (
@@ -276,6 +313,19 @@ export default function SettingsScreen() {
 							</Div>
 						) : (
 							<Text type='h3'>Clear Cache & Reload Library</Text>
+						)}
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={[DefaultStyles.cancelButton, styles.clearCacheBorder, isLoading && DefaultStyles.buttonDisabled]}
+						onPress={handleRemoveAllDownloads}
+						disabled={isLoading}
+					>
+						<Text type='h3'>Remove All Downloads</Text>
+						{totalDownloads > 0 && (
+							<Text type='bodySM' colorVariant='secondary' style={{ marginTop: 2 }}>
+								{musicDownloadCount} music · {podcastDownloadCount} podcast
+							</Text>
 						)}
 					</TouchableOpacity>
 
