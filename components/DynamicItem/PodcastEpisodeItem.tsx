@@ -55,7 +55,7 @@ function isDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload
 }
 
 const PodcastEpisodeItem = React.memo(
-	({ episode, showTitle, showImageUrl, queue, listItem = true, feed: _feed }: PodcastEpisodeItemProps) => {
+	({ episode, showTitle, showImageUrl, queue, listItem: _listItem = true, feed: _feed }: PodcastEpisodeItemProps) => {
 		const colorScheme = useColorScheme();
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
@@ -160,8 +160,18 @@ const PodcastEpisodeItem = React.memo(
 
 			return items;
 		}, [
-			_feed, episode, isDownloaded, isDownloading, progress, song,
-			removeDownload, downloadEpisode, markAsPlayed, saveProgress, playNext, addToQueue,
+			_feed,
+			episode,
+			isDownloaded,
+			isDownloading,
+			progress,
+			song,
+			removeDownload,
+			downloadEpisode,
+			markAsPlayed,
+			saveProgress,
+			playNext,
+			addToQueue,
 		]);
 
 		const subtitle = useMemo(() => {
@@ -180,8 +190,7 @@ const PodcastEpisodeItem = React.memo(
 
 		const displayPosition = livePosition ?? progress?.position ?? 0;
 		const displayDuration = (liveDuration ?? progress?.duration ?? episode.durationSeconds ?? 0) || 1;
-		const progressPercent =
-			displayDuration > 0 ? Math.min(1, Math.max(0, displayPosition / displayDuration)) : 0;
+		const _progressPercent = displayDuration > 0 ? Math.min(1, Math.max(0, displayPosition / displayDuration)) : 0;
 		const canResume = !isCurrentEpisode && progress && !progress.completed && progress.position > 10;
 
 		const onPlayBarPress = useCallback(
@@ -203,7 +212,11 @@ const PodcastEpisodeItem = React.memo(
 					transparent
 				>
 					<Div style={styles.titleRow} transparent>
-						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1, color: isCurrentEpisode ? Colors.brandPrimary : Colors.white }]}>
+						<Text
+							type='h3'
+							numberOfLines={1}
+							style={[styles.title, { flex: 1, color: isCurrentEpisode ? Colors.brandPrimary : Colors.white }]}
+						>
 							{episode.title}
 						</Text>
 						{progress?.completed ? (
@@ -211,8 +224,13 @@ const PodcastEpisodeItem = React.memo(
 						) : null}
 						{isDownloading ? (
 							<ActivityIndicator size='small' color={Colors.brandPrimary} />
-						) : (isDownloaded || isDownload(episode)) ? (
-							<SymbolView name='arrow.down.to.line.circle.fill' size={16} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+						) : isDownloaded || isDownload(episode) ? (
+							<SymbolView
+								name='arrow.down.to.line.circle.fill'
+								size={16}
+								tintColor={Colors.brandPrimary}
+								style={{ marginLeft: 4 }}
+							/>
 						) : null}
 					</Div>
 					{description != null && (
@@ -255,9 +273,9 @@ const PodcastEpisodeItem = React.memo(
 							</View>
 						</Pressable>
 
-					<ContextMenu items={menuItems} style={styles.menuButton}>
-						<SymbolView name='ellipsis' size={16} tintColor={Colors.brandPrimary} />
-					</ContextMenu>
+						<ContextMenu items={menuItems} style={styles.menuButton}>
+							<SymbolView name='ellipsis' size={16} tintColor={Colors.brandPrimary} />
+						</ContextMenu>
 					</Div>
 				</Div>
 			</Pressable>

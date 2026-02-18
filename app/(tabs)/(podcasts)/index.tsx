@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
@@ -5,7 +6,6 @@ import { Colors } from '@/constants';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
-import { SymbolView } from 'expo-symbols';
 
 type FormattedShow = {
 	id: string;
@@ -46,9 +46,7 @@ export default function PodcastsScreen() {
 		const feedsToShow = isOffline ? feeds.filter((f) => feedIdsWithDownloads.has(f.id)) : feeds;
 		return feedsToShow.map((feed) => {
 			const episodes = episodesByFeedId[feed.id] || [];
-			const downloadedForFeed = isOffline
-				? Object.values(downloads).filter((d) => d.feedId === feed.id)
-				: null;
+			const downloadedForFeed = isOffline ? Object.values(downloads).filter((d) => d.feedId === feed.id) : null;
 			const count = isOffline && downloadedForFeed ? downloadedForFeed.length : episodes.length;
 			const episodeArt = episodes.find((ep) => ep.imageUrl)?.imageUrl ?? downloadedForFeed?.[0]?.imageUrl;
 			return {

@@ -256,7 +256,10 @@ function schedulePodcastProgressSave(episodeId: string, position: number, durati
 					.saveProgress(pendingPodcastProgress.episodeId, pendingPodcastProgress.position, pendingPodcastProgress.duration);
 				const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
 				if (usePodcastDownloadsStore.getState().isDownloaded(pendingPodcastProgress.episodeId)) {
-					usePodcastDownloadsStore.getState().updateResumeAt(pendingPodcastProgress.episodeId, pendingPodcastProgress.position).catch(() => {});
+					usePodcastDownloadsStore
+						.getState()
+						.updateResumeAt(pendingPodcastProgress.episodeId, pendingPodcastProgress.position)
+						.catch(() => {});
 				}
 				pendingPodcastProgress = null;
 			}
@@ -277,7 +280,10 @@ function savePodcastProgressImmediate(episodeId: string, position: number, durat
 	usePodcastProgressStore.getState().saveProgress(episodeId, position, duration);
 	const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
 	if (usePodcastDownloadsStore.getState().isDownloaded(episodeId)) {
-		usePodcastDownloadsStore.getState().updateResumeAt(episodeId, position).catch(() => {});
+		usePodcastDownloadsStore
+			.getState()
+			.updateResumeAt(episodeId, position)
+			.catch(() => {});
 	}
 }
 
@@ -563,11 +569,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					} else if (newQueue) {
 						// New queue — reset and load. Podcasts: single-episode queue only (no next/prev, avoids slow 292-track add).
 						const queueToUse =
-							song.source === 'podcast'
-								? [song]
-								: state.isShuffled
-									? createShuffledQueue(newQueue, song)
-									: newQueue;
+							song.source === 'podcast' ? [song] : state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
 
 						await TrackPlayer.reset();
 						await TrackPlayer.add(queueToUse.map(songToTrack));

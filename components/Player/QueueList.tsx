@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Image, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
@@ -5,7 +6,6 @@ import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 import { Text } from '../Text';
-import { SymbolView } from 'expo-symbols';
 
 interface QueueListProps {
 	headerComponent: React.ReactElement;

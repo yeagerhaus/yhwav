@@ -1,8 +1,10 @@
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import * as Linking from 'expo-linking';
-import React, { useCallback, useMemo } from 'react';
+import type React from 'react';
+import { useCallback, useMemo } from 'react';
 import { Alert, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Main } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
@@ -13,9 +15,8 @@ import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { toPlayableSong } from '@/types';
 import type { PodcastDownload, PodcastEpisode } from '@/types/podcast';
-import { Main } from '@/components';
 
-function formatDuration(seconds: number | undefined): string {
+function _formatDuration(seconds: number | undefined): string {
 	if (seconds == null || seconds <= 0) return '';
 	const h = Math.floor(seconds / 3600);
 	const m = Math.floor((seconds % 3600) / 60);
@@ -52,24 +53,20 @@ function LinkedText({ text, style }: { text: string; style?: any }) {
 	const parts = useMemo(() => {
 		const result: React.ReactNode[] = [];
 		let lastIndex = 0;
-		let match: RegExpExecArray | null;
 		URL_REGEX.lastIndex = 0;
-		while ((match = URL_REGEX.exec(text)) !== null) {
+		let match = URL_REGEX.exec(text);
+		while (match !== null) {
 			if (match.index > lastIndex) {
 				result.push(text.slice(lastIndex, match.index));
 			}
 			const url = match[0];
 			result.push(
-				<Text
-					key={match.index}
-					type='body'
-					style={{ color: Colors.brandPrimary }}
-					onPress={() => Linking.openURL(url)}
-				>
+				<Text key={match.index} type='body' style={{ color: Colors.brandPrimary }} onPress={() => Linking.openURL(url)}>
 					{url}
 				</Text>,
 			);
 			lastIndex = match.index + url.length;
+			match = URL_REGEX.exec(text);
 		}
 		if (lastIndex < text.length) {
 			result.push(text.slice(lastIndex));
@@ -203,7 +200,9 @@ export default function EpisodeDetailScreen() {
 		return (
 			<Div style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
 				<Div transparent style={styles.centered}>
-					<Text type='body' colorVariant='muted'>Episode not found</Text>
+					<Text type='body' colorVariant='muted'>
+						Episode not found
+					</Text>
 				</Div>
 			</Div>
 		);
@@ -213,17 +212,11 @@ export default function EpisodeDetailScreen() {
 	const downloaded = isDownloaded || isDownloadRecord(episode);
 
 	return (
-		<Main
-			style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}
-		>
-		{artwork ? (
-			<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
-				<Image
-					source={{ uri: artwork }}
-					style={styles.artwork}
-					resizeMode='contain'
-				/>
-			</Div>
+		<Main style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
+			{artwork ? (
+				<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
+					<Image source={{ uri: artwork }} style={styles.artwork} resizeMode='contain' />
+				</Div>
 			) : (
 				<Div style={[styles.artwork, { backgroundColor: '#444', justifyContent: 'center', alignItems: 'center' }]}>
 					<SymbolView name='mic.fill' size={80} type='hierarchical' tintColor='#999' />
@@ -233,15 +226,22 @@ export default function EpisodeDetailScreen() {
 			<Div transparent style={styles.titleSection}>
 				<Div transparent style={styles.titleRow}>
 					<Div transparent style={{ flex: 1 }}>
-						<Text type='h2' style={styles.title}>{episode.title}</Text>
+						<Text type='h2' style={styles.title}>
+							{episode.title}
+						</Text>
 						<Pressable
-							onPress={() => feedId && router.push({
-								// @ts-expect-error dynamic route
-								pathname: '(podcasts)/[feedId]',
-								params: { feedId },
-							})}
+							onPress={() =>
+								feedId &&
+								router.push({
+									// @ts-expect-error dynamic route
+									pathname: '(podcasts)/[feedId]',
+									params: { feedId },
+								})
+							}
 						>
-							<Text type='body' style={styles.showName}>{showTitle}</Text>
+							<Text type='body' style={styles.showName}>
+								{showTitle}
+							</Text>
 						</Pressable>
 					</Div>
 					<ContextMenu items={menuItems} style={styles.menuButton}>
@@ -251,15 +251,21 @@ export default function EpisodeDetailScreen() {
 
 				<Div transparent style={styles.metaRow}>
 					{episode.pubDate ? (
-						<Text type='bodySM' colorVariant='muted'>{formatDate(episode.pubDate)}</Text>
+						<Text type='bodySM' colorVariant='muted'>
+							{formatDate(episode.pubDate)}
+						</Text>
 					) : null}
 					{episode.durationSeconds ? (
-						<Text type='bodySM' colorVariant='muted'>{formatDurationShort(episode.durationSeconds)}</Text>
+						<Text type='bodySM' colorVariant='muted'>
+							{formatDurationShort(episode.durationSeconds)}
+						</Text>
 					) : null}
 					{downloaded && (
 						<Div transparent style={styles.downloadedBadge}>
 							<SymbolView name='checkmark.circle' size={14} tintColor={Colors.brandPrimary} />
-							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>Downloaded</Text>
+							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+								Downloaded
+							</Text>
 						</Div>
 					)}
 				</Div>
@@ -283,13 +289,15 @@ export default function EpisodeDetailScreen() {
 						tintColor={Colors.brandPrimary}
 					/>
 					<Div transparent style={styles.progressBarContainer}>
-						<Div transparent
+						<Div
+							transparent
 							style={[
 								styles.progressBarTrack,
 								{ backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' },
 							]}
 						>
-							<Div transparent
+							<Div
+								transparent
 								style={[
 									styles.progressBarFill,
 									{ width: `${progressPercent * 100}%`, backgroundColor: Colors.brandPrimary },
@@ -304,15 +312,9 @@ export default function EpisodeDetailScreen() {
 					</Div>
 				</Pressable>
 
-				
-
 				<Div transparent style={styles.actionButtons}>
 					<Pressable onPress={handleDownload} disabled={isDownloading} style={styles.actionButton}>
-						<SymbolView
-							name={downloaded ? 'trash' : 'arrow.down.circle'}
-							size={22}
-							tintColor={Colors.brandPrimary}
-						/>
+						<SymbolView name={downloaded ? 'trash' : 'arrow.down.circle'} size={22} tintColor={Colors.brandPrimary} />
 						<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
 							{isDownloading ? 'Downloading…' : downloaded ? 'Remove' : 'Download'}
 						</Text>
@@ -339,7 +341,9 @@ export default function EpisodeDetailScreen() {
 					{song && (
 						<Pressable onPress={() => addToQueue([song])} style={styles.actionButton}>
 							<SymbolView name='list.bullet' size={22} tintColor={Colors.brandPrimary} />
-							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>Queue</Text>
+							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+								Queue
+							</Text>
 						</Pressable>
 					)}
 				</Div>

@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
@@ -11,7 +12,6 @@ import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
 import { hexWithOpacity } from '@/utils/styles';
-import { SymbolView } from 'expo-symbols';
 
 const ITEM_HEIGHT = 70;
 

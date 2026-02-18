@@ -5,8 +5,8 @@ import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
 import { Colors, DefaultSharedComponents } from '@/constants/styles';
-import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useArtists } from '@/hooks/useArtists';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Album } from '@/types/album';
 
 type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations';

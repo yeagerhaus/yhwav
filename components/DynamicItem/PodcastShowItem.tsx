@@ -31,10 +31,7 @@ export default function PodcastShowItem({ item, size }: PodcastShowItemProps) {
 	}, [item.id]);
 
 	return (
-		<Pressable
-			style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]}
-			onPress={navigateToFeed}
-		>
+		<Pressable style={[styles.gridItem, size != null && { width: s, marginBottom: 0 }]} onPress={navigateToFeed}>
 			{item.artwork ? (
 				<Image
 					source={{ uri: item.artwork }}

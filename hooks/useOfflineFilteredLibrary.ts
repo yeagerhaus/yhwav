@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import type { Album, Artist, Playlist, Song } from '@/types';
-import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import type { Album, Artist, Playlist, Song } from '@/types';
 
 /**
  * When offline mode is on, returns only tracks/albums/artists/recentlyPlayed that are
@@ -27,17 +27,11 @@ export function useOfflineFilteredLibrary(): {
 			return { tracks, albums, artists, recentlyPlayed, playlists };
 		}
 		const downloadedTracks = tracks.filter((t) => t.isDownloaded || t.localUri);
-		const downloadedAlbumKeys = new Set(
-			downloadedTracks.map((t) => `${t.album}\0${t.artist}`),
-		);
+		const downloadedAlbumKeys = new Set(downloadedTracks.map((t) => `${t.album}\0${t.artist}`));
 		const downloadedArtistKeys = new Set(downloadedTracks.map((t) => t.artistKey));
-		const filteredAlbums = albums.filter((a) =>
-			downloadedAlbumKeys.has(`${a.title}\0${a.artist}`),
-		);
+		const filteredAlbums = albums.filter((a) => downloadedAlbumKeys.has(`${a.title}\0${a.artist}`));
 		const filteredArtists = artists.filter((a) => downloadedArtistKeys.has(a.key));
-		const filteredRecentlyPlayed = recentlyPlayed.filter(
-			(s) => s.isDownloaded || s.localUri,
-		);
+		const filteredRecentlyPlayed = recentlyPlayed.filter((s) => s.isDownloaded || s.localUri);
 		// Playlist contents require fetch; when offline we show no playlists
 		return {
 			tracks: downloadedTracks,

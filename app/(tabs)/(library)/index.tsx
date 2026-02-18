@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { Colors } from '@/constants';
-import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 import { fetchRecentlyPlayed } from '@/utils/plex';
 

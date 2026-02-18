@@ -2,8 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
-import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -34,9 +34,7 @@ export default function PodcastFeedScreen() {
 		const q = filterQuery.trim().toLowerCase();
 		if (!q) return allEpisodes;
 		return allEpisodes.filter(
-			(ep) =>
-				ep.title.toLowerCase().includes(q) ||
-				('description' in ep && ep.description?.toLowerCase().includes(q)),
+			(ep) => ep.title.toLowerCase().includes(q) || ('description' in ep && ep.description?.toLowerCase().includes(q)),
 		);
 	}, [allEpisodes, filterQuery]);
 
@@ -108,13 +106,7 @@ export default function PodcastFeedScreen() {
 	const listHeaderComponent = useMemo(
 		() => (
 			<Div style={feedStyles.header} transparent>
-				{showImageUrl ? (
-					<Image
-						source={{ uri: showImageUrl }}
-						style={feedStyles.artwork}
-						resizeMode='contain'
-					/>
-				) : null}
+				{showImageUrl ? <Image source={{ uri: showImageUrl }} style={feedStyles.artwork} resizeMode='contain' /> : null}
 				<Div style={feedStyles.titleContainer} transparent>
 					<Div transparent style={feedStyles.titleRow}>
 						<Div transparent style={{ flex: 1 }}>
