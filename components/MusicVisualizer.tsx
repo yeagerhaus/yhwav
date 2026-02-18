@@ -12,6 +12,26 @@ const BAR_COUNT = 5;
 const ANIMATION_DURATION = 300;
 const NATIVE_LEVEL_SMOOTH_MS = 80;
 
+// Leave headroom so loud sections don't max out; keep visible variation between bars.
+const LEVEL_GAIN = 0.38;
+const LEVEL_CURVE = 0.5;
+const BAR_SCALE_MIN = 0.2;
+const BAR_SCALE_MAX = 1.2;
+
+// Adaptive normalization: track a running "reference" level so quiet and loud masters
+// both use the full visual range. Ref rises quickly on peaks, decays slowly so we
+// don't over-boost after a single quiet moment.
+const REF_DECAY = 0.996; // per update (~15 fps) — slow decay = remember track level
+const REF_ATTACK = 1.15; // rise fast when we see a bigger peak
+const REF_FLOOR = 0.04; // never divide by less (avoids blowing up in silence)
+
+function levelToBarScale(level: number): number {
+	const clamped = Math.min(1, Math.max(0, level));
+	const curved = Math.pow(clamped, LEVEL_CURVE);
+	const scaled = curved * LEVEL_GAIN;
+	return BAR_SCALE_MIN + scaled * (BAR_SCALE_MAX - BAR_SCALE_MIN);
+}
+
 export function MusicVisualizer({ isPlaying }: Props) {
 	const theme = useColorScheme();
 	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(0))).current;
@@ -19,10 +39,15 @@ export function MusicVisualizer({ isPlaying }: Props) {
 	const randomScales = useRef(new Array(BAR_COUNT).fill(0).map(() => 0.3 + Math.random() * 0.4)).current;
 	const [useNativeLevels, setUseNativeLevels] = useState(false);
 	const fallbackLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+	// Running reference level for adaptive normalization (avoids re-renders)
+	const refLevelRef = useRef(0.2);
 
 	// Subscribe to real audio levels on iOS when playing
 	useEffect(() => {
 		if (!isPlaying || !isAvailable() || !YhplayerAudioModule) return;
+
+		// Reset reference when starting so each track can adapt
+		refLevelRef.current = 0.2;
 
 		const sub = YhplayerAudioModule.addListener('AudioLevelsUpdated', (payload: unknown) => {
 			const event = payload as { levels?: number[] };
@@ -30,9 +55,18 @@ export function MusicVisualizer({ isPlaying }: Props) {
 			if (!Array.isArray(levels) || levels.length < BAR_COUNT) return;
 
 			setUseNativeLevels(true);
-			// Animate bars to real levels (0..1), map to scale 0.2..1.2 for visibility
-			levels.slice(0, BAR_COUNT).forEach((level, i) => {
-				const scale = 0.2 + Math.min(1, Math.max(0, level)) * 1.0;
+
+			const slice = levels.slice(0, BAR_COUNT);
+			const peak = Math.max(...slice);
+			let ref = refLevelRef.current;
+			ref = Math.max(ref * REF_DECAY, peak * REF_ATTACK);
+			ref = Math.max(ref, REF_FLOOR);
+			refLevelRef.current = ref;
+
+			const normalized = slice.map((l) => Math.min(1, l / ref));
+
+			normalized.forEach((level, i) => {
+				const scale = levelToBarScale(level);
 				Animated.timing(animatedValues[i], {
 					toValue: scale,
 					duration: NATIVE_LEVEL_SMOOTH_MS,
@@ -88,8 +122,8 @@ export function MusicVisualizer({ isPlaying }: Props) {
 		if (!isPlaying) {
 			animatedValues.forEach((v) => v.setValue(0));
 		} else if (useNativeLevels) {
-			// Reset to 0.2 scale when switching to native so next event drives the bars
-			animatedValues.forEach((v) => v.setValue(0.2));
+			// Reset to min scale when switching to native so next event drives the bars
+			animatedValues.forEach((v) => v.setValue(BAR_SCALE_MIN));
 		}
 	}, [isPlaying, useNativeLevels]);
 

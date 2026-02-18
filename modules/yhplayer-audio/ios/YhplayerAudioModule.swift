@@ -44,9 +44,8 @@ public final class YhplayerAudioModule: Module {
 	private var repeatMode: Int = 2 // 0=Off, 1=Track, 2=Queue
 	private var volume: Float = 1.0
 	private var rate: Float = 1.0
-	private var timeObserver: Any?
 	private var currentItemObservation: NSKeyValueObservation?
-	private var rateObservation: NSKeyValueObservation?
+	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
 	private var suppressTrackChangeEvents = false
 
@@ -185,14 +184,14 @@ public final class YhplayerAudioModule: Module {
 			DispatchQueue.main.async {
 				self.suppressTrackChangeEvents = false
 			}
-			if wasPlaying { self.queuePlayer?.play() }
+			if wasPlaying { self.queuePlayer?.rate = self.rate }
 		}
 
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
 			DispatchQueue.main.async { self.suppressTrackChangeEvents = true }
 			self.rebuildQueueFromOrder(makeCurrentIndex: index)
-			player.play()
+			player.rate = self.rate
 			DispatchQueue.main.async {
 				self.suppressTrackChangeEvents = false
 				self.emitActiveTrackChanged(index: index)
@@ -200,7 +199,7 @@ public final class YhplayerAudioModule: Module {
 		}
 
 		AsyncFunction("play") {
-			self.queuePlayer?.play()
+			self.queuePlayer?.rate = self.rate
 			DispatchQueue.main.async { self.emitProgressUpdate() }
 		}
 
@@ -222,7 +221,9 @@ public final class YhplayerAudioModule: Module {
 
 		AsyncFunction("setRate") { (value: Float) in
 			self.rate = max(0.5, min(2.0, value))
-			self.queuePlayer?.rate = self.rate
+			if self.queuePlayer?.timeControlStatus == .playing {
+				self.queuePlayer?.rate = self.rate
+			}
 		}
 
 		AsyncFunction("setRepeatMode") { (mode: Int) in
@@ -286,13 +287,9 @@ public final class YhplayerAudioModule: Module {
 			}
 		}
 
-		rateObservation = player.observe(\.rate, options: [.new]) { _, _ in
-			// rate changes are handled via timeControlStatus in tickProgress
-		}
-
-		NotificationCenter.default.addObserver(
+		itemDidEndObserver = NotificationCenter.default.addObserver(
 			forName: .AVPlayerItemDidPlayToEndTime,
-			object: nil,
+			object: player,
 			queue: .main
 		) { [weak self] notification in
 			self?.playerItemDidReachEnd(notification)
@@ -304,7 +301,7 @@ public final class YhplayerAudioModule: Module {
 		if repeatMode == 1 {
 			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
 				rebuildQueueFromOrder(makeCurrentIndex: idx)
-				queuePlayer?.play()
+				queuePlayer?.rate = rate
 			}
 			return
 		}
@@ -312,7 +309,7 @@ public final class YhplayerAudioModule: Module {
 			// Check if the queue has ended (no more items after this one)
 			if queuePlayer?.items().count == 1 {
 				rebuildQueueFromOrder(makeCurrentIndex: 0)
-				queuePlayer?.play()
+				queuePlayer?.rate = rate
 				return
 			}
 		}
@@ -340,7 +337,7 @@ public final class YhplayerAudioModule: Module {
 		let trackId = index >= 0 && index < trackOrder.count ? trackOrder[index] : nil
 		let track = trackId.flatMap { trackMetadata[$0] }
 		let pos = queuePlayer.map { CMTimeGetSeconds($0.currentTime()) }
-		let dur = queuePlayer?.currentItem.map { $0.asset.duration.seconds }
+		let dur = queuePlayer?.currentItem.map { $0.duration.seconds }
 		let playing = queuePlayer?.timeControlStatus == .playing
 		nowPlayingManager.updateNowPlaying(track: track, position: pos, duration: dur, isPlaying: playing)
 	}
@@ -353,7 +350,7 @@ public final class YhplayerAudioModule: Module {
 			DispatchQueue.main.async { self.startProgressTimerIfNeeded() }
 			return
 		}
-		progressTimer = Timer.scheduledTimer(withTimeInterval: progressUpdateInterval, repeats: true) { [weak self] _ in
+		progressTimer = Timer(timeInterval: progressUpdateInterval, repeats: true) { [weak self] _ in
 			self?.tickProgress()
 		}
 		RunLoop.main.add(progressTimer!, forMode: .common)
@@ -395,7 +392,7 @@ public final class YhplayerAudioModule: Module {
 			return ("stopped", 0, 0)
 		}
 		let pos = CMTimeGetSeconds(player.currentTime())
-		let dur = item.asset.duration.seconds
+		let dur = item.duration.seconds
 		let validPos = pos.isFinite && pos >= 0 ? pos : 0
 		let validDur = dur.isFinite && dur >= 0 ? dur : 0
 
@@ -501,8 +498,9 @@ public final class YhplayerAudioModule: Module {
 		stopProgressTimer()
 		teardownAudioMetering()
 		currentItemObservation?.invalidate()
-		rateObservation?.invalidate()
-		NotificationCenter.default.removeObserver(self)
+		if let obs = itemDidEndObserver {
+			NotificationCenter.default.removeObserver(obs)
+		}
 	}
 }
 
@@ -572,6 +570,8 @@ extension AVPlayerItem {
 private final class NowPlayingManager {
 	weak var module: YhplayerAudioModule?
 	private var capabilities: Set<String> = ["Play", "Pause", "SkipToNext", "SkipToPrevious", "SeekTo"]
+	private var cachedArtworkUrl: String?
+	private var cachedArtwork: MPMediaItemArtwork?
 
 	init(module: YhplayerAudioModule) {
 		self.module = module
@@ -586,7 +586,9 @@ private final class NowPlayingManager {
 		center.playCommand.isEnabled = capabilities.contains("Play")
 		center.playCommand.addTarget { [weak self] _ in
 			self?.module?.sendEvent("RemotePlay", [:])
-			self?.module?.queuePlayer?.play()
+			if let mod = self?.module {
+				mod.queuePlayer?.rate = mod.rate
+			}
 			return .success
 		}
 		center.pauseCommand.isEnabled = capabilities.contains("Pause")
@@ -623,16 +625,25 @@ private final class NowPlayingManager {
 			if let d = track.duration, d > 0 {
 				info[MPMediaItemPropertyPlaybackDuration] = d
 			}
-			if let urlString = track.artwork, !urlString.isEmpty, let url = URL(string: urlString) {
-				URLSession.shared.dataTask(with: url) { data, _, _ in
-					guard let data = data, let image = UIImage(data: data) else { return }
-					let art = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-					DispatchQueue.main.async {
-						var i = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-						i[MPMediaItemPropertyArtwork] = art
-						MPNowPlayingInfoCenter.default().nowPlayingInfo = i
+			if let urlString = track.artwork, !urlString.isEmpty {
+				if urlString != cachedArtworkUrl {
+					cachedArtworkUrl = urlString
+					cachedArtwork = nil
+					if let url = URL(string: urlString) {
+						URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+							guard let data = data, let image = UIImage(data: data) else { return }
+							let art = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+							DispatchQueue.main.async {
+								self?.cachedArtwork = art
+								var i = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+								i[MPMediaItemPropertyArtwork] = art
+								MPNowPlayingInfoCenter.default().nowPlayingInfo = i
+							}
+						}.resume()
 					}
-				}.resume()
+				} else if let art = cachedArtwork {
+					info[MPMediaItemPropertyArtwork] = art
+				}
 			}
 		}
 		if let pos = position {

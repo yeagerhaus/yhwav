@@ -9,6 +9,7 @@ export interface PlexAuthState {
 	isAuthenticated: boolean;
 	username?: string;
 	email?: string;
+	avatarUrl?: string;
 	servers: PlexServer[];
 	selectedServer?: PlexServer;
 	accessToken?: string;
@@ -308,6 +309,7 @@ export class PlexAuthService {
 				isAuthenticated: true,
 				username: userInfo.username,
 				email: userInfo.email,
+				avatarUrl: userInfo.avatarUrl,
 				servers: discoveryResult.servers,
 				selectedServer: recommendedServer,
 				accessToken: plexToken,
@@ -335,9 +337,9 @@ export class PlexAuthService {
 	}
 
 	/**
-	 * Get user information from Plex API
+	 * Get user information from Plex API (username, email, avatar)
 	 */
-	private async getUserInfo(plexToken: string): Promise<{ username: string; email: string } | null> {
+	private async getUserInfo(plexToken: string): Promise<{ username: string; email: string; avatarUrl?: string } | null> {
 		try {
 			const response = await fetch('https://plex.tv/api/v2/user', {
 				method: 'GET',
@@ -352,9 +354,27 @@ export class PlexAuthService {
 			}
 
 			const data = await response.json();
+			let avatarUrl: string | undefined = data.thumb;
+
+			// /api/v2/user may not include thumb; /api/v2/home/user does
+			if (!avatarUrl) {
+				const homeRes = await fetch('https://plex.tv/api/v2/home/user', {
+					method: 'GET',
+					headers: {
+						'X-Plex-Token': plexToken,
+						Accept: 'application/json',
+					},
+				});
+				if (homeRes.ok) {
+					const homeData = await homeRes.json();
+					avatarUrl = homeData.thumb;
+				}
+			}
+
 			return {
 				username: data.username,
 				email: data.email,
+				avatarUrl: avatarUrl ?? undefined,
 			};
 		} catch (error) {
 			console.error('Failed to get user info:', error);
@@ -476,6 +496,12 @@ export class PlexAuthService {
 				if (this.authState.accessToken) {
 					const userInfo = await this.getUserInfo(this.authState.accessToken);
 					if (userInfo) {
+						// Refresh username, email, avatar from API (e.g. avatar not in old stored state)
+						this.authState.username = userInfo.username;
+						this.authState.email = userInfo.email;
+						if (userInfo.avatarUrl) this.authState.avatarUrl = userInfo.avatarUrl;
+						await this.saveAuthState();
+
 						console.log('✅ Loaded authentication state from storage');
 
 						// If persisted server is missing connections (old format), refresh before proceeding
