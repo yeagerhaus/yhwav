@@ -12,7 +12,7 @@ import type { Song } from '@/types/song';
 
 export default function AlbumDetailScreen() {
 	const { albumId } = useLocalSearchParams<{ albumId: string }>();
-	const { tracks: allTracks } = useOfflineFilteredLibrary();
+	const { tracks: allTracks, albums: offlineAlbums } = useOfflineFilteredLibrary();
 	const { albumsById } = useAlbums();
 	const [songs, setSongs] = useState<Song[]>([]);
 	const [_bgColor, setBgColor] = useState<string>('#FA2D48');
@@ -25,7 +25,7 @@ export default function AlbumDetailScreen() {
 	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
 	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
 
-	const album = albumsById[albumId ?? ''];
+	const album = albumsById[albumId ?? ''] || offlineAlbums.find((a) => a.id === albumId);
 	const artwork = album?.thumb || album?.artwork || null;
 	const artistName = album?.artist || null;
 	const albumTitle = album?.title || decodeURIComponent(albumId || '');

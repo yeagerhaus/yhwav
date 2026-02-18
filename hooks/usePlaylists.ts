@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchAllPlaylists, fetchPlaylistTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
+import { getIsOfflineMode } from './useOfflineModeStore';
 
 export const usePlaylists = () => {
 	const { playlists, setPlaylists } = useLibraryStore();
@@ -8,7 +9,7 @@ export const usePlaylists = () => {
 	const hasFetched = useRef(false);
 
 	const loadPlaylists = useCallback(async () => {
-		if (hasFetched.current || isLoading) return;
+		if (hasFetched.current || isLoading || getIsOfflineMode()) return;
 		setIsLoading(true);
 		try {
 			const fetchedPlaylists = await fetchAllPlaylists();
@@ -22,6 +23,7 @@ export const usePlaylists = () => {
 	}, [isLoading, setPlaylists]);
 
 	const refreshPlaylists = useCallback(async () => {
+		if (getIsOfflineMode()) return;
 		hasFetched.current = false;
 		setIsLoading(true);
 		try {
@@ -36,6 +38,7 @@ export const usePlaylists = () => {
 	}, [setPlaylists]);
 
 	const loadPlaylistTracks = useCallback(async (playlistId: string) => {
+		if (getIsOfflineMode()) return [];
 		try {
 			return await fetchPlaylistTracks(playlistId);
 		} catch (error) {

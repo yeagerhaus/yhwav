@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 
 const STORAGE_KEY = 'MUSIC_DOWNLOADS';
+const PLAYLISTS_STORAGE_KEY = 'MUSIC_DOWNLOAD_PLAYLISTS';
 
 function safeSegment(id: string): string {
 	return encodeURIComponent(id).replace(/%/g, '_').slice(0, 120);
@@ -30,6 +32,19 @@ export interface MusicDownload {
 	downloadedAt: number;
 }
 
+export interface DownloadedPlaylist {
+	id: string;
+	key: string;
+	ratingKey: string;
+	title: string;
+	summary?: string;
+	artworkUrl?: string;
+	playlistType: 'audio' | 'video' | 'photo';
+	leafCount?: number;
+	songs: Song[];
+	downloadedAt: number;
+}
+
 interface QueueProgress {
 	completed: number;
 	total: number;
@@ -37,6 +52,7 @@ interface QueueProgress {
 
 interface MusicDownloadsState {
 	downloads: Record<string, MusicDownload>;
+	downloadedPlaylists: Record<string, DownloadedPlaylist>;
 	downloading: Set<string>;
 	queue: Song[];
 	queueTotal: number;
@@ -54,12 +70,20 @@ interface MusicDownloadsState {
 	isQueued: (songId: string) => boolean;
 	getLocalUri: (songId: string) => string | undefined;
 	getQueueProgress: () => QueueProgress;
+
+	savePlaylistForOffline: (playlist: Playlist, songs: Song[]) => Promise<void>;
+	removePlaylistForOffline: (playlistKey: string) => Promise<void>;
+	getOfflinePlaylist: (playlistKey: string) => DownloadedPlaylist | undefined;
 }
 
 let processing = false;
 
 async function persistDownloads(downloads: Record<string, MusicDownload>) {
 	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(Object.values(downloads)));
+}
+
+async function persistPlaylists(playlists: Record<string, DownloadedPlaylist>) {
+	await AsyncStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(Object.values(playlists)));
 }
 
 async function processQueue(get: () => MusicDownloadsState, set: (partial: Partial<MusicDownloadsState> | ((s: MusicDownloadsState) => Partial<MusicDownloadsState>)) => void) {
@@ -126,6 +150,7 @@ async function processQueue(get: () => MusicDownloadsState, set: (partial: Parti
 
 export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => ({
 	downloads: {},
+	downloadedPlaylists: {},
 	downloading: new Set(),
 	queue: [],
 	queueTotal: 0,
@@ -134,15 +159,24 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 
 	hydrate: async () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
-			if (!raw) {
-				set({ hydrated: true });
-				return;
-			}
-			const list: MusicDownload[] = JSON.parse(raw);
+			const [rawDownloads, rawPlaylists] = await Promise.all([
+				AsyncStorage.getItem(STORAGE_KEY),
+				AsyncStorage.getItem(PLAYLISTS_STORAGE_KEY),
+			]);
+
 			const downloads: Record<string, MusicDownload> = {};
-			for (const d of list) downloads[d.songId] = d;
-			set({ downloads, hydrated: true });
+			if (rawDownloads) {
+				const list: MusicDownload[] = JSON.parse(rawDownloads);
+				for (const d of list) downloads[d.songId] = d;
+			}
+
+			const downloadedPlaylists: Record<string, DownloadedPlaylist> = {};
+			if (rawPlaylists) {
+				const list: DownloadedPlaylist[] = JSON.parse(rawPlaylists);
+				for (const p of list) downloadedPlaylists[p.key] = p;
+			}
+
+			set({ downloads, downloadedPlaylists, hydrated: true });
 		} catch {
 			set({ hydrated: true });
 		}
@@ -214,4 +248,31 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		const { queueTotal, queueCompleted } = get();
 		return { completed: queueCompleted, total: queueTotal };
 	},
+
+	savePlaylistForOffline: async (playlist: Playlist, songs: Song[]) => {
+		const entry: DownloadedPlaylist = {
+			id: playlist.id,
+			key: playlist.key,
+			ratingKey: playlist.ratingKey,
+			title: playlist.title,
+			summary: playlist.summary,
+			artworkUrl: playlist.artworkUrl,
+			playlistType: playlist.playlistType,
+			leafCount: songs.length,
+			songs,
+			downloadedAt: Date.now(),
+		};
+		const next = { ...get().downloadedPlaylists, [playlist.key]: entry };
+		set({ downloadedPlaylists: next });
+		await persistPlaylists(next);
+	},
+
+	removePlaylistForOffline: async (playlistKey: string) => {
+		const next = { ...get().downloadedPlaylists };
+		delete next[playlistKey];
+		set({ downloadedPlaylists: next });
+		await persistPlaylists(next);
+	},
+
+	getOfflinePlaylist: (playlistKey: string) => get().downloadedPlaylists[playlistKey],
 }));

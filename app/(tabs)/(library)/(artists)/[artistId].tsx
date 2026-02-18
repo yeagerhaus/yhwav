@@ -63,7 +63,7 @@ interface AlbumSection {
 export default function ArtistDetailScreen() {
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
-	const { albums, tracks } = useOfflineFilteredLibrary();
+	const { albums, tracks, artists: offlineArtists } = useOfflineFilteredLibrary();
 
 	const downloads = useMusicDownloadsStore((s) => s.downloads);
 	const downloading = useMusicDownloadsStore((s) => s.downloading);
@@ -73,7 +73,7 @@ export default function ArtistDetailScreen() {
 	const downloadTracks = useMusicDownloadsStore((s) => s.downloadTracks);
 	const removeDownloads = useMusicDownloadsStore((s) => s.removeDownloads);
 
-	const artist = artistsById[artistId ?? ''];
+	const artist = artistsById[artistId ?? ''] || offlineArtists.find((a) => a.key === artistId);
 
 	const artistTracks = useMemo(
 		() => (artist ? tracks.filter((t) => t.artistKey === artist.key) : []),
