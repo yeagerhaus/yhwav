@@ -33,6 +33,337 @@ struct PlaybackStateRecord: Record {
 	@Field var buffered: Double?
 }
 
+// MARK: - Shared DSP state (thread-safe, accessed from real-time audio thread)
+
+final class AudioDSPState {
+	static let shared = AudioDSPState()
+
+	private let lock = os_unfair_lock_t.allocate(capacity: 1)
+
+	private var _eqEnabled: Bool = false
+	private var _eqBands: [(frequency: Float, gain: Float)] = []
+	private var _outputGainLinear: Float = 1.0
+	private var _normalizationEnabled: Bool = false
+	private var _monoEnabled: Bool = false
+
+	// Biquad filter state: 10 bands × 5 coefficients + delay state per channel
+	private var _biquadCoefficients: [[Double]] = []
+	private var _biquadDelaysL: [[Double]] = []
+	private var _biquadDelaysR: [[Double]] = []
+	private var _cachedSampleRate: Float = 0
+
+	init() {
+		lock.initialize(to: os_unfair_lock())
+	}
+
+	deinit {
+		lock.deallocate()
+	}
+
+	var eqEnabled: Bool {
+		os_unfair_lock_lock(lock); defer { os_unfair_lock_unlock(lock) }
+		return _eqEnabled
+	}
+
+	var outputGainLinear: Float {
+		os_unfair_lock_lock(lock); defer { os_unfair_lock_unlock(lock) }
+		return _outputGainLinear
+	}
+
+	var normalizationEnabled: Bool {
+		os_unfair_lock_lock(lock); defer { os_unfair_lock_unlock(lock) }
+		return _normalizationEnabled
+	}
+
+	var monoEnabled: Bool {
+		os_unfair_lock_lock(lock); defer { os_unfair_lock_unlock(lock) }
+		return _monoEnabled
+	}
+
+	func setEqEnabled(_ v: Bool) {
+		os_unfair_lock_lock(lock); _eqEnabled = v; os_unfair_lock_unlock(lock)
+	}
+
+	func setOutputGainDb(_ db: Float) {
+		let linear = powf(10.0, db / 20.0)
+		os_unfair_lock_lock(lock); _outputGainLinear = linear; os_unfair_lock_unlock(lock)
+	}
+
+	func setNormalizationEnabled(_ v: Bool) {
+		os_unfair_lock_lock(lock); _normalizationEnabled = v; os_unfair_lock_unlock(lock)
+	}
+
+	func setMonoEnabled(_ v: Bool) {
+		os_unfair_lock_lock(lock); _monoEnabled = v; os_unfair_lock_unlock(lock)
+	}
+
+	func setEqualizerBands(_ bands: [(frequency: Float, gain: Float)], sampleRate: Float) {
+		os_unfair_lock_lock(lock)
+		_eqBands = bands
+		let needsRebuild = sampleRate != _cachedSampleRate || _biquadCoefficients.count != bands.count
+		_cachedSampleRate = sampleRate
+		if needsRebuild {
+			_biquadDelaysL = bands.map { _ in [Double](repeating: 0, count: 4) }
+			_biquadDelaysR = bands.map { _ in [Double](repeating: 0, count: 4) }
+		}
+		_biquadCoefficients = bands.map { Self.peakingEQCoefficients(frequency: $0.frequency, gainDb: $0.gain, q: 1.414, sampleRate: sampleRate) }
+		os_unfair_lock_unlock(lock)
+	}
+
+	func resetFilterState() {
+		os_unfair_lock_lock(lock)
+		for i in 0..<_biquadDelaysL.count {
+			_biquadDelaysL[i] = [Double](repeating: 0, count: 4)
+			_biquadDelaysR[i] = [Double](repeating: 0, count: 4)
+		}
+		os_unfair_lock_unlock(lock)
+	}
+
+	/// Apply all DSP effects to the audio buffer in-place.
+	/// Handles both interleaved (single buffer, mNumberChannels > 1) and
+	/// non-interleaved/planar (multiple buffers, mNumberChannels == 1 each).
+	func processAudio(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
+		let list = UnsafeMutableAudioBufferListPointer(bufferList)
+		let bufferCount = list.count
+		guard bufferCount > 0, frameCount > 0 else { return }
+
+		os_unfair_lock_lock(lock)
+		let eqOn = _eqEnabled
+		let coeffs = _biquadCoefficients
+		let gainLinear = _outputGainLinear
+		let normalize = _normalizationEnabled
+		let mono = _monoEnabled
+		os_unfair_lock_unlock(lock)
+
+		let fc = Int(frameCount)
+		let isNonInterleaved = bufferCount > 1
+
+		if isNonInterleaved {
+			processNonInterleaved(list: list, bufferCount: bufferCount, frameCount: fc,
+				eqOn: eqOn, coeffs: coeffs, gainLinear: gainLinear, normalize: normalize, mono: mono)
+		} else {
+			processInterleaved(list: list, frameCount: fc,
+				eqOn: eqOn, coeffs: coeffs, gainLinear: gainLinear, normalize: normalize, mono: mono)
+		}
+	}
+
+	/// Non-interleaved (planar): each buffer is a separate channel.
+	private func processNonInterleaved(list: UnsafeMutableAudioBufferListPointer, bufferCount: Int, frameCount: Int,
+		eqOn: Bool, coeffs: [[Double]], gainLinear: Float, normalize: Bool, mono: Bool) {
+
+		// 1. EQ: apply biquad cascade to each channel independently
+		if eqOn && !coeffs.isEmpty {
+			for ch in 0..<bufferCount {
+				guard let mData = list[ch].mData else { continue }
+				let samples = mData.assumingMemoryBound(to: Float.self)
+				applyEQSingleChannel(samples: samples, frameCount: frameCount, channelIndex: ch, coefficients: coeffs)
+			}
+		}
+
+		// 2. Output gain
+		if gainLinear != 1.0 {
+			var g = gainLinear
+			for ch in 0..<bufferCount {
+				guard let mData = list[ch].mData else { continue }
+				let samples = mData.assumingMemoryBound(to: Float.self)
+				vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(frameCount))
+			}
+		}
+
+		// 3. Peak normalization / limiter: find global peak across all channels
+		if normalize {
+			var globalPeak: Float = 0
+			for ch in 0..<bufferCount {
+				guard let mData = list[ch].mData else { continue }
+				let samples = mData.assumingMemoryBound(to: Float.self)
+				var peak: Float = 0
+				vDSP_maxmgv(samples, 1, &peak, vDSP_Length(frameCount))
+				if peak > globalPeak { globalPeak = peak }
+			}
+			if globalPeak > 1.0 {
+				var scale = 1.0 / globalPeak
+				for ch in 0..<bufferCount {
+					guard let mData = list[ch].mData else { continue }
+					let samples = mData.assumingMemoryBound(to: Float.self)
+					vDSP_vsmul(samples, 1, &scale, samples, 1, vDSP_Length(frameCount))
+				}
+			}
+		}
+
+		// 4. Mono downmix: average all channels, write result to each
+		if mono && bufferCount >= 2 {
+			var avg = [Float](repeating: 0, count: frameCount)
+			for ch in 0..<bufferCount {
+				guard let mData = list[ch].mData else { continue }
+				let samples = mData.assumingMemoryBound(to: Float.self)
+				vDSP_vadd(avg, 1, samples, 1, &avg, 1, vDSP_Length(frameCount))
+			}
+			var divisor = Float(bufferCount)
+			vDSP_vsdiv(avg, 1, &divisor, &avg, 1, vDSP_Length(frameCount))
+			for ch in 0..<bufferCount {
+				guard let mData = list[ch].mData else { continue }
+				let samples = mData.assumingMemoryBound(to: Float.self)
+				avg.withUnsafeBufferPointer { src in
+					samples.update(from: src.baseAddress!, count: frameCount)
+				}
+			}
+		}
+	}
+
+	/// Interleaved: single buffer with samples as LRLRLR...
+	private func processInterleaved(list: UnsafeMutableAudioBufferListPointer, frameCount: Int,
+		eqOn: Bool, coeffs: [[Double]], gainLinear: Float, normalize: Bool, mono: Bool) {
+		guard let mData = list[0].mData else { return }
+		let channelCount = Int(list[0].mNumberChannels)
+		let totalSamples = frameCount * channelCount
+		guard totalSamples > 0 else { return }
+		let samples = mData.assumingMemoryBound(to: Float.self)
+
+		// 1. EQ (deinterleave → process per channel → reinterleave)
+		if eqOn && !coeffs.isEmpty {
+			applyEQInterleaved(samples: samples, frameCount: frameCount, channelCount: channelCount, coefficients: coeffs)
+		}
+
+		// 2. Output gain
+		if gainLinear != 1.0 {
+			var g = gainLinear
+			vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(totalSamples))
+		}
+
+		// 3. Peak normalization / limiter
+		if normalize {
+			var peak: Float = 0
+			vDSP_maxmgv(samples, 1, &peak, vDSP_Length(totalSamples))
+			if peak > 1.0 {
+				var scale = 1.0 / peak
+				vDSP_vsmul(samples, 1, &scale, samples, 1, vDSP_Length(totalSamples))
+			}
+		}
+
+		// 4. Mono downmix
+		if mono && channelCount >= 2 {
+			for f in 0..<frameCount {
+				let idx = f * channelCount
+				var sum: Float = 0
+				for ch in 0..<channelCount { sum += samples[idx + ch] }
+				let avg = sum / Float(channelCount)
+				for ch in 0..<channelCount { samples[idx + ch] = avg }
+			}
+		}
+	}
+
+	/// Apply EQ biquad cascade to a single non-interleaved channel buffer.
+	private func applyEQSingleChannel(samples: UnsafeMutablePointer<Float>, frameCount: Int, channelIndex: Int, coefficients: [[Double]]) {
+		os_unfair_lock_lock(lock)
+		let useRight = channelIndex > 0
+		let delays = useRight ? _biquadDelaysR : _biquadDelaysL
+		guard delays.count == coefficients.count else {
+			os_unfair_lock_unlock(lock)
+			return
+		}
+
+		var channel = [Double](repeating: 0, count: frameCount)
+		for i in 0..<frameCount { channel[i] = Double(samples[i]) }
+
+		for b in 0..<coefficients.count {
+			let c = coefficients[b]
+			guard c.count == 5 else { continue }
+			if useRight {
+				_biquadDelaysR[b].withUnsafeMutableBufferPointer { delayBuf in
+					Self.applyBiquad(c, delay: delayBuf.baseAddress!, data: &channel, count: frameCount)
+				}
+			} else {
+				_biquadDelaysL[b].withUnsafeMutableBufferPointer { delayBuf in
+					Self.applyBiquad(c, delay: delayBuf.baseAddress!, data: &channel, count: frameCount)
+				}
+			}
+		}
+
+		for i in 0..<frameCount { samples[i] = Float(channel[i]) }
+		os_unfair_lock_unlock(lock)
+	}
+
+	/// Apply EQ to interleaved audio by deinterleaving, processing each channel, and reinterleaving.
+	private func applyEQInterleaved(samples: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int, coefficients: [[Double]]) {
+		os_unfair_lock_lock(lock)
+		guard _biquadDelaysL.count == coefficients.count else {
+			os_unfair_lock_unlock(lock)
+			return
+		}
+
+		if channelCount == 1 {
+			var channel = [Double](repeating: 0, count: frameCount)
+			for i in 0..<frameCount { channel[i] = Double(samples[i]) }
+			for b in 0..<coefficients.count {
+				let c = coefficients[b]
+				guard c.count == 5 else { continue }
+				_biquadDelaysL[b].withUnsafeMutableBufferPointer { delayBuf in
+					Self.applyBiquad(c, delay: delayBuf.baseAddress!, data: &channel, count: frameCount)
+				}
+			}
+			for i in 0..<frameCount { samples[i] = Float(channel[i]) }
+		} else {
+			var left = [Double](repeating: 0, count: frameCount)
+			var right = [Double](repeating: 0, count: frameCount)
+			for i in 0..<frameCount {
+				left[i] = Double(samples[i * channelCount])
+				right[i] = Double(samples[i * channelCount + 1])
+			}
+			for b in 0..<coefficients.count {
+				let c = coefficients[b]
+				guard c.count == 5 else { continue }
+				_biquadDelaysL[b].withUnsafeMutableBufferPointer { delayBuf in
+					Self.applyBiquad(c, delay: delayBuf.baseAddress!, data: &left, count: frameCount)
+				}
+				_biquadDelaysR[b].withUnsafeMutableBufferPointer { delayBuf in
+					Self.applyBiquad(c, delay: delayBuf.baseAddress!, data: &right, count: frameCount)
+				}
+			}
+			for i in 0..<frameCount {
+				samples[i * channelCount] = Float(left[i])
+				samples[i * channelCount + 1] = Float(right[i])
+			}
+		}
+		os_unfair_lock_unlock(lock)
+	}
+
+	/// Direct-form II transposed biquad filter (single section).
+	private static func applyBiquad(_ c: [Double], delay: UnsafeMutablePointer<Double>, data: inout [Double], count: Int) {
+		let b0 = c[0], b1 = c[1], b2 = c[2], a1 = c[3], a2 = c[4]
+		var z1 = delay[0], z2 = delay[1]
+
+		for i in 0..<count {
+			let x = data[i]
+			let y = b0 * x + z1
+			z1 = b1 * x - a1 * y + z2
+			z2 = b2 * x - a2 * y
+			data[i] = y
+		}
+
+		delay[0] = z1
+		delay[1] = z2
+	}
+
+	/// Peaking EQ biquad coefficients (Audio EQ Cookbook by Robert Bristow-Johnson).
+	/// Returns [b0/a0, b1/a0, b2/a0, a1/a0, a2/a0].
+	private static func peakingEQCoefficients(frequency: Float, gainDb: Float, q: Float, sampleRate: Float) -> [Double] {
+		let A = Double(powf(10.0, gainDb / 40.0))
+		let w0 = 2.0 * Double.pi * Double(frequency) / Double(sampleRate)
+		let sinW0 = sin(w0)
+		let cosW0 = cos(w0)
+		let alpha = sinW0 / (2.0 * Double(q))
+
+		let b0 = 1.0 + alpha * A
+		let b1 = -2.0 * cosW0
+		let b2 = 1.0 - alpha * A
+		let a0 = 1.0 + alpha / A
+		let a1 = -2.0 * cosW0
+		let a2 = 1.0 - alpha / A
+
+		return [b0/a0, b1/a0, b2/a0, a1/a0, a2/a0]
+	}
+}
+
 // MARK: - Module
 
 public final class YhplayerAudioModule: Module {
@@ -52,8 +383,8 @@ public final class YhplayerAudioModule: Module {
 	// Playback state for JS: "playing" | "paused" | "buffering" | "ready" | "loading" | "stopped" | "error"
 	private var lastEmittedState: String = "stopped"
 
-	// Audio level metering (iOS): item we attached the tap to, so we can clear when switching
-	private weak var itemWithAudioMetering: AVPlayerItem?
+	// Audio processing tap: item we attached the tap to, so we can clear when switching
+	private weak var itemWithAudioTap: AVPlayerItem?
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -84,7 +415,7 @@ public final class YhplayerAudioModule: Module {
 			self.queuePlayer?.volume = self.volume
 			self.queuePlayer?.rate = self.rate
 			self.observePlayerStatus()
-			self.setupAudioMeteringForCurrentItem()
+			self.setupAudioTapForCurrentItem()
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
 		}
@@ -134,11 +465,12 @@ public final class YhplayerAudioModule: Module {
 		AsyncFunction("reset") {
 			DispatchQueue.main.sync {
 				self.stopProgressTimer()
-				self.teardownAudioMetering()
+				self.teardownAudioTap()
 				self.queuePlayer?.removeAllItems()
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
 				self.lastEmittedState = "stopped"
+				AudioDSPState.shared.resetFilterState()
 			}
 		}
 
@@ -186,7 +518,6 @@ public final class YhplayerAudioModule: Module {
 			      fromIndex >= 0, toIndex >= 0,
 			      fromIndex < self.trackOrder.count, toIndex < self.trackOrder.count
 			else { return }
-			// Run on main with suppress (same as skip) so JS doesn't get intermediate track indices.
 			DispatchQueue.main.sync {
 				let id = self.trackOrder.remove(at: fromIndex)
 				self.trackOrder.insert(id, at: toIndex)
@@ -201,9 +532,6 @@ public final class YhplayerAudioModule: Module {
 
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
-			// Run on main and block until done so we set suppress before rebuild; otherwise
-			// currentItem observations fire for each advanceToNextItem() and JS receives
-			// wrong intermediate indices (e.g. selected song plays the next one, skip goes +2).
 			DispatchQueue.main.sync {
 				self.suppressTrackChangeEvents = true
 				self.rebuildQueueFromOrder(makeCurrentIndex: index)
@@ -230,7 +558,6 @@ public final class YhplayerAudioModule: Module {
 
 		AsyncFunction("seekTo") { (position: Double) in
 			let cm = CMTime(seconds: position, preferredTimescale: 600)
-			// Small tolerance avoids long keyframe-seeking on some streams; .zero can stall.
 			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
 			self.queuePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
 			DispatchQueue.main.async { self.emitProgressUpdate() }
@@ -252,8 +579,32 @@ public final class YhplayerAudioModule: Module {
 			self.repeatMode = mode
 		}
 
+		// MARK: - DSP control APIs
+
 		AsyncFunction("setEqualizerBands") { (_ bands: [[String: Any]]) in
-			// Stub for future equalizer (AVAudioEngine + AVAudioUnitEQ)
+			let parsed: [(frequency: Float, gain: Float)] = bands.compactMap { dict in
+				guard let freq = (dict["frequency"] as? NSNumber)?.floatValue,
+				      let gain = (dict["gain"] as? NSNumber)?.floatValue else { return nil }
+				return (frequency: freq, gain: max(-12, min(12, gain)))
+			}
+			let sr = Float(AVAudioSession.sharedInstance().sampleRate)
+			AudioDSPState.shared.setEqualizerBands(parsed, sampleRate: sr > 0 ? sr : 44100)
+		}
+
+		AsyncFunction("setEqualizerEnabled") { (enabled: Bool) in
+			AudioDSPState.shared.setEqEnabled(enabled)
+		}
+
+		AsyncFunction("setOutputGain") { (gainDb: Float) in
+			AudioDSPState.shared.setOutputGainDb(max(-10, min(10, gainDb)))
+		}
+
+		AsyncFunction("setNormalizationEnabled") { (enabled: Bool) in
+			AudioDSPState.shared.setNormalizationEnabled(enabled)
+		}
+
+		AsyncFunction("setMonoAudioEnabled") { (enabled: Bool) in
+			AudioDSPState.shared.setMonoEnabled(enabled)
 		}
 
 		Function("getPlaybackState") { () -> PlaybackStateRecord in
@@ -314,7 +665,7 @@ public final class YhplayerAudioModule: Module {
 
 		currentItemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
 			DispatchQueue.main.async {
-				self?.setupAudioMeteringForCurrentItem()
+				self?.setupAudioTapForCurrentItem()
 				self?.emitActiveTrackChangedFromCurrentItem()
 			}
 		}
@@ -330,6 +681,7 @@ public final class YhplayerAudioModule: Module {
 
 	private func playerItemDidReachEnd(_ notification: Notification) {
 		guard let item = notification.object as? AVPlayerItem else { return }
+		AudioDSPState.shared.resetFilterState()
 		if repeatMode == 1 {
 			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
 				rebuildQueueFromOrder(makeCurrentIndex: idx)
@@ -338,7 +690,6 @@ public final class YhplayerAudioModule: Module {
 			return
 		}
 		if repeatMode == 2, !trackOrder.isEmpty {
-			// Check if the queue has ended (no more items after this one)
 			if queuePlayer?.items().count == 1 {
 				rebuildQueueFromOrder(makeCurrentIndex: 0)
 				queuePlayer?.rate = rate
@@ -464,16 +815,17 @@ public final class YhplayerAudioModule: Module {
 		return idx
 	}
 
-	// MARK: - Audio level metering (iOS)
+	// MARK: - Audio processing tap (DSP + level metering)
 
-	private func setupAudioMeteringForCurrentItem() {
+	private func setupAudioTapForCurrentItem() {
 		guard let player = queuePlayer, let item = player.currentItem else {
-			teardownAudioMetering()
+			teardownAudioTap()
 			return
 		}
-		if item === itemWithAudioMetering { return }
-		teardownAudioMetering()
-		itemWithAudioMetering = item
+		if item === itemWithAudioTap { return }
+		teardownAudioTap()
+		itemWithAudioTap = item
+		AudioDSPState.shared.resetFilterState()
 		let asset = item.asset
 		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
 			guard let self = self else { return }
@@ -481,19 +833,19 @@ public final class YhplayerAudioModule: Module {
 			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
 			guard let track = asset.tracks(withMediaType: .audio).first else { return }
 			DispatchQueue.main.async {
-				self.attachAudioMetering(to: item, track: track)
+				self.attachAudioTap(to: item, track: track)
 			}
 		}
 	}
 
-	private func teardownAudioMetering() {
-		itemWithAudioMetering?.audioMix = nil
-		itemWithAudioMetering = nil
+	private func teardownAudioTap() {
+		itemWithAudioTap?.audioMix = nil
+		itemWithAudioTap = nil
 	}
 
-	private func attachAudioMetering(to item: AVPlayerItem, track: AVAssetTrack) {
-		guard item === itemWithAudioMetering else { return }
-		let context = AudioLevelContext(module: self)
+	private func attachAudioTap(to item: AVPlayerItem, track: AVAssetTrack) {
+		guard item === itemWithAudioTap else { return }
+		let context = AudioTapContext(module: self)
 		var callbacks = MTAudioProcessingTapCallbacks(
 			version: kMTAudioProcessingTapCallbacksVersion_0,
 			clientInfo: Unmanaged.passRetained(context).toOpaque(),
@@ -502,15 +854,20 @@ public final class YhplayerAudioModule: Module {
 			},
 			finalize: { tap in
 				let ptr = MTAudioProcessingTapGetStorage(tap)
-				Unmanaged<AudioLevelContext>.fromOpaque(ptr).release()
+				Unmanaged<AudioTapContext>.fromOpaque(ptr).release()
 			},
 			prepare: { _, _, _ in },
 			unprepare: { _ in },
 			process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
 				guard noErr == MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut) else { return }
+
+				// Apply DSP effects (EQ, gain, normalization, mono)
+				AudioDSPState.shared.processAudio(bufferListInOut, frameCount: UInt32(numberFrames))
+
+				// Level metering (runs after DSP so visualizer reflects processed output)
 				let ptr = MTAudioProcessingTapGetStorage(tap)
-				let ctx = Unmanaged<AudioLevelContext>.fromOpaque(ptr).takeUnretainedValue()
-				let levels = AudioLevelContext.computeLevels(bufferListInOut, frameCount: UInt32(numberFrames), bandCount: 5)
+				let ctx = Unmanaged<AudioTapContext>.fromOpaque(ptr).takeUnretainedValue()
+				let levels = AudioTapContext.computeLevels(bufferListInOut, frameCount: UInt32(numberFrames), bandCount: 5)
 				ctx.reportLevels(levels)
 			}
 		)
@@ -528,7 +885,7 @@ public final class YhplayerAudioModule: Module {
 
 	deinit {
 		stopProgressTimer()
-		teardownAudioMetering()
+		teardownAudioTap()
 		currentItemObservation?.invalidate()
 		if let obs = itemDidEndObserver {
 			NotificationCenter.default.removeObserver(obs)
@@ -536,9 +893,9 @@ public final class YhplayerAudioModule: Module {
 	}
 }
 
-// MARK: - Audio level context (for MTAudioProcessingTap)
+// MARK: - Audio tap context (DSP + level metering)
 
-private final class AudioLevelContext {
+private final class AudioTapContext {
 	weak var module: YhplayerAudioModule?
 	private var lastSendTime: CFTimeInterval = 0
 	private let minInterval: CFTimeInterval = 0.06

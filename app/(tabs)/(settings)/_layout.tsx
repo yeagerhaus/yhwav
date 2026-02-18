@@ -50,6 +50,14 @@ export default function SettingsLayout() {
 				}}
 			/>
 			<Stack.Screen
+				name='playback'
+				options={{
+					headerShown: true,
+					title: 'Playback',
+					header: () => <InternalHeader />,
+				}}
+			/>
+			<Stack.Screen
 				name='developer'
 				options={{
 					headerShown: true,

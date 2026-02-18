@@ -17,6 +17,7 @@ import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
+import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
@@ -69,7 +70,7 @@ function AnimatedStack() {
 	return (
 		<Div style={{ flex: 1, backgroundColor: screenBackground }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
-				<Stack>
+				<Stack screenOptions={{ contentStyle: { backgroundColor: screenBackground } }}>
 					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: screenBackground } }} />
 					<Stack.Screen
 						name='music/[id]'
@@ -97,6 +98,7 @@ export default function RootLayout() {
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
+	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
 
 	useEffect(() => {
 		const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
@@ -106,7 +108,8 @@ export default function RootLayout() {
 	useEffect(() => {
 		hydrateDevSettings();
 		hydrateOfflineMode();
-	}, [hydrateDevSettings, hydrateOfflineMode]);
+		hydratePlaybackSettings();
+	}, [hydrateDevSettings, hydrateOfflineMode, hydratePlaybackSettings]);
 
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
