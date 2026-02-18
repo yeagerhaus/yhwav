@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+		
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
 import { Modal, Pressable, type StyleProp, TouchableOpacity, type View, type ViewStyle } from 'react-native';
@@ -8,7 +8,7 @@ import { Div } from './Div';
 export interface ContextMenuItem {
 	label: string;
 	systemImage?: SFSymbol;
-	icon?: keyof typeof Ionicons.glyphMap;
+	icon?: SFSymbol;
 	onPress: () => void;
 	destructive?: boolean;
 	disabled?: boolean;
@@ -81,10 +81,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 											style={styles.menuIcon}
 										/>
 									) : item.icon ? (
-										<Ionicons
+										<SymbolView
 											name={item.icon}
 											size={18}
-											color={item.destructive ? Colors.dangerSolid : Colors.white}
+											tintColor={item.destructive ? Colors.dangerSolid : Colors.white}
 											style={styles.menuIcon}
 										/>
 									) : null}
