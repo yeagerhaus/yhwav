@@ -1,4 +1,3 @@
-		
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
 import { Modal, Pressable, type StyleProp, TouchableOpacity, type View, type ViewStyle } from 'react-native';

@@ -1,4 +1,3 @@
-
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Image, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Linking from 'expo-linking';
 import React, { useCallback, useMemo } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
@@ -93,19 +93,19 @@ export default function EpisodeDetailScreen() {
 	const episodesByFeedId = usePodcastStore((s) => s.episodesByFeedId);
 
 	const feed = useMemo(() => feeds.find((f) => f.id === feedId), [feeds, feedId]);
+	const downloadRecord = usePodcastDownloadsStore((s) => s.downloads[episodeId]);
 	const episode = useMemo((): PodcastEpisode | PodcastDownload | undefined => {
 		if (feedId && episodesByFeedId[feedId]) {
 			const found = episodesByFeedId[feedId].find((ep) => ep.id === episodeId);
 			if (found) return found;
 		}
-		const dl = usePodcastDownloadsStore.getState().getDownload(episodeId);
-		if (dl) return dl;
+		if (downloadRecord) return downloadRecord;
 		for (const eps of Object.values(episodesByFeedId)) {
 			const found = eps.find((ep) => ep.id === episodeId);
 			if (found) return found;
 		}
 		return undefined;
-	}, [episodeId, feedId, episodesByFeedId]);
+	}, [episodeId, feedId, episodesByFeedId, downloadRecord]);
 
 	const currentSong = useAudioStore((s) => s.currentSong);
 	const playSound = useAudioStore((s) => s.playSound);
@@ -143,7 +143,6 @@ export default function EpisodeDetailScreen() {
 	const displayPosition = livePosition ?? progress?.position ?? 0;
 	const displayDuration = (liveDuration ?? progress?.duration ?? episode?.durationSeconds ?? 0) || 1;
 	const progressPercent = displayDuration > 0 ? Math.min(1, Math.max(0, displayPosition / displayDuration)) : 0;
-	const canResume = !isCurrentEpisode && progress && !progress.completed && progress.position > 10;
 
 	const handlePlay = useCallback(() => {
 		if (!song) return;
@@ -198,7 +197,7 @@ export default function EpisodeDetailScreen() {
 		);
 
 		return items;
-	}, [song, progress, episodeId, feedId, saveProgress, markAsPlayed, playNext, addToQueue]);
+	}, [song, progress, episodeId, saveProgress, markAsPlayed, playNext, addToQueue]);
 
 	if (!episode) {
 		return (
@@ -217,13 +216,13 @@ export default function EpisodeDetailScreen() {
 		<Main
 			style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}
 		>
-			{artwork ? (
-				<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
-					<Image
-						source={{ uri: showImageUrl }}
-						style={styles.artwork}
-						resizeMode='contain'
-					/>
+		{artwork ? (
+			<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
+				<Image
+					source={{ uri: artwork }}
+					style={styles.artwork}
+					resizeMode='contain'
+				/>
 			</Div>
 			) : (
 				<Div style={[styles.artwork, { backgroundColor: '#444', justifyContent: 'center', alignItems: 'center' }]}>
@@ -360,9 +359,6 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 	},
-	content: {
-		paddingBottom: 140,
-	},
 	centered: {
 		flex: 1,
 		justifyContent: 'center',
@@ -451,17 +447,6 @@ const styles = StyleSheet.create({
 	durationText: {
 		color: Colors.brandPrimary,
 		fontWeight: '600',
-	},
-	playControls: {
-		alignItems: 'center',
-	},
-	playButton: {
-		width: 64,
-		height: 64,
-		borderRadius: 32,
-		backgroundColor: Colors.brandPrimary,
-		justifyContent: 'center',
-		alignItems: 'center',
 	},
 	actionButtons: {
 		flexDirection: 'row',

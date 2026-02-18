@@ -1,4 +1,3 @@
-
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';

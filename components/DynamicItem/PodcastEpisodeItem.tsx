@@ -1,4 +1,3 @@
-
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
@@ -212,11 +211,9 @@ const PodcastEpisodeItem = React.memo(
 						) : null}
 						{isDownloading ? (
 							<ActivityIndicator size='small' color={Colors.brandPrimary} />
-						) : null}
-						{isDownloaded || isDownload(episode) ? (
+						) : (isDownloaded || isDownload(episode)) ? (
 							<SymbolView name='arrow.down.to.line.circle.fill' size={16} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
 						) : null}
-						
 					</Div>
 					{description != null && (
 						<Div style={styles.subtitleRow} transparent>
@@ -251,21 +248,6 @@ const PodcastEpisodeItem = React.memo(
 								size={12}
 								tintColor={Colors.brandPrimary}
 							/>
-							{/* <View style={styles.progressBarContainer}>
-								<View
-									style={[
-										styles.progressBarTrack,
-										{ backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' },
-									]}
-								>
-									<View
-										style={[
-											styles.progressBarFill,
-											{ width: `${progressPercent * 100}%`, backgroundColor: Colors.brandPrimary },
-										]}
-									/>
-								</View>
-							</View> */}
 							<View style={styles.durationPill}>
 								<Text type='bodyXS' style={styles.durationText}>
 									{formatDurationShort(displayDuration)}
@@ -348,19 +330,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 10,
 		borderRadius: 20,
 		borderWidth: StyleSheet.hairlineWidth,
-	},
-	progressBarContainer: {
-		flex: 1,
-		minWidth: 0,
-	},
-	progressBarTrack: {
-		height: 4,
-		borderRadius: 2,
-		overflow: 'hidden',
-	},
-	progressBarFill: {
-		height: '100%',
-		borderRadius: 2,
 	},
 	durationPill: {
 		paddingHorizontal: 8,
