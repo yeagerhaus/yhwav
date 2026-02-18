@@ -4,12 +4,12 @@ import { FlatList, Image } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useAlbums } from '@/hooks/useAlbums';
-import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Song } from '@/types/song';
 
 export default function AlbumDetailScreen() {
 	const { albumId } = useLocalSearchParams<{ albumId: string }>();
-	const allTracks = useLibraryStore((s) => s.tracks);
+	const { tracks: allTracks } = useOfflineFilteredLibrary();
 	const { albumsById } = useAlbums();
 	const [songs, setSongs] = useState<Song[]>([]);
 	const [_bgColor, setBgColor] = useState<string>('#FA2D48');

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { toPlayableSong } from '@/types';
@@ -14,6 +15,7 @@ export default function PodcastFeedScreen() {
 	const { feedId } = useLocalSearchParams<{ feedId: string }>();
 	const colorScheme = useColorScheme();
 	const { feeds, episodesByFeedId, fetchFeed, removeFeed } = usePodcastStore();
+	const isOffline = useOfflineModeStore((s) => s.offlineMode);
 	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 	const [filterQuery, setFilterQuery] = useState('');
@@ -22,10 +24,11 @@ export default function PodcastFeedScreen() {
 	const fetchedEpisodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
 	const downloadedOnly = useMemo(() => (feedId ? getDownloadedEpisodesForFeed(feedId) : []), [feedId, getDownloadedEpisodesForFeed]);
 
-	const allEpisodes = useMemo(
-		(): (PodcastEpisode | PodcastDownload)[] => (fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly),
-		[fetchedEpisodes, downloadedOnly],
-	);
+	// When offline: only downloaded episodes. Otherwise fetched or fallback to downloaded.
+	const allEpisodes = useMemo((): (PodcastEpisode | PodcastDownload)[] => {
+		if (isOffline) return downloadedOnly;
+		return fetchedEpisodes.length > 0 ? fetchedEpisodes : downloadedOnly;
+	}, [isOffline, fetchedEpisodes, downloadedOnly]);
 
 	const episodes = useMemo(() => {
 		const q = filterQuery.trim().toLowerCase();

@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Album, Artist, Playlist, Song } from '@/types';
-import { useAlbums } from './useAlbums';
-import { useArtists } from './useArtists';
-import { useLibraryStore } from './useLibraryStore';
+import { useOfflineFilteredLibrary } from './useOfflineFilteredLibrary';
 import { useSearchStore } from './useSearchStore';
 
 export interface SearchResult {
@@ -45,10 +43,7 @@ export function useSearch() {
 		playlists: [],
 		totalResults: 0,
 	});
-	const tracks = useLibraryStore((s) => s.tracks);
-	const playlists = useLibraryStore((s) => s.playlists);
-	const { albums } = useAlbums();
-	const { artists } = useArtists();
+	const { tracks, albums, artists, playlists } = useOfflineFilteredLibrary();
 
 	// Debounce the query to avoid searching on every keystroke
 	const debouncedQuery = useDebounce(query, 300);

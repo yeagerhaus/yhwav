@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, RefreshControl } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { Colors } from '@/constants';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { clearCacheAndReload } from '@/utils/cache';
 import { fetchRecentlyPlayed } from '@/utils/plex';
@@ -18,13 +19,9 @@ const SECTIONS = [
 
 export default function LibraryScreen() {
 	const router = useRouter();
-	// Only subscribe to tracks.length to avoid re-rendering on every track update
-	const trackCount = useLibraryStore((s) => s.tracks.length);
+	const { tracks, albums, recentlyPlayed, playlists } = useOfflineFilteredLibrary();
+	const trackCount = tracks.length;
 	const [refreshing, setRefreshing] = useState(false);
-	const albums = useLibraryStore((s) => s.albums);
-	// const artists = useLibraryStore((s) => s.artists);
-	const playlists = useLibraryStore((s) => s.playlists);
-	const recentlyPlayed = useLibraryStore((s) => s.recentlyPlayed);
 	const setRecentlyPlayed = useLibraryStore((s) => s.setRecentlyPlayed);
 
 	const recentlyAdded = useMemo(

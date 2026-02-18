@@ -5,7 +5,7 @@ import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
 import { Colors, DefaultSharedComponents } from '@/constants/styles';
-import { useAlbums } from '@/hooks/useAlbums';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useArtists } from '@/hooks/useArtists';
 import type { Album } from '@/types/album';
 
@@ -64,14 +64,14 @@ interface AlbumSection {
 export default function ArtistDetailScreen() {
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
-	const { getAlbumsByArtist } = useAlbums();
+	const { albums } = useOfflineFilteredLibrary();
 
 	const artist = artistsById[artistId ?? ''];
 
 	const sections = useMemo(() => {
 		if (!artist) return [];
 
-		const allAlbums = getAlbumsByArtist(artist.key);
+		const allAlbums = albums.filter((a) => a.artistKey === artist.key);
 
 		// Group albums by category
 		const grouped = new Map<AlbumCategory, Album[]>();
@@ -106,7 +106,7 @@ export default function ArtistDetailScreen() {
 		}
 
 		return result;
-	}, [artist, getAlbumsByArtist]);
+	}, [artist, albums]);
 
 	if (!artist) {
 		return (

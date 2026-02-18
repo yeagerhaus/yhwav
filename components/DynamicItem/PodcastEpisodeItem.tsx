@@ -203,7 +203,7 @@ const PodcastEpisodeItem = React.memo(
 					transparent
 				>
 					<Div style={styles.titleRow} transparent>
-						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1 }]}>
+						<Text type='h3' numberOfLines={1} style={[styles.title, { flex: 1, color: isCurrentEpisode ? Colors.brandPrimary : Colors.white }]}>
 							{episode.title}
 						</Text>
 						{progress?.completed ? (
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
 	subtitle: {
 		fontWeight: '400',
 		opacity: 0.6,
-		marginTop: -4,
+		marginBottom: 8,
 	},
 	resumeLabel: {
 		color: Colors.brandPrimary,
