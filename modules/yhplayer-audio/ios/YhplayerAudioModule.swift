@@ -1,6 +1,8 @@
 import AVFoundation
+import Accelerate
 import ExpoModulesCore
 import MediaPlayer
+import MediaToolbox
 import UIKit
 
 // MARK: - Records (JS → Swift)
@@ -46,9 +48,13 @@ public final class YhplayerAudioModule: Module {
 	private var currentItemObservation: NSKeyValueObservation?
 	private var rateObservation: NSKeyValueObservation?
 	private var isInitialized = false
+	private var suppressTrackChangeEvents = false
 
 	// Playback state for JS: "playing" | "paused" | "buffering" | "ready" | "loading" | "stopped" | "error"
 	private var lastEmittedState: String = "stopped"
+
+	// Audio level metering (iOS): item we attached the tap to, so we can clear when switching
+	private weak var itemWithAudioMetering: AVPlayerItem?
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -64,7 +70,8 @@ public final class YhplayerAudioModule: Module {
 			"RemotePause",
 			"RemoteNext",
 			"RemotePrevious",
-			"RemoteSeek"
+			"RemoteSeek",
+			"AudioLevelsUpdated"
 		)
 
 		OnCreate {
@@ -78,6 +85,7 @@ public final class YhplayerAudioModule: Module {
 			self.queuePlayer?.volume = self.volume
 			self.queuePlayer?.rate = self.rate
 			self.observePlayerStatus()
+			self.setupAudioMeteringForCurrentItem()
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
 		}
@@ -123,6 +131,7 @@ public final class YhplayerAudioModule: Module {
 
 		AsyncFunction("reset") {
 			self.stopProgressTimer()
+			self.teardownAudioMetering()
 			self.queuePlayer?.removeAllItems()
 			self.trackMetadata.removeAll()
 			self.trackOrder.removeAll()
@@ -131,14 +140,14 @@ public final class YhplayerAudioModule: Module {
 
 		AsyncFunction("remove") { (indices: [Int]) in
 			guard let player = self.queuePlayer else { return }
-			let items = player.items()
-			for idx in indices.sorted(by: >) where idx >= 0 && idx < items.count {
-				let item = items[idx]
-				player.remove(item)
-				if let id = item.associatedTrackId(), let orderIdx = self.trackOrder.firstIndex(of: id) {
-					self.trackOrder.remove(at: orderIdx)
-					self.trackMetadata.removeValue(forKey: id)
+			let allItems = player.items()
+			for idx in indices.sorted(by: >) where idx >= 0 && idx < self.trackOrder.count {
+				let id = self.trackOrder[idx]
+				if let item = allItems.first(where: { $0.associatedTrackId() == id }) {
+					player.remove(item)
 				}
+				self.trackOrder.remove(at: idx)
+				self.trackMetadata.removeValue(forKey: id)
 			}
 		}
 
@@ -170,14 +179,24 @@ public final class YhplayerAudioModule: Module {
 			let id = self.trackOrder.remove(at: fromIndex)
 			self.trackOrder.insert(id, at: toIndex)
 			let currentIdx = self.currentActiveTrackIndex()
+			let wasPlaying = self.queuePlayer?.timeControlStatus == .playing
+			DispatchQueue.main.async { self.suppressTrackChangeEvents = true }
 			self.rebuildQueueFromOrder(makeCurrentIndex: currentIdx >= 0 ? currentIdx : nil)
+			DispatchQueue.main.async {
+				self.suppressTrackChangeEvents = false
+			}
+			if wasPlaying { self.queuePlayer?.play() }
 		}
 
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
+			DispatchQueue.main.async { self.suppressTrackChangeEvents = true }
 			self.rebuildQueueFromOrder(makeCurrentIndex: index)
 			player.play()
-			self.emitActiveTrackChanged(index: index)
+			DispatchQueue.main.async {
+				self.suppressTrackChangeEvents = false
+				self.emitActiveTrackChanged(index: index)
+			}
 		}
 
 		AsyncFunction("play") {
@@ -262,6 +281,7 @@ public final class YhplayerAudioModule: Module {
 
 		currentItemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
 			DispatchQueue.main.async {
+				self?.setupAudioMeteringForCurrentItem()
 				self?.emitActiveTrackChangedFromCurrentItem()
 			}
 		}
@@ -282,16 +302,18 @@ public final class YhplayerAudioModule: Module {
 	private func playerItemDidReachEnd(_ notification: Notification) {
 		guard let item = notification.object as? AVPlayerItem else { return }
 		if repeatMode == 1 {
-			item.seek(to: .zero)
-			queuePlayer?.play()
+			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
+				rebuildQueueFromOrder(makeCurrentIndex: idx)
+				queuePlayer?.play()
+			}
 			return
 		}
 		if repeatMode == 2, !trackOrder.isEmpty {
-			// Re-insert current at end for queue repeat
-			if let id = item.associatedTrackId(), let track = trackMetadata[id] {
-				let newItem = createPlayerItem(url: track.url)
-				newItem.setAssociatedTrack(track)
-				queuePlayer?.insert(newItem, after: queuePlayer?.items().last)
+			// Check if the queue has ended (no more items after this one)
+			if queuePlayer?.items().count == 1 {
+				rebuildQueueFromOrder(makeCurrentIndex: 0)
+				queuePlayer?.play()
+				return
 			}
 		}
 		DispatchQueue.main.async { [weak self] in
@@ -307,6 +329,7 @@ public final class YhplayerAudioModule: Module {
 	}
 
 	private func emitActiveTrackChangedFromCurrentItem() {
+		guard !suppressTrackChangeEvents else { return }
 		let idx = currentActiveTrackIndex()
 		guard idx >= 0 else { return }
 		emitActiveTrackChanged(index: idx)
@@ -412,11 +435,121 @@ public final class YhplayerAudioModule: Module {
 		return idx
 	}
 
+	// MARK: - Audio level metering (iOS)
+
+	private func setupAudioMeteringForCurrentItem() {
+		guard let player = queuePlayer, let item = player.currentItem else {
+			teardownAudioMetering()
+			return
+		}
+		if item === itemWithAudioMetering { return }
+		teardownAudioMetering()
+		itemWithAudioMetering = item
+		let asset = item.asset
+		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
+			guard let self = self else { return }
+			var error: NSError?
+			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
+			guard let track = asset.tracks(withMediaType: .audio).first else { return }
+			DispatchQueue.main.async {
+				self.attachAudioMetering(to: item, track: track)
+			}
+		}
+	}
+
+	private func teardownAudioMetering() {
+		itemWithAudioMetering?.audioMix = nil
+		itemWithAudioMetering = nil
+	}
+
+	private func attachAudioMetering(to item: AVPlayerItem, track: AVAssetTrack) {
+		guard item === itemWithAudioMetering else { return }
+		let context = AudioLevelContext(module: self)
+		var callbacks = MTAudioProcessingTapCallbacks(
+			version: kMTAudioProcessingTapCallbacksVersion_0,
+			clientInfo: Unmanaged.passRetained(context).toOpaque(),
+			init: { _, clientInfo, tapStorageOut in
+				tapStorageOut.pointee = clientInfo
+			},
+			finalize: { tap in
+				let ptr = MTAudioProcessingTapGetStorage(tap)
+				Unmanaged<AudioLevelContext>.fromOpaque(ptr).release()
+			},
+			prepare: { _, _, _ in },
+			unprepare: { _ in },
+			process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
+				guard noErr == MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut) else { return }
+				let ptr = MTAudioProcessingTapGetStorage(tap)
+				let ctx = Unmanaged<AudioLevelContext>.fromOpaque(ptr).takeUnretainedValue()
+				let levels = AudioLevelContext.computeLevels(bufferListInOut, frameCount: UInt32(numberFrames), bandCount: 5)
+				ctx.reportLevels(levels)
+			}
+		)
+		var tap: MTAudioProcessingTap?
+		guard MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PreEffects, &tap) == noErr,
+		      let tapUnwrapped = tap else {
+			return
+		}
+		let params = AVMutableAudioMixInputParameters(track: track)
+		params.audioTapProcessor = tapUnwrapped
+		let mix = AVMutableAudioMix()
+		mix.inputParameters = [params]
+		item.audioMix = mix
+	}
+
 	deinit {
 		stopProgressTimer()
+		teardownAudioMetering()
 		currentItemObservation?.invalidate()
 		rateObservation?.invalidate()
 		NotificationCenter.default.removeObserver(self)
+	}
+}
+
+// MARK: - Audio level context (for MTAudioProcessingTap)
+
+private final class AudioLevelContext {
+	weak var module: YhplayerAudioModule?
+	private var lastSendTime: CFTimeInterval = 0
+	private let minInterval: CFTimeInterval = 0.06
+	private let lock = NSLock()
+
+	init(module: YhplayerAudioModule) {
+		self.module = module
+	}
+
+	func reportLevels(_ levels: [Float]) {
+		lock.lock()
+		let now = CACurrentMediaTime()
+		guard now - lastSendTime >= minInterval else { lock.unlock(); return }
+		lastSendTime = now
+		lock.unlock()
+		guard let mod = module else { return }
+		let levelsCopy = levels
+		DispatchQueue.main.async {
+			mod.sendEvent("AudioLevelsUpdated", ["levels": levelsCopy])
+		}
+	}
+
+	static func computeLevels(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32, bandCount: Int) -> [Float] {
+		let list = UnsafeMutableAudioBufferListPointer(bufferList)
+		guard let first = list.first, let mData = first.mData else { return (0..<bandCount).map { _ in Float(0) } }
+		let channelCount = Int(first.mNumberChannels)
+		let frameLength = Int(frameCount) * channelCount
+		let stride = channelCount
+		let samplesRaw = mData.assumingMemoryBound(to: Float.self)
+		let samples = UnsafePointer(samplesRaw)
+		var bands = [Float](repeating: 0, count: bandCount)
+		let bandFrames = max(1, frameLength / bandCount)
+		for b in 0..<bandCount {
+			let start = b * bandFrames
+			let count = min(bandFrames, frameLength - start)
+			guard count > 0 else { continue }
+			var rms: Float = 0
+			vDSP_rmsqv(samples.advanced(by: start), stride, &rms, vDSP_Length(count))
+			bands[b] = min(1, max(0, rms * 4))
+		}
+		return bands
 	}
 }
 
