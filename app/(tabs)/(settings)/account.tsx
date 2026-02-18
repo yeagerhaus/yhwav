@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Switch, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, useColorScheme } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
-import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
-import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
-import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
-import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { clearCacheAndReload } from '@/utils/cache';
 import { plexAuthService } from '@/utils/plex-auth';
 import { hexWithOpacity } from '@/utils/styles';
 
-export default function SettingsScreen() {
+export default function AccountScreen() {
 	const _colorScheme = useColorScheme();
 	const backgroundColor = useThemeColor({ light: Colors.light.background, dark: Colors.dark.background }, 'background');
 	const [plexToken, setPlexToken] = useState('');
@@ -22,17 +17,8 @@ export default function SettingsScreen() {
 	const [pinCode, setPinCode] = useState<string | null>(null);
 	const [pinStatus, setPinStatus] = useState<string>('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
-	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
-	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
-	const offlineMode = useOfflineModeStore((state) => state.offlineMode);
-	const setOfflineMode = useOfflineModeStore((state) => state.setOfflineMode);
-	const musicDownloadCount = useMusicDownloadsStore((s) => Object.keys(s.downloads).length);
-	const podcastDownloadCount = usePodcastDownloadsStore((s) => Object.keys(s.downloads).length);
-	const removeAllMusicDownloads = useMusicDownloadsStore((s) => s.removeAllDownloads);
-	const removeAllPodcastDownloads = usePodcastDownloadsStore((s) => s.removeAllDownloads);
 
 	useEffect(() => {
-		// Load existing auth state
 		plexAuthService.loadAuthState().then((loaded) => {
 			if (loaded) {
 				setAuthState(plexAuthService.getAuthState());
@@ -100,20 +86,6 @@ export default function SettingsScreen() {
 		}
 	};
 
-	const handleLogout = async () => {
-		Alert.alert('Logout', 'Are you sure you want to logout?', [
-			{ text: 'Cancel', style: 'cancel' },
-			{
-				text: 'Logout',
-				style: 'destructive',
-				onPress: async () => {
-					await plexAuthService.logout();
-					setAuthState(plexAuthService.getAuthState());
-				},
-			},
-		]);
-	};
-
 	const handleSelectServer = async (serverId: string) => {
 		const success = await plexAuthService.selectServer(serverId);
 		if (success) {
@@ -122,35 +94,6 @@ export default function SettingsScreen() {
 		} else {
 			Alert.alert('Error', 'Failed to connect to selected server');
 		}
-	};
-
-	const handleClearCache = async () => {
-		Alert.alert(
-			'Clear Cache & Reload',
-			'This will clear all cached library data and re-fetch everything from the server. This may take a moment for large libraries.',
-			[
-				{ text: 'Cancel', style: 'cancel' },
-				{
-					text: 'Clear & Reload',
-					style: 'destructive',
-					onPress: async () => {
-						setIsLoading(true);
-						try {
-							const count = await clearCacheAndReload();
-							if (count > 0) {
-								Alert.alert('Success', `Reloaded ${count.toLocaleString()} tracks from server.`);
-							} else {
-								Alert.alert('Error', 'Failed to reload library. Check your server connection.');
-							}
-						} catch (error: any) {
-							Alert.alert('Error', error.message);
-						} finally {
-							setIsLoading(false);
-						}
-					},
-				},
-			],
-		);
 	};
 
 	const handleRefreshServers = async () => {
@@ -168,37 +111,6 @@ export default function SettingsScreen() {
 		} finally {
 			setIsLoading(false);
 		}
-	};
-
-	const totalDownloads = musicDownloadCount + podcastDownloadCount;
-
-	const handleRemoveAllDownloads = () => {
-		if (totalDownloads === 0) {
-			Alert.alert('No Downloads', 'There are no downloaded files to remove.');
-			return;
-		}
-		Alert.alert(
-			'Remove All Downloads',
-			`This will delete ${totalDownloads} downloaded file${totalDownloads === 1 ? '' : 's'} (${musicDownloadCount} music, ${podcastDownloadCount} podcast). This cannot be undone.`,
-			[
-				{ text: 'Cancel', style: 'cancel' },
-				{
-					text: 'Remove All',
-					style: 'destructive',
-					onPress: async () => {
-						setIsLoading(true);
-						try {
-							await Promise.all([removeAllMusicDownloads(), removeAllPodcastDownloads()]);
-							Alert.alert('Done', 'All downloads have been removed.');
-						} catch (error: any) {
-							Alert.alert('Error', error.message);
-						} finally {
-							setIsLoading(false);
-						}
-					},
-				},
-			],
-		);
 	};
 
 	const renderServerList = () => {
@@ -258,99 +170,13 @@ export default function SettingsScreen() {
 		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
-					Settings
+					Account & Server
 				</Text>
 			</Div>
 
 			{authState.isAuthenticated ? (
 				<Div flex={1} transparent style={{ gap: 24 }}>
-					<Div style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-						{authState.avatarUrl ? (
-							<Image source={{ uri: authState.avatarUrl }} style={styles.avatar} />
-						) : (
-							<View style={[styles.avatar, styles.avatarFallback]}>
-								<Text type='h3' colorVariant='primaryInvert'>
-									{authState.username?.charAt(0)?.toUpperCase() ?? '?'}
-								</Text>
-							</View>
-						)}
-						<Div transparent style={{ flex: 1 }}>
-							<Text type='bodySM' colorVariant='muted'>
-								Connected as
-							</Text>
-							<Text type='h4'>{authState.username}</Text>
-						</Div>
-					</Div>
-
 					{renderServerList()}
-
-					<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-						<Text type='h3' style={DefaultStyles.sectionTitle}>
-							Offline mode
-						</Text>
-						<Text style={[DefaultStyles.sectionDescription, { marginBottom: 8 }]}>
-							Use only cached data and downloads; no new fetches for library or podcasts.
-						</Text>
-						<Div style={styles.switchRow} transparent>
-							<Text type='body'>Offline mode</Text>
-							<Switch
-								value={offlineMode}
-								onValueChange={setOfflineMode}
-								trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-								thumbColor={offlineMode ? Colors.brandPrimary : Colors.textMuted}
-							/>
-						</Div>
-					</Div>
-
-					<TouchableOpacity
-						style={[DefaultStyles.cancelButton, styles.clearCacheBorder, isLoading && DefaultStyles.buttonDisabled]}
-						onPress={handleClearCache}
-						disabled={isLoading}
-					>
-						{isLoading ? (
-							<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-								<ActivityIndicator size='large' color={Colors.brandPrimary} />
-							</Div>
-						) : (
-							<Text type='h3'>Clear Cache & Reload Library</Text>
-						)}
-					</TouchableOpacity>
-
-					<TouchableOpacity
-						style={[DefaultStyles.cancelButton, styles.clearCacheBorder, isLoading && DefaultStyles.buttonDisabled]}
-						onPress={handleRemoveAllDownloads}
-						disabled={isLoading}
-					>
-						<Text type='h3'>Remove All Downloads</Text>
-						{totalDownloads > 0 && (
-							<Text type='bodySM' colorVariant='secondary' style={{ marginTop: 2 }}>
-								{musicDownloadCount} music · {podcastDownloadCount} podcast
-							</Text>
-						)}
-					</TouchableOpacity>
-
-					<TouchableOpacity style={DefaultStyles.dangerButton} onPress={handleLogout}>
-						<Text type='h3' colorVariant='primaryInvert'>
-							Logout
-						</Text>
-					</TouchableOpacity>
-
-					{__DEV__ && (
-						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-							<Text type='h3' style={DefaultStyles.sectionTitle}>
-								Developer
-							</Text>
-							<Div style={styles.switchRow} transparent>
-								<Text type='body'>Show performance debugger</Text>
-								<Switch
-									value={showPerformanceDebugger}
-									onValueChange={setShowPerformanceDebugger}
-									trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-									thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
-								/>
-							</Div>
-						</Div>
-					)}
 				</Div>
 			) : (
 				<>
@@ -493,23 +319,6 @@ export default function SettingsScreen() {
 							</Div>
 						)}
 					</Div>
-
-					{__DEV__ && (
-						<Div style={[DefaultStyles.section, styles.devSection]} transparent>
-							<Text type='h3' style={DefaultStyles.sectionTitle}>
-								Developer
-							</Text>
-							<Div style={styles.switchRow} transparent>
-								<Text type='body'>Show performance debugger</Text>
-								<Switch
-									value={showPerformanceDebugger}
-									onValueChange={setShowPerformanceDebugger}
-									trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-									thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
-								/>
-							</Div>
-						</Div>
-					)}
 				</>
 			)}
 		</Main>
@@ -517,16 +326,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-	avatar: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-	},
-	avatarFallback: {
-		backgroundColor: Colors.brandPrimary,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
 	serverItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -558,24 +357,6 @@ const styles = StyleSheet.create({
 		color: Colors.brandPrimary,
 		fontSize: 20,
 		fontWeight: 'bold',
-	},
-	sleepTimerRow: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		gap: 10,
-		marginTop: 12,
-	},
-	sleepTimerChip: {
-		paddingHorizontal: 16,
-		paddingVertical: 10,
-		borderRadius: 20,
-	},
-	sleepTimerChipActive: {
-		borderWidth: 1,
-		borderColor: Colors.brandPrimary,
-	},
-	sleepTimerRemaining: {
-		marginTop: 8,
 	},
 	pinCode: {
 		color: Colors.brandPrimary,
@@ -615,20 +396,7 @@ const styles = StyleSheet.create({
 	connectButtonPadding: {
 		paddingVertical: 15,
 	},
-	clearCacheBorder: {
-		borderWidth: 1,
-		borderColor: Colors.surfaceDarkBorder,
-	},
 	flex1: {
 		flex: 1,
-	},
-	devSection: {
-		marginTop: 8,
-	},
-	switchRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingVertical: 8,
 	},
 });

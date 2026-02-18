@@ -30,7 +30,7 @@ export default function TabLayout() {
 				/>
 				<Label>Podcasts</Label>
 			</NativeTabs.Trigger>
-			<NativeTabs.Trigger name='settings'>
+			<NativeTabs.Trigger name='(settings)'>
 				<Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} selectedColor={Colors.brandPrimary} />
 				<Label>Settings</Label>
 			</NativeTabs.Trigger>
