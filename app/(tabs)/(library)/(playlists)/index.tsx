@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
@@ -7,6 +7,7 @@ import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { createPlaylist } from '@/utils/plex';
+import { Colors } from '@/constants/styles';
 
 export default function PlaylistsScreen() {
 	const { playlists: rawPlaylists, isLoading } = usePlaylists();
@@ -61,7 +62,7 @@ export default function PlaylistsScreen() {
 			>
 				<Text type='h1'>Playlists</Text>
 				<Pressable onPress={handleCreatePlaylist} hitSlop={8}>
-					<Ionicons name='add-circle-outline' size={28} color='#7f62f5' />
+					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
 				</Pressable>
 			</Div>
 		),

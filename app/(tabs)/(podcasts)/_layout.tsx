@@ -13,6 +13,14 @@ export default function PodcastsLayout() {
 					header: () => <InternalHeader />,
 				}}
 			/>
+			<Stack.Screen
+				name='episode/[episodeId]'
+				options={{
+					headerShown: true,
+					title: 'Episode',
+					header: () => <InternalHeader />,
+				}}
+			/>
 		</Stack>
 	);
 }

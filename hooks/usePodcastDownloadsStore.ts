@@ -32,6 +32,10 @@ interface PodcastDownloadsState {
 	removeDownload: (episodeId: string) => Promise<void>;
 	getDownload: (episodeId: string) => PodcastDownload | undefined;
 	getLocalUri: (episodeId: string) => string | undefined;
+	/** Resume position for a downloaded episode (from download record, not progress store). */
+	getResumeAt: (episodeId: string) => number | undefined;
+	/** Update resume position on the download record and persist. */
+	updateResumeAt: (episodeId: string, position: number) => Promise<void>;
 	getDownloadedEpisodesForFeed: (feedId: string) => PodcastDownload[];
 	isDownloading: (episodeId: string) => boolean;
 	isDownloaded: (episodeId: string) => boolean;
@@ -136,6 +140,21 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 	getDownload: (episodeId: string) => get().downloads[episodeId],
 
 	getLocalUri: (episodeId: string) => get().downloads[episodeId]?.localUri,
+
+	getResumeAt: (episodeId: string) => {
+		const d = get().downloads[episodeId];
+		return d?.resumeAt != null && d.resumeAt >= 0 ? d.resumeAt : undefined;
+	},
+
+	updateResumeAt: async (episodeId: string, position: number) => {
+		const { downloads } = get();
+		const entry = downloads[episodeId];
+		if (!entry) return;
+		const resumeAt = Math.max(0, position);
+		const next = { ...downloads, [episodeId]: { ...entry, resumeAt } };
+		set({ downloads: next });
+		await persistDownloads(next);
+	},
 
 	getDownloadedEpisodesForFeed: (feedId: string) => {
 		return Object.values(get().downloads).filter((d) => d.feedId === feedId);

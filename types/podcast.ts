@@ -33,6 +33,8 @@ export interface PodcastDownload {
 	durationSeconds?: number;
 	imageUrl?: string;
 	downloadedAt: number;
+	/** Resume position in seconds; persisted with download so playback always has it. */
+	resumeAt?: number;
 }
 
 function isPodcastDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload {

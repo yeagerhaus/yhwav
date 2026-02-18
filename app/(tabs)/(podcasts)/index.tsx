@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
@@ -6,6 +5,7 @@ import { Colors } from '@/constants';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+import { SymbolView } from 'expo-symbols';
 
 type FormattedShow = {
 	id: string;
@@ -71,7 +71,7 @@ export default function PodcastsScreen() {
 			>
 				<Text type='h1'>Podcasts</Text>
 				<Pressable onPress={handleAddFeed} hitSlop={8}>
-					<Ionicons name='add-circle-outline' size={28} color={Colors.brandPrimary} />
+					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
 				</Pressable>
 			</Div>
 		),

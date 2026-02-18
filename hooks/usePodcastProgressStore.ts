@@ -66,7 +66,9 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 		const next: EpisodeProgress = {
 			position: Math.max(0, position),
 			duration: Math.max(0, duration),
-			completed: existing?.completed || isCompleted,
+			// When completed is explicitly passed (true or false), use it directly;
+			// otherwise auto-detect OR preserve existing completed state.
+			completed: completed != null ? isCompleted : (existing?.completed || isCompleted),
 			updatedAt: Date.now(),
 		};
 		const nextMap = { ...progressByEpisodeId, [episodeId]: next };

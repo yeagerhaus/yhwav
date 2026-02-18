@@ -47,7 +47,7 @@ function AnimatedStack() {
 	});
 
 	return (
-		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
+		<Div style={{ flex: 1, backgroundColor: screenBackground }}>
 			<Animated.View style={[styles.stackContainer, animatedStyle]}>
 				<Stack>
 					<Stack.Screen name='(tabs)' options={{ headerShown: false, contentStyle: { backgroundColor: screenBackground } }} />
