@@ -2,34 +2,37 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, LayoutAnimation } from 'react-native';
+import { Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Div } from '@/components';
 import { ExpandedPlayer } from '@/components/BottomSheet/ExpandedPlayer';
 import { useRootScale } from '@/ctx/RootScaleContext';
 
 // Constants moved outside component to prevent recalculation
 const SCALE_FACTOR = 0.83;
-const DRAG_THRESHOLD = Math.min(Dimensions.get('window').height * 0.2, 150);
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const DRAG_THRESHOLD = Math.min(SCREEN_HEIGHT * 0.15, 120);
+const VELOCITY_THRESHOLD = 800;
 const HORIZONTAL_DRAG_THRESHOLD = Math.min(Dimensions.get('window').width * 0.51, 80);
-const DIRECTION_LOCK_ANGLE = 45; // Angle in degrees to determine horizontal vs vertical movement
+const DIRECTION_LOCK_ANGLE = 45;
 const ENABLE_HORIZONTAL_DRAG_CLOSE = false;
 
-// Animation configs moved outside component
-const SPRING_CONFIG = {
-	damping: 15,
-	stiffness: 150,
+const EASE_OUT = Easing.out(Easing.cubic);
+
+const SNAP_BACK_CONFIG = {
+	duration: 250,
+	easing: EASE_OUT,
 } as const;
 
-const TIMING_CONFIG = {
-	duration: 300,
+const DISMISS_CONFIG = {
+	duration: 200,
+	easing: EASE_OUT,
 } as const;
 
 function MusicScreen() {
-	// Don't use useAudio() here as it causes re-renders on progress updates
 	const router = useRouter();
-	const { setScale } = useRootScale();
+	const { scale, setScale } = useRootScale();
 
 	// Queue state
 	const [queueOpen, setQueueOpen] = useState(false);
@@ -40,7 +43,7 @@ function MusicScreen() {
 	}, [queueOpen, queueOpenShared]);
 
 	const toggleQueue = useCallback(() => {
-		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 		setQueueOpen((prev) => !prev);
 	}, []);
 
@@ -82,18 +85,6 @@ function MusicScreen() {
 		}
 	}, [router, handleHapticFeedback]);
 
-	const handleScale = useCallback(
-		(newScale: number) => {
-			try {
-				setScale(newScale);
-			} catch (error) {
-				console.log('Scale error:', error);
-			}
-		},
-		[setScale],
-	);
-
-	// Moved outside component to prevent recreation on every render
 	const calculateGestureAngle = useCallback((x: number, y: number) => {
 		'worklet';
 		const angle = Math.abs(Math.atan2(y, x) * (180 / Math.PI));
@@ -141,18 +132,14 @@ function MusicScreen() {
 
 						const totalDistance = Math.sqrt(dx * dx + dy * dy);
 						const progress = Math.min(totalDistance / 300, 1);
-						const newScale = SCALE_FACTOR + progress * (1 - SCALE_FACTOR);
-
-						runOnJS(handleScale)(newScale);
+						scale.value = SCALE_FACTOR + progress * (1 - SCALE_FACTOR);
 						statusBarStyle.value = progress > 0.2 ? 'dark' : 'light';
 					}
 					// Handle vertical-only gesture
 					else if (scrollOffset.value <= 0 && isDragging.value) {
 						translateY.value = Math.max(0, dy);
 						const progress = Math.min(dy / 600, 1);
-						const newScale = SCALE_FACTOR + progress * (1 - SCALE_FACTOR);
-
-						runOnJS(handleScale)(newScale);
+						scale.value = SCALE_FACTOR + progress * (1 - SCALE_FACTOR);
 						statusBarStyle.value = progress > 0.5 ? 'dark' : 'light';
 					}
 				})
@@ -170,35 +157,33 @@ function MusicScreen() {
 						const shouldClose = totalDistance > HORIZONTAL_DRAG_THRESHOLD;
 
 						if (shouldClose) {
-							// Calculate the exit direction based on the gesture
 							const exitX = dx * 2;
 							const exitY = dy * 2;
 
-							translateX.value = withTiming(exitX, TIMING_CONFIG);
-							translateY.value = withTiming(exitY, TIMING_CONFIG);
-
-							runOnJS(handleScale)(1);
+							translateX.value = withTiming(exitX, DISMISS_CONFIG);
+							translateY.value = withTiming(exitY, DISMISS_CONFIG);
+							scale.value = withTiming(1, DISMISS_CONFIG);
 							runOnJS(handleHapticFeedback)();
 							runOnJS(goBack)();
 						} else {
-							// Spring back to original position
-							translateX.value = withSpring(0, SPRING_CONFIG);
-							translateY.value = withSpring(0, SPRING_CONFIG);
-							runOnJS(handleScale)(SCALE_FACTOR);
+							translateX.value = withTiming(0, SNAP_BACK_CONFIG);
+							translateY.value = withTiming(0, SNAP_BACK_CONFIG);
+							scale.value = withTiming(SCALE_FACTOR, SNAP_BACK_CONFIG);
 						}
 					}
 					// Handle vertical gesture end
 					else if (scrollOffset.value <= 0) {
-						const shouldClose = event.translationY > DRAG_THRESHOLD;
+						const shouldClose =
+							event.translationY > DRAG_THRESHOLD || event.velocityY > VELOCITY_THRESHOLD;
 
 						if (shouldClose) {
-							translateY.value = withTiming(event.translationY + 100, TIMING_CONFIG);
-							runOnJS(handleScale)(1);
+							translateY.value = withTiming(SCREEN_HEIGHT, DISMISS_CONFIG);
+							scale.value = withTiming(1, DISMISS_CONFIG);
 							runOnJS(handleHapticFeedback)();
 							runOnJS(goBack)();
 						} else {
-							translateY.value = withSpring(0, SPRING_CONFIG);
-							runOnJS(handleScale)(SCALE_FACTOR);
+							translateY.value = withTiming(0, SNAP_BACK_CONFIG);
+							scale.value = withTiming(SCALE_FACTOR, SNAP_BACK_CONFIG);
 						}
 					}
 				})
@@ -207,7 +192,7 @@ function MusicScreen() {
 					isDragging.value = false;
 					isHorizontalGesture.value = false;
 				}),
-		[calculateGestureAngle, handleScale, handleHapticFeedback, goBack, queueOpenShared],
+		[calculateGestureAngle, scale, handleHapticFeedback, goBack, queueOpenShared],
 	);
 
 	const scrollGesture = useMemo(
@@ -250,7 +235,9 @@ function MusicScreen() {
 	const animatedStyle = useAnimatedStyle(
 		() => ({
 			transform: [{ translateY: translateY.value }, { translateX: translateX.value }],
-			opacity: 1, // Removed unnecessary withSpring for better performance
+			opacity: interpolate(translateY.value, [0, DRAG_THRESHOLD], [1, 0.85], Extrapolation.CLAMP),
+			borderTopLeftRadius: interpolate(translateY.value, [0, DRAG_THRESHOLD], [40, 12], Extrapolation.CLAMP),
+			borderTopRightRadius: interpolate(translateY.value, [0, DRAG_THRESHOLD], [40, 12], Extrapolation.CLAMP),
 		}),
 		[],
 	);
@@ -275,9 +262,9 @@ function MusicScreen() {
 	}, [setScale]);
 
 	return (
-		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
+		<Div style={staticStyles.root}>
 			<StatusBar animated={true} style={statusBarStyle.value} />
-			<Animated.View style={[{ flex: 1, backgroundColor: 'transparent' }, animatedStyle]}>
+			<Animated.View style={[staticStyles.playerContainer, animatedStyle]}>
 				<ExpandedPlayer
 					scrollComponent={queueOpen ? undefined : ScrollComponent}
 					queueOpen={queueOpen}
@@ -288,5 +275,9 @@ function MusicScreen() {
 	);
 }
 
-// Wrap with React.memo for better performance
+const staticStyles = {
+	root: { flex: 1, backgroundColor: 'transparent' },
+	playerContainer: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' as const },
+} as const;
+
 export default React.memo(MusicScreen);

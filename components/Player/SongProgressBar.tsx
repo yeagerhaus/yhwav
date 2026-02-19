@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect } from 'react';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -31,6 +32,9 @@ export function SongProgressBar() {
 	const containerX = useSharedValue(0);
 	const isScrubbing = useSharedValue(false);
 	const scrubbingProgress = useSharedValue(0);
+	const thumbOpacity = useSharedValue(0);
+	const thumbScale = useSharedValue(0.3);
+	const trackHeight = useSharedValue(5);
 
 	// Animated progress that interpolates smoothly between native updates
 	const animatedProgress = useSharedValue(0);
@@ -70,9 +74,17 @@ export function SongProgressBar() {
 		[seekTo],
 	);
 
+	const fireHaptic = useCallback(() => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+	}, []);
+
 	const panGesture = Gesture.Pan()
 		.onStart((event) => {
 			isScrubbing.value = true;
+			thumbOpacity.value = withTiming(1, { duration: 150 });
+			thumbScale.value = withTiming(1, { duration: 200 });
+			trackHeight.value = withTiming(8, { duration: 200 });
+			runOnJS(fireHaptic)();
 			const relativeX = event.absoluteX - containerX.value;
 			const progressPercent = (relativeX / containerWidth.value) * 100;
 			scrubbingProgress.value = Math.max(0, Math.min(100, progressPercent));
@@ -86,6 +98,9 @@ export function SongProgressBar() {
 			const newPosition = (scrubbingProgress.value / 100) * duration;
 			runOnJS(handleSeek)(newPosition);
 			isScrubbing.value = false;
+			thumbOpacity.value = withTiming(0, { duration: 150 });
+			thumbScale.value = withTiming(0.3, { duration: 200 });
+			trackHeight.value = withTiming(5, { duration: 200 });
 		});
 
 	const tapGesture = Gesture.Tap().onStart((event) => {
@@ -104,12 +119,14 @@ export function SongProgressBar() {
 		};
 	});
 
-	const thumbStyle = useAnimatedStyle(() => {
-		return {
-			opacity: isScrubbing.value ? 1 : 0,
-			transform: [{ scale: isScrubbing.value ? 1 : 0.5 }],
-		};
-	});
+	const thumbStyle = useAnimatedStyle(() => ({
+		opacity: thumbOpacity.value,
+		transform: [{ scale: thumbScale.value }],
+	}));
+
+	const trackHeightStyle = useAnimatedStyle(() => ({
+		height: trackHeight.value,
+	}));
 
 	return (
 		<Div transparent style={{ width: '100%', marginTop: 15, marginBottom: 10 }}>
@@ -128,16 +145,17 @@ export function SongProgressBar() {
 						justifyContent: 'center',
 					}}
 				>
-					<Div
-						transparent
-						style={{
+				<Animated.View
+					style={[
+						trackHeightStyle,
+						{
 							width: '100%',
-							height: 5,
 							borderRadius: 30,
 							backgroundColor: 'rgba(255, 255, 255, 0.3)',
 							justifyContent: 'center',
-						}}
-					>
+						},
+					]}
+				>
 						<Animated.View
 							style={[animatedStyle, { height: '100%', borderRadius: 30, backgroundColor: '#fff', position: 'relative' }]}
 						>
@@ -161,8 +179,8 @@ export function SongProgressBar() {
 									},
 								]}
 							/>
-						</Animated.View>
-					</Div>
+					</Animated.View>
+				</Animated.View>
 				</Animated.View>
 			</GestureDetector>
 		</Div>
