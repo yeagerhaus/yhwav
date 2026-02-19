@@ -1,10 +1,16 @@
 /**
- * Player: uses yhplayer-audio native module (AVQueuePlayer, gapless).
+ * Player adapter: routes to yhplayer-audio (gapless AVQueuePlayer) or
+ * yhplayer-crossfade (dual-AVPlayer crossfade engine) based on the active engine mode.
  * Exposes Event/State/RepeatMode etc. and the same API shape for useAudioStore and components.
  */
 
 import React from 'react';
-import { isAvailable, YhplayerAudioModule } from '@/modules/yhplayer-audio';
+import { isAvailable as isGaplessAvailable, YhplayerAudioModule } from '@/modules/yhplayer-audio';
+import {
+	isAvailable as isCrossfadeAvailable,
+	YhplayerCrossfadeModule,
+	type CrossfadeConfig,
+} from '@/modules/yhplayer-crossfade';
 
 export const Event = {
 	PlaybackProgressUpdated: 'playback-progress-updated',
@@ -53,15 +59,70 @@ export const IOSCategoryMode = {
 	Default: 'default',
 } as const;
 
+let _crossfadeMode = false;
+
 function getPlayer() {
-	if (!isAvailable() || !YhplayerAudioModule) return null;
-	return YhplayerAudioModule;
+	if (_crossfadeMode && isCrossfadeAvailable() && YhplayerCrossfadeModule) {
+		return YhplayerCrossfadeModule;
+	}
+	if (isGaplessAvailable() && YhplayerAudioModule) return YhplayerAudioModule;
+	return null;
+}
+
+function getActiveModule() {
+	return getPlayer();
 }
 
 // Track shape: { id, url, title, artist, artwork, duration }
 type TrackLike = { id: string; url: string; title?: string; artist?: string; artwork?: string; duration?: number };
 
 const TrackPlayer = {
+	get isCrossfadeMode() {
+		return _crossfadeMode;
+	},
+
+	/**
+	 * Switch between gapless and crossfade engines.
+	 * Captures current state, resets old engine, sets up new engine, restores state.
+	 */
+	async switchEngine(crossfade: boolean): Promise<void> {
+		if (crossfade === _crossfadeMode) return;
+		if (crossfade && (!isCrossfadeAvailable() || !YhplayerCrossfadeModule)) return;
+
+		const oldPlayer = getPlayer();
+		let currentState: { queue: TrackLike[]; index: number; position: number; wasPlaying: boolean } | null = null;
+
+		if (oldPlayer) {
+			try {
+				const queue = oldPlayer.getQueue() as TrackLike[];
+				const index = oldPlayer.getActiveTrackIndex();
+				const state = oldPlayer.getPlaybackState();
+				const wasPlaying = state.state === 'playing';
+				currentState = { queue, index, position: state.position, wasPlaying };
+			} catch {}
+			try { await oldPlayer.reset(); } catch {}
+		}
+
+		_crossfadeMode = crossfade;
+
+		const newPlayer = getPlayer();
+		if (newPlayer && currentState && currentState.queue.length > 0) {
+			try {
+				await newPlayer.setupPlayer({});
+				await newPlayer.add(currentState.queue, undefined);
+				if (currentState.index >= 0) {
+					await newPlayer.skip(currentState.index);
+					await newPlayer.seekTo(currentState.position);
+				}
+				if (currentState.wasPlaying) {
+					await newPlayer.play();
+				}
+			} catch (e) {
+				console.error('Engine switch restore failed:', e);
+			}
+		}
+	},
+
 	async setupPlayer(options: Record<string, unknown>) {
 		const p = getPlayer();
 		if (p?.setupPlayer) await p.setupPlayer(options);
@@ -163,6 +224,19 @@ const TrackPlayer = {
 		if (p?.setMonoAudioEnabled) await p.setMonoAudioEnabled(enabled);
 	},
 
+	// Crossfade-specific methods (no-op on gapless engine)
+	async setCrossfadeConfig(config: CrossfadeConfig) {
+		if (_crossfadeMode && YhplayerCrossfadeModule?.setCrossfadeConfig) {
+			await YhplayerCrossfadeModule.setCrossfadeConfig(config);
+		}
+	},
+
+	async setNextCrossfadeDuration(seconds: number) {
+		if (_crossfadeMode && YhplayerCrossfadeModule?.setNextCrossfadeDuration) {
+			await YhplayerCrossfadeModule.setNextCrossfadeDuration(seconds);
+		}
+	},
+
 	async getPlaybackState() {
 		const p = getPlayer();
 		if (!p) return { state: State.Stopped, position: 0, duration: 0, buffered: undefined };
@@ -200,8 +274,8 @@ export function usePlaybackState(): { state: string } {
 	const [playbackState, setPlaybackState] = React.useState<{ state: string }>({ state: State.None });
 
 	React.useEffect(() => {
-		const mod = YhplayerAudioModule;
-		if (!isAvailable() || mod == null) return;
+		const mod = getActiveModule();
+		if (mod == null) return;
 		const update = () => {
 			const s = mod.getPlaybackState();
 			setPlaybackState((prev) => (prev.state !== s.state ? { state: s.state } : prev));
@@ -222,12 +296,13 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 	callbackRef.current = callback;
 
 	React.useEffect(() => {
-		if (!isAvailable() || !YhplayerAudioModule) return;
+		const mod = getActiveModule();
+		if (!mod) return;
 		const subscriptions: { remove: () => void }[] = [];
 		for (const eventName of events) {
 			const nativeName = Object.keys(NATIVE_EVENT_TO_EVENT).find((k) => NATIVE_EVENT_TO_EVENT[k] === eventName);
 			if (!nativeName) continue;
-			const sub = YhplayerAudioModule.addListener(nativeName, (payload: unknown) => {
+			const sub = mod.addListener(nativeName, (payload: unknown) => {
 				const p = payload as Record<string, unknown>;
 				const toNum = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 				const idx = p?.track ?? p?.index;

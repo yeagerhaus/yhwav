@@ -144,6 +144,8 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 
 // Track which song URL has been pre-warmed to avoid duplicate fetches
 let prewarmedUrl: string | null = null;
+// Track which song had its crossfade duration computed
+let crossfadeDurationPushedForId: string | null = null;
 
 // Playback error retry tracking
 let lastErrorRetryAt = 0;
@@ -1035,6 +1037,26 @@ export function useTrackPlayerSync() {
 								.then((r) => r.arrayBuffer())
 								.catch(() => {});
 						}
+
+						// Push adaptive crossfade duration for this transition
+						if (nextSong && state.currentSong.id !== crossfadeDurationPushedForId && TrackPlayer.isCrossfadeMode) {
+							crossfadeDurationPushedForId = state.currentSong.id;
+							const { usePlaybackSettingsStore } = require('@/hooks/usePlaybackSettingsStore');
+							const playbackSettings = usePlaybackSettingsStore.getState();
+							if (playbackSettings.crossfadeAdaptiveEnabled) {
+								const { computeCrossfadeDuration, shouldSuppressCrossfade } = require('@/lib/crossfadeAlgorithm');
+								if (shouldSuppressCrossfade(state.currentSong, nextSong)) {
+									TrackPlayer.setNextCrossfadeDuration(0).catch(() => {});
+								} else {
+									const dur = computeCrossfadeDuration(
+										state.currentSong.loudnessData,
+										nextSong.loudnessData,
+										{ defaultDuration: playbackSettings.crossfadeDuration, minDuration: 1, maxDuration: 8 },
+									);
+									TrackPlayer.setNextCrossfadeDuration(dur).catch(() => {});
+								}
+							}
+						}
 					}
 				}
 
@@ -1072,8 +1094,9 @@ export function useTrackPlayerSync() {
 					if (previousSong) scrobbleSong(previousSong);
 				}
 
-				// Reset pre-warm tracker for the new track
+				// Reset pre-warm and crossfade trackers for the new track
 				prewarmedUrl = null;
+				crossfadeDurationPushedForId = null;
 
 				state._setCurrentSong(newCurrentSong);
 

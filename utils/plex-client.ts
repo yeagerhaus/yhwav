@@ -3,7 +3,7 @@ import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
-import type { Song } from '@/types/song';
+import type { LoudnessData, Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
 
@@ -437,6 +437,7 @@ export class PlexClient {
 			sort: 'titleSort:asc',
 			includeFields:
 				'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+			includeElements: 'Stream',
 		});
 
 		const data = response.data as any;
@@ -563,6 +564,8 @@ export class PlexClient {
 		const artist = track.grandparentTitle || 'Unknown Artist';
 		const album = track.parentTitle || '';
 
+		const loudnessData = PlexClient.extractLoudnessData(part?.Stream);
+
 		return {
 			id: track.ratingKey,
 			title,
@@ -581,6 +584,24 @@ export class PlexClient {
 			titleLower: title.toLowerCase(),
 			artistLower: artist.toLowerCase(),
 			albumLower: album.toLowerCase(),
+			loudnessData,
+		};
+	}
+
+	private static extractLoudnessData(streams: any[] | undefined): LoudnessData | undefined {
+		if (!streams) return undefined;
+		const audioStream = streams.find((s: any) => s.streamType === 2 && s.loudness != null);
+		if (!audioStream) return undefined;
+		const loudness = parseFloat(audioStream.loudness);
+		if (Number.isNaN(loudness)) return undefined;
+		return {
+			loudness,
+			gain: parseFloat(audioStream.gain) || 0,
+			peak: parseFloat(audioStream.peak) || 1,
+			lra: parseFloat(audioStream.lra) || 0,
+			albumGain: parseFloat(audioStream.albumGain) || 0,
+			albumPeak: parseFloat(audioStream.albumPeak) || 1,
+			albumRange: parseFloat(audioStream.albumRange) || 0,
 		};
 	}
 

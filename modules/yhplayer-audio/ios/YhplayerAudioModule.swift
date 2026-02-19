@@ -35,8 +35,8 @@ struct PlaybackStateRecord: Record {
 
 // MARK: - Shared DSP state (thread-safe, accessed from real-time audio thread)
 
-final class AudioDSPState {
-	static let shared = AudioDSPState()
+public final class AudioDSPState {
+	public static let shared = AudioDSPState()
 
 	private let lock = os_unfair_lock_t.allocate(capacity: 1)
 
@@ -80,24 +80,24 @@ final class AudioDSPState {
 		return _monoEnabled
 	}
 
-	func setEqEnabled(_ v: Bool) {
+	public func setEqEnabled(_ v: Bool) {
 		os_unfair_lock_lock(lock); _eqEnabled = v; os_unfair_lock_unlock(lock)
 	}
 
-	func setOutputGainDb(_ db: Float) {
+	public func setOutputGainDb(_ db: Float) {
 		let linear = powf(10.0, db / 20.0)
 		os_unfair_lock_lock(lock); _outputGainLinear = linear; os_unfair_lock_unlock(lock)
 	}
 
-	func setNormalizationEnabled(_ v: Bool) {
+	public func setNormalizationEnabled(_ v: Bool) {
 		os_unfair_lock_lock(lock); _normalizationEnabled = v; os_unfair_lock_unlock(lock)
 	}
 
-	func setMonoEnabled(_ v: Bool) {
+	public func setMonoEnabled(_ v: Bool) {
 		os_unfair_lock_lock(lock); _monoEnabled = v; os_unfair_lock_unlock(lock)
 	}
 
-	func setEqualizerBands(_ bands: [(frequency: Float, gain: Float)], sampleRate: Float) {
+	public func setEqualizerBands(_ bands: [(frequency: Float, gain: Float)], sampleRate: Float) {
 		os_unfair_lock_lock(lock)
 		_eqBands = bands
 		let needsRebuild = sampleRate != _cachedSampleRate || _biquadCoefficients.count != bands.count
@@ -110,7 +110,7 @@ final class AudioDSPState {
 		os_unfair_lock_unlock(lock)
 	}
 
-	func resetFilterState() {
+	public func resetFilterState() {
 		os_unfair_lock_lock(lock)
 		for i in 0..<_biquadDelaysL.count {
 			_biquadDelaysL[i] = [Double](repeating: 0, count: 4)
@@ -122,7 +122,7 @@ final class AudioDSPState {
 	/// Apply all DSP effects to the audio buffer in-place.
 	/// Handles both interleaved (single buffer, mNumberChannels > 1) and
 	/// non-interleaved/planar (multiple buffers, mNumberChannels == 1 each).
-	func processAudio(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
+	public func processAudio(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
 		let list = UnsafeMutableAudioBufferListPointer(bufferList)
 		let bufferCount = list.count
 		guard bufferCount > 0, frameCount > 0 else { return }

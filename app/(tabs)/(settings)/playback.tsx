@@ -102,6 +102,9 @@ export default function PlaybackScreen() {
 		outputGainDb,
 		normalizationEnabled,
 		monoAudioEnabled,
+		crossfadeEnabled,
+		crossfadeDuration,
+		crossfadeAdaptiveEnabled,
 		setEqualizerEnabled,
 		setBandGain,
 		setPreset,
@@ -109,6 +112,9 @@ export default function PlaybackScreen() {
 		setOutputGain,
 		setNormalizationEnabled,
 		setMonoAudioEnabled,
+		setCrossfadeEnabled,
+		setCrossfadeDuration,
+		setCrossfadeAdaptiveEnabled,
 	} = usePlaybackSettingsStore();
 
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -231,6 +237,65 @@ export default function PlaybackScreen() {
 							</Text>
 						</TouchableOpacity>
 					</Div>
+				</Div>
+
+				{/* Crossfade Section */}
+				<Div transparent style={DefaultStyles.section}>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Sweet Fades
+					</Text>
+
+					<SwitchRow
+						label='Enable Crossfade'
+						description='Smoothly blend between tracks using loudness analysis from your Plex server.'
+						value={crossfadeEnabled}
+						onValueChange={setCrossfadeEnabled}
+					/>
+
+					{crossfadeEnabled && (
+						<Div transparent style={{ marginTop: 12 }}>
+							<SwitchRow
+								label='Adaptive Duration'
+								description='Automatically adjust crossfade length based on each track&apos;s dynamic range. When off, uses the fixed duration below.'
+								value={crossfadeAdaptiveEnabled}
+								onValueChange={setCrossfadeAdaptiveEnabled}
+							/>
+
+							<View style={styles.divider} />
+
+							<Div transparent style={{ paddingVertical: 8 }}>
+								<Text type='body'>
+									{crossfadeAdaptiveEnabled ? 'Default Duration' : 'Crossfade Duration'}
+								</Text>
+								<Text type='bodyXS' colorVariant='muted' style={{ marginTop: 2, marginBottom: 8 }}>
+									{crossfadeAdaptiveEnabled
+										? 'Fallback duration when loudness data is unavailable.'
+										: 'How long tracks overlap during transitions.'}
+								</Text>
+								<Div transparent style={styles.gainRow}>
+									<Text type='bodyXS' colorVariant='muted'>1s</Text>
+									<Div transparent style={{ flex: 1, marginHorizontal: 8 }}>
+										<Slider
+											minimumValue={1}
+											maximumValue={12}
+											step={0.5}
+											value={crossfadeDuration}
+											onValueChange={setCrossfadeDuration}
+											minimumTrackTintColor={Colors.brandPrimary}
+											maximumTrackTintColor={Colors.surfaceDark}
+											thumbTintColor={Colors.brandPrimary}
+										/>
+									</Div>
+									<Text type='bodyXS' colorVariant='muted'>12s</Text>
+								</Div>
+								<Div transparent style={{ alignItems: 'center', marginTop: 4 }}>
+									<Text type='link' colorVariant='brand'>
+										{crossfadeDuration.toFixed(1)}s
+									</Text>
+								</Div>
+							</Div>
+						</Div>
+					)}
 				</Div>
 
 				{/* Audio Processing Section */}

@@ -8,6 +8,9 @@ const STORAGE_EQ_PRESET = 'PLAYBACK_EQ_PRESET';
 const STORAGE_OUTPUT_GAIN = 'PLAYBACK_OUTPUT_GAIN';
 const STORAGE_NORMALIZATION = 'PLAYBACK_NORMALIZATION';
 const STORAGE_MONO_AUDIO = 'PLAYBACK_MONO_AUDIO';
+const STORAGE_CROSSFADE_ENABLED = 'PLAYBACK_CROSSFADE_ENABLED';
+const STORAGE_CROSSFADE_DURATION = 'PLAYBACK_CROSSFADE_DURATION';
+const STORAGE_CROSSFADE_ADAPTIVE = 'PLAYBACK_CROSSFADE_ADAPTIVE';
 
 export interface EQBand {
 	frequency: number;
@@ -50,6 +53,9 @@ interface PlaybackSettingsState {
 	outputGainDb: number;
 	normalizationEnabled: boolean;
 	monoAudioEnabled: boolean;
+	crossfadeEnabled: boolean;
+	crossfadeDuration: number;
+	crossfadeAdaptiveEnabled: boolean;
 
 	hydrate: () => Promise<void>;
 	setEqualizerEnabled: (enabled: boolean) => void;
@@ -60,6 +66,9 @@ interface PlaybackSettingsState {
 	setOutputGain: (db: number) => void;
 	setNormalizationEnabled: (enabled: boolean) => void;
 	setMonoAudioEnabled: (enabled: boolean) => void;
+	setCrossfadeEnabled: (enabled: boolean) => void;
+	setCrossfadeDuration: (seconds: number) => void;
+	setCrossfadeAdaptiveEnabled: (enabled: boolean) => void;
 }
 
 function applyBandsToNative(bands: EQBand[]) {
@@ -74,16 +83,22 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	outputGainDb: 0,
 	normalizationEnabled: false,
 	monoAudioEnabled: false,
+	crossfadeEnabled: false,
+	crossfadeDuration: 4,
+	crossfadeAdaptiveEnabled: true,
 
 	hydrate: async () => {
 		try {
-			const [eqEnabledRaw, bandsRaw, presetRaw, gainRaw, normRaw, monoRaw] = await Promise.all([
+			const [eqEnabledRaw, bandsRaw, presetRaw, gainRaw, normRaw, monoRaw, xfEnabledRaw, xfDurationRaw, xfAdaptiveRaw] = await Promise.all([
 				AsyncStorage.getItem(STORAGE_EQ_ENABLED),
 				AsyncStorage.getItem(STORAGE_EQ_BANDS),
 				AsyncStorage.getItem(STORAGE_EQ_PRESET),
 				AsyncStorage.getItem(STORAGE_OUTPUT_GAIN),
 				AsyncStorage.getItem(STORAGE_NORMALIZATION),
 				AsyncStorage.getItem(STORAGE_MONO_AUDIO),
+				AsyncStorage.getItem(STORAGE_CROSSFADE_ENABLED),
+				AsyncStorage.getItem(STORAGE_CROSSFADE_DURATION),
+				AsyncStorage.getItem(STORAGE_CROSSFADE_ADAPTIVE),
 			]);
 
 			const eqEnabled = eqEnabledRaw === '1';
@@ -92,6 +107,14 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			const gainDb = gainRaw ? Number.parseFloat(gainRaw) : 0;
 			const normalization = normRaw === '1';
 			const mono = monoRaw === '1';
+			const crossfadeEnabled = xfEnabledRaw === '1';
+			const crossfadeDuration = xfDurationRaw ? Number.parseFloat(xfDurationRaw) : 4;
+			const crossfadeAdaptive = xfAdaptiveRaw !== '0'; // default true
+
+			// Switch to crossfade engine before applying DSP settings
+			if (crossfadeEnabled) {
+				await TrackPlayer.switchEngine(true).catch(() => {});
+			}
 
 			set({
 				hydrated: true,
@@ -101,6 +124,9 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 				outputGainDb: gainDb,
 				normalizationEnabled: normalization,
 				monoAudioEnabled: mono,
+				crossfadeEnabled,
+				crossfadeDuration,
+				crossfadeAdaptiveEnabled: crossfadeAdaptive,
 			});
 
 			TrackPlayer.setEqualizerEnabled(eqEnabled).catch(() => {});
@@ -108,6 +134,12 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			TrackPlayer.setOutputGain(gainDb).catch(() => {});
 			TrackPlayer.setNormalizationEnabled(normalization).catch(() => {});
 			TrackPlayer.setMonoAudioEnabled(mono).catch(() => {});
+			if (crossfadeEnabled) {
+				TrackPlayer.setCrossfadeConfig({
+					enabled: true,
+					defaultDuration: crossfadeDuration,
+				}).catch(() => {});
+			}
 		} catch {
 			set({ hydrated: true });
 		}
@@ -173,5 +205,38 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		set({ monoAudioEnabled: enabled });
 		TrackPlayer.setMonoAudioEnabled(enabled).catch(() => {});
 		AsyncStorage.setItem(STORAGE_MONO_AUDIO, enabled ? '1' : '0').catch(() => {});
+	},
+
+	setCrossfadeEnabled: (enabled: boolean) => {
+		set({ crossfadeEnabled: enabled });
+		AsyncStorage.setItem(STORAGE_CROSSFADE_ENABLED, enabled ? '1' : '0').catch(() => {});
+		TrackPlayer.switchEngine(enabled).then(() => {
+			if (enabled) {
+				const { crossfadeDuration } = get();
+				TrackPlayer.setCrossfadeConfig({
+					enabled: true,
+					defaultDuration: crossfadeDuration,
+				}).catch(() => {});
+				// Re-apply DSP settings to the new engine
+				const state = get();
+				TrackPlayer.setEqualizerEnabled(state.equalizerEnabled).catch(() => {});
+				applyBandsToNative(state.equalizerBands);
+				TrackPlayer.setOutputGain(state.outputGainDb).catch(() => {});
+				TrackPlayer.setNormalizationEnabled(state.normalizationEnabled).catch(() => {});
+				TrackPlayer.setMonoAudioEnabled(state.monoAudioEnabled).catch(() => {});
+			}
+		}).catch(() => {});
+	},
+
+	setCrossfadeDuration: (seconds: number) => {
+		const clamped = Math.max(1, Math.min(12, Math.round(seconds * 10) / 10));
+		set({ crossfadeDuration: clamped });
+		AsyncStorage.setItem(STORAGE_CROSSFADE_DURATION, String(clamped)).catch(() => {});
+		TrackPlayer.setCrossfadeConfig({ defaultDuration: clamped }).catch(() => {});
+	},
+
+	setCrossfadeAdaptiveEnabled: (enabled: boolean) => {
+		set({ crossfadeAdaptiveEnabled: enabled });
+		AsyncStorage.setItem(STORAGE_CROSSFADE_ADAPTIVE, enabled ? '1' : '0').catch(() => {});
 	},
 }));

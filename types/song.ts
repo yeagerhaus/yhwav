@@ -1,3 +1,13 @@
+export interface LoudnessData {
+	loudness: number;
+	gain: number;
+	peak: number;
+	lra: number;
+	albumGain: number;
+	albumPeak: number;
+	albumRange: number;
+}
+
 export interface Song {
 	id: string;
 	title: string;
@@ -21,4 +31,5 @@ export interface Song {
 	albumLower?: string;
 	// When set, player UI shows podcast controls (15s skip, speed; no queue/next/prev)
 	source?: 'podcast';
+	loudnessData?: LoudnessData;
 }
