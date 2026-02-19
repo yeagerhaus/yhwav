@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColor } from '@/hooks';
 import { useAudioStore } from '@/hooks/useAudioStore';
@@ -71,13 +72,17 @@ export const ExpandedPlayer = React.memo(
 								<Div transparent style={styles.dragHandle} />
 							</Div>
 
-							{queueOpen ? (
-								<QueueList headerComponent={playerUI} />
-							) : (
+						{queueOpen ? (
+							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
+								<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
+							</Animated.View>
+						) : (
+							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
 								<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
 									{playerUI}
 								</MemoizedScrollComponent>
-							)}
+							</Animated.View>
+						)}
 						</Div>
 					</LinearGradient>
 				</LinearGradient>

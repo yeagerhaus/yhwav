@@ -1,23 +1,46 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
+const PRESS_SPRING = { damping: 15, stiffness: 400 } as const;
+
 export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	const insets = useSafeAreaInsets();
+	const pressScale = useSharedValue(1);
 
-	// Calculate bottom position considering tab bar height
 	const bottomPosition = Platform.OS === 'ios' ? insets.bottom + 57 : 60;
 
+	const animatedStyle = useAnimatedStyle(() => ({
+		flex: 1,
+		transform: [{ scale: pressScale.value }],
+	}));
+
+	const handlePressIn = useCallback(() => {
+		pressScale.value = withSpring(0.97, PRESS_SPRING);
+	}, [pressScale]);
+
+	const handlePressOut = useCallback(() => {
+		pressScale.value = withSpring(1, PRESS_SPRING);
+	}, [pressScale]);
+
 	return (
-		<Pressable onPress={onPress} style={[styles.container, { bottom: bottomPosition }]}>
-			<Div useGlass style={styles.content}>
-				<MiniPlayerContent />
-			</Div>
+		<Pressable
+			onPress={onPress}
+			onPressIn={handlePressIn}
+			onPressOut={handlePressOut}
+			style={[styles.container, { bottom: bottomPosition }]}
+		>
+			<Animated.View style={animatedStyle}>
+				<Div useGlass style={styles.content}>
+					<MiniPlayerContent />
+				</Div>
+			</Animated.View>
 		</Pressable>
 	);
 }

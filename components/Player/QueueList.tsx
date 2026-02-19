@@ -9,12 +9,15 @@ import { Text } from '../Text';
 
 interface QueueListProps {
 	headerComponent: React.ReactElement;
+	onToggleQueue?: () => void;
 }
 
-export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
+export const QueueList = React.memo(({ headerComponent, onToggleQueue }: QueueListProps) => {
 	const listRef = useRef<any>(null);
 	const playerHeight = useRef(0);
 	const hasScrolled = useRef(false);
+	const initialScrollDone = useRef(false);
+	const hasDismissed = useRef(false);
 
 	const handlePlayerLayout = useCallback((e: LayoutChangeEvent) => {
 		playerHeight.current = e.nativeEvent.layout.height;
@@ -22,9 +25,24 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 			hasScrolled.current = true;
 			setTimeout(() => {
 				listRef.current?.scrollToOffset({ offset: playerHeight.current, animated: true });
+				setTimeout(() => {
+					initialScrollDone.current = true;
+				}, 350);
 			}, 100);
 		}
 	}, []);
+
+	const handleScroll = useCallback(
+		(event: { nativeEvent: { contentOffset: { y: number } } }) => {
+			if (!initialScrollDone.current || hasDismissed.current || !onToggleQueue) return;
+			const offsetY = event.nativeEvent.contentOffset.y;
+			if (playerHeight.current > 0 && offsetY < playerHeight.current * 0.3) {
+				hasDismissed.current = true;
+				onToggleQueue();
+			}
+		},
+		[onToggleQueue],
+	);
 
 	const queue = useAudioStore((s) => s.queue);
 	const currentSong = useAudioStore((s) => s.currentSong);
@@ -152,6 +170,8 @@ export const QueueList = React.memo(({ headerComponent }: QueueListProps) => {
 			keyExtractor={keyExtractor}
 			renderItem={renderItem}
 			onDragEnd={handleReorder}
+			onScroll={handleScroll}
+			scrollEventThrottle={16}
 			ListHeaderComponent={listHeader}
 			ListEmptyComponent={emptyComponent}
 			contentContainerStyle={styles.contentContainer}

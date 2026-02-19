@@ -1,11 +1,16 @@
 import type React from 'react';
 import { createContext, useContext } from 'react';
-import { type SharedValue, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Easing, type SharedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 
 interface RootScaleContextType {
 	scale: SharedValue<number>;
 	setScale: (value: number) => void;
 }
+
+const SCALE_TIMING = {
+	duration: 300,
+	easing: Easing.out(Easing.cubic),
+} as const;
 
 const RootScaleContext = createContext<RootScaleContextType | null>(null);
 
@@ -15,11 +20,7 @@ export function RootScaleProvider({ children }: { children: React.ReactNode }) {
 	const setScale = (value: number) => {
 		'worklet';
 		try {
-			scale.value = withSpring(value, {
-				damping: 15,
-				stiffness: 150,
-				mass: 0.5, // Added for smoother animation
-			});
+			scale.value = withTiming(value, SCALE_TIMING);
 		} catch (error) {
 			console.warn('Scale animation error:', error);
 			scale.value = value;

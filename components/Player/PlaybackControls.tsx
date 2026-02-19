@@ -1,8 +1,28 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { Div } from '../Div';
+
+const PRESS_DOWN = { duration: 80 } as const;
+const PRESS_UP = { duration: 150 } as const;
+
+function AnimatedButton({ onPress, style, children }: { onPress: () => void; style?: any; children: React.ReactNode }) {
+	const scale = useSharedValue(1);
+	const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+	const handleIn = useCallback(() => {
+		scale.value = withTiming(0.85, PRESS_DOWN);
+	}, [scale]);
+	const handleOut = useCallback(() => {
+		scale.value = withTiming(1, PRESS_UP);
+	}, [scale]);
+	return (
+		<Pressable onPress={onPress} onPressIn={handleIn} onPressOut={handleOut} style={style}>
+			<Animated.View style={animStyle}>{children}</Animated.View>
+		</Pressable>
+	);
+}
 
 export const PlaybackControls = React.memo(() => {
 	const currentSong = useAudioStore((state) => state.currentSong);
@@ -17,15 +37,15 @@ export const PlaybackControls = React.memo(() => {
 
 	return (
 		<Div transparent style={styles.buttonContainer}>
-			<Pressable style={styles.button} onPress={isPodcast ? skipBackward15 : skipToPrevious}>
+			<AnimatedButton style={styles.button} onPress={isPodcast ? skipBackward15 : skipToPrevious}>
 				<SymbolView name={isPodcast ? 'gobackward.15' : 'backward.fill'} type='hierarchical' size={35} tintColor='#fff' />
-			</Pressable>
-			<Pressable style={[styles.button, styles.playButton]} onPress={togglePlayPause}>
+			</AnimatedButton>
+			<AnimatedButton style={[styles.button, styles.playButton]} onPress={togglePlayPause}>
 				<SymbolView name={isPlaying ? 'pause.fill' : 'play.fill'} type='hierarchical' size={40} tintColor='#fff' />
-			</Pressable>
-			<Pressable style={styles.button} onPress={isPodcast ? skipForward15 : skipToNext}>
+			</AnimatedButton>
+			<AnimatedButton style={styles.button} onPress={isPodcast ? skipForward15 : skipToNext}>
 				<SymbolView name={isPodcast ? 'goforward.15' : 'forward.fill'} type='hierarchical' size={35} tintColor='#fff' />
-			</Pressable>
+			</AnimatedButton>
 		</Div>
 	);
 });

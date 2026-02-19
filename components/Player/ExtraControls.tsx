@@ -1,10 +1,30 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { RepeatMode } from '@/lib/playerAdapter';
+
+const PRESS_DOWN = { duration: 80 } as const;
+const PRESS_UP = { duration: 150 } as const;
+
+function AnimatedIconButton({ onPress, style, children }: { onPress?: () => void; style?: any; children: React.ReactNode }) {
+	const scale = useSharedValue(1);
+	const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+	const handleIn = useCallback(() => {
+		scale.value = withTiming(0.8, PRESS_DOWN);
+	}, [scale]);
+	const handleOut = useCallback(() => {
+		scale.value = withTiming(1, PRESS_UP);
+	}, [scale]);
+	return (
+		<Pressable onPress={onPress} onPressIn={handleIn} onPressOut={handleOut} style={style}>
+			<Animated.View style={animStyle}>{children}</Animated.View>
+		</Pressable>
+	);
+}
 
 const SPEED_OPTIONS = [0.5, 1, 1.25, 1.5, 2];
 
@@ -62,15 +82,15 @@ export const ExtraControls = React.memo(({ queueOpen, onToggleQueue }: ExtraCont
 
 	return (
 		<Div transparent style={styles.extraControls}>
-			<Pressable style={styles.extraControlButton} onPress={toggleShuffle}>
+			<AnimatedIconButton style={styles.extraControlButton} onPress={toggleShuffle}>
 				<SymbolView name='shuffle' size={30} tintColor={getShuffleColor()} />
-			</Pressable>
-			<Pressable style={styles.extraControlButton} onPress={onToggleQueue}>
+			</AnimatedIconButton>
+			<AnimatedIconButton style={styles.extraControlButton} onPress={onToggleQueue}>
 				<SymbolView name='list.bullet' size={30} tintColor={getQueueColor()} />
-			</Pressable>
-			<Pressable style={styles.extraControlButton} onPress={toggleRepeat}>
+			</AnimatedIconButton>
+			<AnimatedIconButton style={styles.extraControlButton} onPress={toggleRepeat}>
 				<SymbolView name={getRepeatIcon()} size={30} tintColor={getRepeatColor()} />
-			</Pressable>
+			</AnimatedIconButton>
 		</Div>
 	);
 });
