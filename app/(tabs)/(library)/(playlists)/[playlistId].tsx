@@ -153,7 +153,10 @@ export default function DetailScreen() {
 	}, [playlist, playlists, setPlaylists]);
 
 	const keyExtractor = useCallback((item: Song) => item.id, []);
-	const renderItem = useCallback(({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} />, [songs]);
+	const renderItem = useCallback(
+		({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} playlistRatingKey={ratingKey} />,
+		[songs, ratingKey],
+	);
 	const getItemLayout = useCallback(
 		(_: any, index: number) => ({
 			length: ITEM_HEIGHT,

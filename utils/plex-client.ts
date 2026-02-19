@@ -827,6 +827,21 @@ export class PlexClient {
 	/**
 	 * Format a Plex playlist into our Playlist type
 	 */
+	/**
+	 * Mark a track as played (scrobble) — updates lastViewedAt and viewCount on Plex
+	 */
+	async scrobble(ratingKey: string): Promise<void> {
+		await this.initialize();
+		await this.request(
+			'/:/scrobble',
+			{
+				identifier: 'com.plexapp.plugins.library',
+				key: ratingKey,
+			},
+			{ retries: 0, timeout: 10000 },
+		);
+	}
+
 	private formatPlaylist(playlist: any): Playlist {
 		// Build artwork URL
 		const artworkUrl = playlist.thumb ? this.buildURL(playlist.thumb) : undefined;
@@ -842,6 +857,7 @@ export class PlexClient {
 			leafCount: parseInt(playlist.leafCount || '0', 10),
 			createdAt: playlist.addedAt,
 			updatedAt: playlist.updatedAt,
+			lastViewedAt: playlist.lastViewedAt ? parseInt(playlist.lastViewedAt) : undefined,
 			smart: playlist.smart === '1',
 			composite: playlist.composite,
 			ratingKey: playlist.ratingKey,
@@ -876,3 +892,4 @@ export const addToPlaylist = (playlistId: string, ratingKeys: string[]) => plexC
 export const removeFromPlaylist = (playlistId: string, playlistItemId: string) => plexClient.removeFromPlaylist(playlistId, playlistItemId);
 export const movePlaylistItem = (playlistId: string, playlistItemId: string, afterPlaylistItemId?: string) =>
 	plexClient.movePlaylistItem(playlistId, playlistItemId, afterPlaylistItemId);
+export const scrobble = (ratingKey: string) => plexClient.scrobble(ratingKey);

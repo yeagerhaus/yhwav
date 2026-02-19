@@ -9,6 +9,7 @@ export interface Playlist {
 	leafCount?: number;
 	createdAt?: string;
 	updatedAt?: string;
+	lastViewedAt?: number;
 	smart?: boolean;
 	composite?: string;
 	ratingKey: string;

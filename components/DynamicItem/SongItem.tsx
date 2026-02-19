@@ -17,7 +17,7 @@ import { Div } from '../Div';
 
 // Memoized component to prevent unnecessary re-renders
 const SongItem = React.memo(
-	({ item, queue, listItem }: { item: Song; queue?: Song[]; listItem?: boolean }) => {
+	({ item, queue, listItem, playlistRatingKey }: { item: Song; queue?: Song[]; listItem?: boolean; playlistRatingKey?: string }) => {
 		const colorScheme = useColorScheme();
 		const playbackState = usePlaybackState();
 		const { artists } = useArtists();
@@ -40,9 +40,9 @@ const SongItem = React.memo(
 
 		const playSong = useCallback(
 			async (song: Song) => {
-				await playSound(song, queue);
+				await playSound(song, queue, playlistRatingKey ? { playlistRatingKey } : undefined);
 			},
-			[playSound, queue],
+			[playSound, queue, playlistRatingKey],
 		);
 
 		// Find matching artist/album by name to get their ratingKey for navigation
@@ -240,7 +240,8 @@ const SongItem = React.memo(
 			prevProps.item.title === nextProps.item.title &&
 			prevProps.item.artist === nextProps.item.artist &&
 			prevProps.listItem === nextProps.listItem &&
-			prevProps.queue?.length === nextProps.queue?.length
+			prevProps.queue?.length === nextProps.queue?.length &&
+			prevProps.playlistRatingKey === nextProps.playlistRatingKey
 		);
 	},
 );
