@@ -67,23 +67,23 @@ export const ExpandedPlayer = React.memo(
 						start={{ x: 1, y: 0 }}
 						end={{ x: 0, y: 1 }}
 					>
-						<Div style={{ ...styles.rootContainer, zIndex: 1000 }} transparent>
-							<Div transparent style={styles.dragHandleContainer}>
-								<Div transparent style={styles.dragHandle} />
-							</Div>
+					<Div style={styles.innerContainer} transparent>
+						<Div transparent style={styles.dragHandleContainer}>
+							<Div transparent style={styles.dragHandle} />
+						</Div>
 
 						{queueOpen ? (
-							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
+							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
 								<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
 							</Animated.View>
 						) : (
-							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={{ flex: 1 }}>
+							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
 								<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
 									{playerUI}
 								</MemoizedScrollComponent>
 							</Animated.View>
 						)}
-						</Div>
+					</Div>
 					</LinearGradient>
 				</LinearGradient>
 			</Div>
@@ -105,6 +105,17 @@ const styles = StyleSheet.create({
 		width: '100%',
 		borderTopLeftRadius: 40,
 		borderTopRightRadius: 40,
+	},
+	innerContainer: {
+		flex: 1,
+		height: '100%',
+		width: '100%',
+		borderTopLeftRadius: 40,
+		borderTopRightRadius: 40,
+		zIndex: 1000,
+	},
+	flex1: {
+		flex: 1,
 	},
 	dragHandleContainer: {
 		paddingBottom: 14,

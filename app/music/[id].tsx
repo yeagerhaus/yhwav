@@ -262,9 +262,9 @@ function MusicScreen() {
 	}, [setScale]);
 
 	return (
-		<Div style={{ flex: 1, backgroundColor: 'transparent' }}>
+		<Div style={staticStyles.root}>
 			<StatusBar animated={true} style={statusBarStyle.value} />
-			<Animated.View style={[{ flex: 1, backgroundColor: 'transparent', overflow: 'hidden' }, animatedStyle]}>
+			<Animated.View style={[staticStyles.playerContainer, animatedStyle]}>
 				<ExpandedPlayer
 					scrollComponent={queueOpen ? undefined : ScrollComponent}
 					queueOpen={queueOpen}
@@ -275,5 +275,9 @@ function MusicScreen() {
 	);
 }
 
-// Wrap with React.memo for better performance
+const staticStyles = {
+	root: { flex: 1, backgroundColor: 'transparent' },
+	playerContainer: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' as const },
+} as const;
+
 export default React.memo(MusicScreen);

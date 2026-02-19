@@ -1,14 +1,15 @@
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback } from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
 
-const PRESS_SPRING = { damping: 15, stiffness: 400 } as const;
+const PRESS_DOWN = { duration: 80 } as const;
+const PRESS_UP = { duration: 150 } as const;
 
 export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	const insets = useSafeAreaInsets();
@@ -22,11 +23,11 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 	}));
 
 	const handlePressIn = useCallback(() => {
-		pressScale.value = withSpring(0.97, PRESS_SPRING);
+		pressScale.value = withTiming(0.97, PRESS_DOWN);
 	}, [pressScale]);
 
 	const handlePressOut = useCallback(() => {
-		pressScale.value = withSpring(1, PRESS_SPRING);
+		pressScale.value = withTiming(1, PRESS_UP);
 	}, [pressScale]);
 
 	return (
