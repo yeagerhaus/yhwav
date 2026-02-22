@@ -1,105 +1,62 @@
-# YH Wav
+# yhwav
 
-A music player for Plex, built with Expo and React Native.
+Plex music player built with Expo and React Native. iOS only.
 
-## Tech Stack
+## Stack
 
-| Library | Version |
-|---------|---------|
-| Expo | 54 |
-| React | 19 |
-| React Native | 0.81 |
-| expo-router | 6 |
-| react-native-track-player | 4 |
-| Zustand | 5 |
-| Reanimated | 4 |
-| Biome | 2 |
-| TypeScript | 5.9 |
-| Bun | runtime + package manager |
+| | |
+|-|-|
+| Expo 54 / React Native 0.81 | React 19 |
+| expo-router 6 | Zustand 5 |
+| Reanimated 4 | Biome 2 / TypeScript 5.9 |
+| Bun | Custom native audio module (AVQueuePlayer) |
 
-## Getting Started
+## Setup
 
-**Prerequisites:** Bun, Xcode with iOS Simulator, a Plex Media Server with a music library.
+Requires Bun, Xcode with iOS Simulator, and a Plex server with music.
 
 ```bash
-bun prep    # install deps + pod install
-bun start   # start Metro + launch iOS simulator
+bun prep    # install deps + pods
+bun start   # metro + dev client
 ```
 
-**Authentication:** PIN-based, no env vars needed. Open the app, go to Settings, tap "Sign in with Plex", and enter the PIN at plex.tv/activate. The app auto-discovers your servers.
+Auth is PIN-based — no env vars needed. Sign in via Settings > Sign in with Plex, then enter the PIN at plex.tv/activate.
 
 ## Scripts
 
-| Command | Description |
+| Command | What it does |
 |---------|-------------|
-| `bun start` | Start Metro + launch iOS simulator |
-| `bun prep` | Install deps + pod install |
-| `bun b` | EAS build (iOS dev client) |
-| `bun kill` | Kill process on port 8081 |
-| `bun clean` | Remove node_modules, Pods, .expo |
+| `bun start` | Metro + dev client |
+| `bun prep` | Install deps + pods |
+| `bun b` | EAS build (iOS dev profile) |
+| `bun kill` | Kill port 8081 |
+| `bun clean` | Nuke node_modules, Pods, .expo |
 | `bun up` | Update deps + Expo version check |
-| `bun check:tsc` | TypeScript type check |
-| `bun check:biome` | Biome lint + format |
-| `bun check:all` | Run tsc + biome |
+| `bun check:all` | tsc + biome |
 
-## Features
-
-- Stream music from Plex Media Server
-- Browse by artists, albums, songs, and playlists
-- Search with hub-based category results
-- Queue management with persistence across restarts
-- Lock screen and Control Center controls
-- Background playback
-- Dynamic colors extracted from album artwork
-- Gesture-based navigation (swipe dismiss, drag seek, pull to refresh)
-- Animated transitions with Reanimated
-
-## Project Structure
+## Structure
 
 ```
-yhwav/
-├── app/                        # expo-router file-based routing
-│   ├── (tabs)/
-│   │   ├── (library)/          # artists, albums, playlists, songs
-│   │   ├── search/             # search screen
-│   │   └── settings.tsx
-│   └── music/[id].tsx          # full-screen player modal
-├── components/
-│   ├── BottomSheet/            # mini + expanded player
-│   ├── Player/                 # audio controls, progress, artwork
-│   ├── DynamicItem/            # list/grid item renderers
-│   ├── SearchItem/             # search result items
-│   ├── Overlay/                # overlays
-│   └── navigation/             # tab bar, headers
-├── ctx/
-│   └── RootScaleContext.tsx     # modal scale animation context
-├── hooks/                      # useLibraryStore, useAudioStore, useSearchStore, etc.
-├── utils/                      # Plex API client, auth, discovery, caching
-├── constants/                  # API config, colors
-├── types/                      # TypeScript types (song, album, artist, playlist)
-└── tools/run.ts                # custom Bun dev entry point
+app/                    # file-based routing (expo-router)
+  (tabs)/
+    (library)/          # artists, albums, playlists, songs
+    (podcasts)/         # podcast screens
+    (settings)/         # settings
+    search/             # search
+  music/[id].tsx        # full-screen player modal
+components/             # BottomSheet, Player, DynamicItem, navigation, etc.
+hooks/                  # Zustand stores (library, audio, search, playback settings)
+utils/                  # Plex API client, auth, discovery, caching, scrobble queue
+modules/yhwav-audio/    # custom Expo module — gapless playback via AVQueuePlayer
+constants/              # API config, colors
+types/                  # shared TypeScript types
+tools/run.ts            # dev entry script
 ```
 
-## Architecture
+## Audio
 
-### State Management
-All global state is in Zustand stores: `useLibraryStore` (library data + fetching), `useAudioStore` (playback state, queue, TrackPlayer sync), and `useSearchStore` (search queries + results). Queue and playback position are persisted to AsyncStorage.
-
-### Audio System
-`react-native-track-player` handles native audio. The audio store manages queue operations, track restoration on cold start, and remote control events (lock screen, Control Center).
-
-### UI
-Gesture-driven navigation via `react-native-gesture-handler`. Animated transitions with Reanimated (player sheet, modal scaling). Album artwork colors extracted with `react-native-image-colors` for dynamic theming.
-
-## Platforms
-
-- iOS — primary, fully supported
-- Web — not supported
-
-## Author
-
-Made by [Cole Yeager](https://github.com/cole-yeager)
+Playback uses a custom native module (`yhwav-audio`) wrapping AVQueuePlayer for gapless playback. Queue state and playback position persist across restarts via AsyncStorage.
 
 ## License
 
-This project is private and proprietary.
+Private and proprietary.
