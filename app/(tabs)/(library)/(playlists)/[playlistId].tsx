@@ -41,10 +41,7 @@ export default function DetailScreen() {
 	const removePlaylistForOffline = useMusicDownloadsStore((s) => s.removePlaylistForOffline);
 	const downloadedPlaylists = useMusicDownloadsStore((s) => s.downloadedPlaylists);
 
-	const downloadedCount = useMemo(
-		() => songs.filter((s) => !!dlDownloads[s.id]).length,
-		[songs, dlDownloads],
-	);
+	const downloadedCount = useMemo(() => songs.filter((s) => !!dlDownloads[s.id]).length, [songs, dlDownloads]);
 	const isFullyDownloaded = songs.length > 0 && downloadedCount === songs.length;
 	const isDlActive = useMemo(
 		() => songs.some((s) => dlDownloading.has(s.id) || dlQueue.some((q) => q.id === s.id)),
@@ -74,7 +71,7 @@ export default function DetailScreen() {
 
 		const loadPlaylistData = async () => {
 			// Try library playlists first, then check offline store
-			let foundPlaylist = playlists.find((p) => p.key === playlistId || p.id === playlistId);
+			const foundPlaylist = playlists.find((p) => p.key === playlistId || p.id === playlistId);
 			const offlinePlaylist = downloadedPlaylists[playlistId];
 
 			if (foundPlaylist) {
@@ -276,7 +273,23 @@ export default function DetailScreen() {
 				</Div>
 			</Div>
 		),
-		[artwork, playlist, editor.isEditing, editor.isSaving, editTitle, handleEdit, handleCancel, handleSave, handleDelete, songs, isDlActive, isFullyDownloaded, dlLabel, handleDownloadPlaylist, isOffline],
+		[
+			artwork,
+			playlist,
+			editor.isEditing,
+			editor.isSaving,
+			editTitle,
+			handleEdit,
+			handleCancel,
+			handleSave,
+			handleDelete,
+			songs,
+			isDlActive,
+			isFullyDownloaded,
+			dlLabel,
+			handleDownloadPlaylist,
+			isOffline,
+		],
 	);
 
 	if (editor.isEditing) {

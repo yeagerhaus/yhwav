@@ -10,7 +10,7 @@ interface AppearanceState {
 	hydrate: () => Promise<void>;
 }
 
-export const useAppearanceStore = create<AppearanceState>((set, get) => ({
+export const useAppearanceStore = create<AppearanceState>((set, _get) => ({
 	showPodcastsTab: true,
 	hydrated: false,
 

@@ -145,17 +145,17 @@ export function SongProgressBar() {
 						justifyContent: 'center',
 					}}
 				>
-				<Animated.View
-					style={[
-						trackHeightStyle,
-						{
-							width: '100%',
-							borderRadius: 30,
-							backgroundColor: 'rgba(255, 255, 255, 0.3)',
-							justifyContent: 'center',
-						},
-					]}
-				>
+					<Animated.View
+						style={[
+							trackHeightStyle,
+							{
+								width: '100%',
+								borderRadius: 30,
+								backgroundColor: 'rgba(255, 255, 255, 0.3)',
+								justifyContent: 'center',
+							},
+						]}
+					>
 						<Animated.View
 							style={[animatedStyle, { height: '100%', borderRadius: 30, backgroundColor: '#fff', position: 'relative' }]}
 						>
@@ -179,8 +179,8 @@ export function SongProgressBar() {
 									},
 								]}
 							/>
+						</Animated.View>
 					</Animated.View>
-				</Animated.View>
 				</Animated.View>
 			</GestureDetector>
 		</Div>

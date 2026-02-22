@@ -109,11 +109,12 @@ const SongItem = React.memo(
 			},
 		];
 
-		const downloadIndicator = downloading || queued ? (
-			<ActivityIndicator size='small' color={Colors.brandPrimary} style={{ marginLeft: 4 }} />
-		) : downloaded ? (
-			<SymbolView name='arrow.down.circle.fill' size={14} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
-		) : null;
+		const downloadIndicator =
+			downloading || queued ? (
+				<ActivityIndicator size='small' color={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+			) : downloaded ? (
+				<SymbolView name='arrow.down.circle.fill' size={14} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+			) : null;
 
 		if (listItem) {
 			return (

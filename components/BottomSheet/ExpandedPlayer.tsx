@@ -67,23 +67,23 @@ export const ExpandedPlayer = React.memo(
 						start={{ x: 1, y: 0 }}
 						end={{ x: 0, y: 1 }}
 					>
-					<Div style={styles.innerContainer} transparent>
-						<Div transparent style={styles.dragHandleContainer}>
-							<Div transparent style={styles.dragHandle} />
-						</Div>
+						<Div style={styles.innerContainer} transparent>
+							<Div transparent style={styles.dragHandleContainer}>
+								<Div transparent style={styles.dragHandle} />
+							</Div>
 
-						{queueOpen ? (
-							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
-								<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
-							</Animated.View>
-						) : (
-							<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
-								<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-									{playerUI}
-								</MemoizedScrollComponent>
-							</Animated.View>
-						)}
-					</Div>
+							{queueOpen ? (
+								<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
+									<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
+								</Animated.View>
+							) : (
+								<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
+									<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+										{playerUI}
+									</MemoizedScrollComponent>
+								</Animated.View>
+							)}
+						</Div>
 					</LinearGradient>
 				</LinearGradient>
 			</Div>

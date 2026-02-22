@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect } from 'react';
-import { StyleSheet, View, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
@@ -15,9 +15,7 @@ export function SkeletonCard({ size = 175 }: SkeletonCardProps) {
 	const isDark = colorScheme === 'dark';
 
 	const baseColor = isDark ? '#1a1a1a' : '#e8e8e8';
-	const shimmerColors = isDark
-		? (['#1a1a1a', '#2a2a2a', '#1a1a1a'] as const)
-		: (['#e8e8e8', '#f5f5f5', '#e8e8e8'] as const);
+	const shimmerColors = isDark ? (['#1a1a1a', '#2a2a2a', '#1a1a1a'] as const) : (['#e8e8e8', '#f5f5f5', '#e8e8e8'] as const);
 
 	useEffect(() => {
 		translateX.value = withRepeat(withTiming(size, { duration: 1200 }), -1, false);

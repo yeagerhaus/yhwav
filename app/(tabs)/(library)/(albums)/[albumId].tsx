@@ -1,5 +1,5 @@
-import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import ImageColors from 'react-native-image-colors';
@@ -63,10 +63,7 @@ export default function AlbumDetailScreen() {
 		}
 	}, [artwork, albumId]);
 
-	const downloadedCount = useMemo(
-		() => songs.filter((s) => !!downloads[s.id]).length,
-		[songs, downloads],
-	);
+	const downloadedCount = useMemo(() => songs.filter((s) => !!downloads[s.id]).length, [songs, downloads]);
 	const isFullyDownloaded = songs.length > 0 && downloadedCount === songs.length;
 	const isActive = useMemo(
 		() => songs.some((s) => downloading.has(s.id) || queue.some((q) => q.id === s.id)),

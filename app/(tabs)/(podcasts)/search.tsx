@@ -1,20 +1,9 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-	ActivityIndicator,
-	Alert,
-	FlatList,
-	Image,
-	Keyboard,
-	Pressable,
-	StyleSheet,
-	TextInput,
-	useColorScheme,
-} from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Div } from '@/components';
-import { Text } from '@/components';
+import { Div, Text } from '@/components';
 import { Colors } from '@/constants';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { type ITunesPodcastResult, searchPodcasts } from '@/utils/itunes-search';
@@ -68,10 +57,7 @@ export default function PodcastSearchScreen() {
 		};
 	}, [query]);
 
-	const isAlreadyAdded = useCallback(
-		(feedUrl: string) => feeds.some((f) => f.url === feedUrl),
-		[feeds],
-	);
+	const isAlreadyAdded = useCallback((feedUrl: string) => feeds.some((f) => f.url === feedUrl), [feeds]);
 
 	const handleAdd = useCallback(
 		async (item: ITunesPodcastResult) => {
@@ -95,10 +81,7 @@ export default function PodcastSearchScreen() {
 
 			return (
 				<Pressable style={styles.resultRow} onPress={() => handleAdd(item)} disabled={added || isAdding}>
-					<Image
-						source={{ uri: item.artworkUrl100 }}
-						style={styles.artwork}
-					/>
+					<Image source={{ uri: item.artworkUrl100 }} style={styles.artwork} />
 					<Div transparent style={styles.resultInfo}>
 						<Text style={[styles.resultTitle, { color: textColor }]} numberOfLines={1}>
 							{item.trackName}
@@ -182,9 +165,7 @@ export default function PodcastSearchScreen() {
 					contentContainerStyle={styles.listContent}
 					keyboardDismissMode='on-drag'
 					onScrollBeginDrag={() => Keyboard.dismiss()}
-					ListFooterComponent={
-						loading ? <ActivityIndicator style={{ marginVertical: 16 }} color={Colors.brandPrimary} /> : null
-					}
+					ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} color={Colors.brandPrimary} /> : null}
 				/>
 			)}
 		</SafeAreaView>

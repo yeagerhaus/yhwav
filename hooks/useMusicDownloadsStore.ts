@@ -105,7 +105,10 @@ async function persistAlbums(albums: Record<string, Album>) {
 	await AsyncStorage.setItem(ALBUMS_STORAGE_KEY, JSON.stringify(Object.values(albums)));
 }
 
-async function processQueue(get: () => MusicDownloadsState, set: (partial: Partial<MusicDownloadsState> | ((s: MusicDownloadsState) => Partial<MusicDownloadsState>)) => void) {
+async function processQueue(
+	get: () => MusicDownloadsState,
+	set: (partial: Partial<MusicDownloadsState> | ((s: MusicDownloadsState) => Partial<MusicDownloadsState>)) => void,
+) {
 	if (processing) return;
 	processing = true;
 
@@ -335,13 +338,17 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		};
 		const { artistsById, artists, albumsById } = libState;
 
-		console.log(`[snapshot] library has ${Object.keys(artistsById).length} artistsById, ${artists.length} artists array, ${Object.keys(albumsById).length} albumsById`);
+		console.log(
+			`[snapshot] library has ${Object.keys(artistsById).length} artistsById, ${artists.length} artists array, ${Object.keys(albumsById).length} albumsById`,
+		);
 		if (artists.length > 0) {
 			console.log(`[snapshot] sample artist keys from artistsById:`, Object.keys(artistsById).slice(0, 5));
 		}
 
 		const { downloadedArtists, downloadedAlbums } = get();
-		console.log(`[snapshot] already have ${Object.keys(downloadedArtists).length} downloadedArtists, ${Object.keys(downloadedAlbums).length} downloadedAlbums`);
+		console.log(
+			`[snapshot] already have ${Object.keys(downloadedArtists).length} downloadedArtists, ${Object.keys(downloadedAlbums).length} downloadedAlbums`,
+		);
 
 		let artistsChanged = false;
 		let albumsChanged = false;
@@ -370,7 +377,9 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 				}
 				if (artist) {
 					if (!nextArtists[artist.key]) {
-						console.log(`[snapshot]   ✅ saving artist key="${artist.key}" name="${artist.name}" thumb=${!!artist.thumb} art=${!!(artist as any).art}`);
+						console.log(
+							`[snapshot]   ✅ saving artist key="${artist.key}" name="${artist.name}" thumb=${!!artist.thumb} art=${!!(artist as any).art}`,
+						);
 						nextArtists[artist.key] = artist;
 						artistsChanged = true;
 					} else {
@@ -384,9 +393,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			const albumKey = `${song.album}\0${song.artist}`;
 			if (!seenAlbumKeys.has(albumKey)) {
 				seenAlbumKeys.add(albumKey);
-				const album = Object.values(albumsById).find(
-					(a) => a.title === song.album && a.artist === song.artist,
-				);
+				const album = Object.values(albumsById).find((a) => a.title === song.album && a.artist === song.artist);
 				if (album && !nextAlbums[album.id]) {
 					console.log(`[snapshot]   ✅ saving album id="${album.id}" title="${album.title}"`);
 					nextAlbums[album.id] = album;

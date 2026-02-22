@@ -49,9 +49,14 @@ export default function PodcastsScreen() {
 
 	const handleAddByUrl = useCallback(() => {
 		if (Platform.OS === 'ios') {
-			Alert.prompt('Add by RSS URL', 'Enter the podcast RSS feed URL', (url) => {
-				if (url?.trim()) addFeed(url.trim()).catch(() => {});
-			}, 'plain-text');
+			Alert.prompt(
+				'Add by RSS URL',
+				'Enter the podcast RSS feed URL',
+				(url) => {
+					if (url?.trim()) addFeed(url.trim()).catch(() => {});
+				},
+				'plain-text',
+			);
 		} else {
 			Alert.alert('Add by RSS URL', 'Enter the RSS feed URL in the input when supported.');
 		}

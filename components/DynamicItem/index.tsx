@@ -22,7 +22,18 @@ export interface DynamicItemProps {
 	playlistRatingKey?: string;
 }
 
-export function DynamicItem({ item, type, onPress, queue, listItem, size, showTitle, showImageUrl, feed, playlistRatingKey }: DynamicItemProps) {
+export function DynamicItem({
+	item,
+	type,
+	onPress,
+	queue,
+	listItem,
+	size,
+	showTitle,
+	showImageUrl,
+	feed,
+	playlistRatingKey,
+}: DynamicItemProps) {
 	switch (type) {
 		case 'list':
 			return <ListItem item={item} onPress={onPress} />;

@@ -31,9 +31,7 @@ function optimisticPlaylistUpdate(playlistRatingKey: string) {
 	const { useLibraryStore } = require('@/hooks/useLibraryStore');
 	const playlists: Playlist[] = useLibraryStore.getState().playlists;
 	const now = Math.floor(Date.now() / 1000);
-	const updated = playlists.map((p: Playlist) =>
-		p.ratingKey === playlistRatingKey ? { ...p, lastViewedAt: now } : p,
-	);
+	const updated = playlists.map((p: Playlist) => (p.ratingKey === playlistRatingKey ? { ...p, lastViewedAt: now } : p));
 	useLibraryStore.getState().setPlaylists(updated);
 }
 

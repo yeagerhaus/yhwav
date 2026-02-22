@@ -16,9 +16,9 @@ import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
-import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -157,20 +157,14 @@ export default function RootLayout() {
 					initScrobbleQueue().catch(() => {});
 
 					const backgroundRefreshAll = () => {
-						Promise.all([
-							fetchAllTracks(),
-							fetchAllAlbums(),
-							fetchAllArtists(),
-							fetchAllPlaylists(),
-						fetchRecentlyPlayed(15),
-					])
-						.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
-							if (tracks.length > 0) setTracks(tracks);
-							if (albums.length > 0) setAlbums(albums);
-							if (artists.length > 0) setArtists(artists);
-							if (playlists.length > 0) setPlaylists(playlists);
-							if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
-							console.log(`🔄 Background refresh complete: ${tracks.length} tracks`);
+						Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
+							.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
+								if (tracks.length > 0) setTracks(tracks);
+								if (albums.length > 0) setAlbums(albums);
+								if (artists.length > 0) setArtists(artists);
+								if (playlists.length > 0) setPlaylists(playlists);
+								if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
+								console.log(`🔄 Background refresh complete: ${tracks.length} tracks`);
 								InteractionManager.runAfterInteractions(() => {
 									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
 								});
@@ -179,20 +173,14 @@ export default function RootLayout() {
 					};
 
 					if (!hydrated) {
-						Promise.all([
-							fetchAllTracks(),
-							fetchAllAlbums(),
-							fetchAllArtists(),
-							fetchAllPlaylists(),
-						fetchRecentlyPlayed(15),
-					])
-						.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
-							if (tracks.length > 0) setTracks(tracks);
-							if (albums.length > 0) setAlbums(albums);
-							if (artists.length > 0) setArtists(artists);
-							if (playlists.length > 0) setPlaylists(playlists);
-							if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
-							console.log(`✅ Initial fetch complete: ${tracks.length} tracks`);
+						Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
+							.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
+								if (tracks.length > 0) setTracks(tracks);
+								if (albums.length > 0) setAlbums(albums);
+								if (artists.length > 0) setArtists(artists);
+								if (playlists.length > 0) setPlaylists(playlists);
+								if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
+								console.log(`✅ Initial fetch complete: ${tracks.length} tracks`);
 								setHasInitialized(true);
 								if (!useAudioStore.getState().currentSong) {
 									useAudioStore
@@ -234,7 +222,7 @@ export default function RootLayout() {
 				<RootScaleProvider>
 					<AudioSync />
 					<AnimatedStack />
-				<AddToPlaylistModal />
+					<AddToPlaylistModal />
 				</RootScaleProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

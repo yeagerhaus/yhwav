@@ -4,7 +4,15 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+	Easing,
+	Extrapolation,
+	interpolate,
+	runOnJS,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from 'react-native-reanimated';
 import { Div } from '@/components';
 import { ExpandedPlayer } from '@/components/BottomSheet/ExpandedPlayer';
 import { useRootScale } from '@/ctx/RootScaleContext';
@@ -173,8 +181,7 @@ function MusicScreen() {
 					}
 					// Handle vertical gesture end
 					else if (scrollOffset.value <= 0) {
-						const shouldClose =
-							event.translationY > DRAG_THRESHOLD || event.velocityY > VELOCITY_THRESHOLD;
+						const shouldClose = event.translationY > DRAG_THRESHOLD || event.velocityY > VELOCITY_THRESHOLD;
 
 						if (shouldClose) {
 							translateY.value = withTiming(SCREEN_HEIGHT, DISMISS_CONFIG);

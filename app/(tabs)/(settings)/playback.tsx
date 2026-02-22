@@ -4,17 +4,18 @@ import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-na
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { Colors, DefaultStyles } from '@/constants/styles';
-import {
-	EQ_PRESETS,
-	formatFrequency,
-	usePlaybackSettingsStore,
-} from '@/hooks/usePlaybackSettingsStore';
+import { EQ_PRESETS, formatFrequency, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 const EQ_TRACK_LENGTH = 150;
 const EQ_SLIDER_THICKNESS = 34;
 
-function SwitchRow({ label, description, value, onValueChange }: {
+function SwitchRow({
+	label,
+	description,
+	value,
+	onValueChange,
+}: {
 	label: string;
 	description?: string;
 	value: boolean;
@@ -40,7 +41,13 @@ function SwitchRow({ label, description, value, onValueChange }: {
 	);
 }
 
-function EQBandSlider({ frequency, gain, onValueChange, onSlidingStart, onSlidingComplete }: {
+function EQBandSlider({
+	frequency,
+	gain,
+	onValueChange,
+	onSlidingStart,
+	onSlidingComplete,
+}: {
 	frequency: number;
 	gain: number;
 	onValueChange: (v: number) => void;
@@ -74,20 +81,10 @@ function EQBandSlider({ frequency, gain, onValueChange, onSlidingStart, onSlidin
 	);
 }
 
-function PresetChip({ name, selected, onPress }: {
-	name: string;
-	selected: boolean;
-	onPress: () => void;
-}) {
+function PresetChip({ name, selected, onPress }: { name: string; selected: boolean; onPress: () => void }) {
 	return (
-		<TouchableOpacity
-			style={[styles.presetChip, selected && styles.presetChipSelected]}
-			onPress={onPress}
-		>
-			<Text
-				type='linkSM'
-				style={{ color: selected ? Colors.white : Colors.textMuted }}
-			>
+		<TouchableOpacity style={[styles.presetChip, selected && styles.presetChipSelected]} onPress={onPress}>
+			<Text type='linkSM' style={{ color: selected ? Colors.white : Colors.textMuted }}>
 				{name}
 			</Text>
 		</TouchableOpacity>
@@ -114,10 +111,13 @@ export default function PlaybackScreen() {
 	const [scrollEnabled, setScrollEnabled] = useState(true);
 	const gainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const handleGainChange = useCallback((value: number) => {
-		if (gainTimerRef.current) clearTimeout(gainTimerRef.current);
-		gainTimerRef.current = setTimeout(() => setOutputGain(value), 50);
-	}, [setOutputGain]);
+	const handleGainChange = useCallback(
+		(value: number) => {
+			if (gainTimerRef.current) clearTimeout(gainTimerRef.current);
+			gainTimerRef.current = setTimeout(() => setOutputGain(value), 50);
+		},
+		[setOutputGain],
+	);
 
 	const handleBandSlidingStart = useCallback(() => setScrollEnabled(false), []);
 	const handleBandSlidingComplete = useCallback(() => setScrollEnabled(true), []);
@@ -142,11 +142,7 @@ export default function PlaybackScreen() {
 						Equalizer
 					</Text>
 
-					<SwitchRow
-						label='Enable Equalizer'
-						value={equalizerEnabled}
-						onValueChange={setEqualizerEnabled}
-					/>
+					<SwitchRow label='Enable Equalizer' value={equalizerEnabled} onValueChange={setEqualizerEnabled} />
 
 					{equalizerEnabled && (
 						<Div transparent style={{ marginTop: 16 }}>
@@ -161,21 +157,22 @@ export default function PlaybackScreen() {
 								contentContainerStyle={{ gap: 8 }}
 							>
 								{Object.keys(EQ_PRESETS).map((name) => (
-									<PresetChip
-										key={name}
-										name={name}
-										selected={selectedPreset === name}
-										onPress={() => setPreset(name)}
-									/>
+									<PresetChip key={name} name={name} selected={selectedPreset === name} onPress={() => setPreset(name)} />
 								))}
 							</ScrollView>
 
 							{/* EQ Band Sliders */}
 							<View style={styles.bandsContainer}>
 								<Div transparent style={styles.bandScaleLabels}>
-									<Text type='bodyXS' colorVariant='muted'>+12</Text>
-									<Text type='bodyXS' colorVariant='muted'>0</Text>
-									<Text type='bodyXS' colorVariant='muted'>-12</Text>
+									<Text type='bodyXS' colorVariant='muted'>
+										+12
+									</Text>
+									<Text type='bodyXS' colorVariant='muted'>
+										0
+									</Text>
+									<Text type='bodyXS' colorVariant='muted'>
+										-12
+									</Text>
 								</Div>
 								{equalizerBands.map((band, i) => (
 									<EQBandSlider
@@ -189,10 +186,7 @@ export default function PlaybackScreen() {
 								))}
 							</View>
 
-							<TouchableOpacity
-								style={[DefaultStyles.cancelButton, { marginTop: 12 }]}
-								onPress={resetEQ}
-							>
+							<TouchableOpacity style={[DefaultStyles.cancelButton, { marginTop: 12 }]} onPress={resetEQ}>
 								<Text type='h3'>Reset to Flat</Text>
 							</TouchableOpacity>
 						</Div>
@@ -204,11 +198,11 @@ export default function PlaybackScreen() {
 					<Text type='h3' style={DefaultStyles.sectionTitle}>
 						Output Gain
 					</Text>
-					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>
-						Boost or cut the overall output level.
-					</Text>
+					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>Boost or cut the overall output level.</Text>
 					<Div transparent style={styles.gainRow}>
-						<Text type='bodyXS' colorVariant='muted'>-10 dB</Text>
+						<Text type='bodyXS' colorVariant='muted'>
+							-10 dB
+						</Text>
 						<Div transparent style={{ flex: 1, marginHorizontal: 8 }}>
 							<Slider
 								minimumValue={-10}
@@ -221,7 +215,9 @@ export default function PlaybackScreen() {
 								thumbTintColor={Colors.brandPrimary}
 							/>
 						</Div>
-						<Text type='bodyXS' colorVariant='muted'>+10 dB</Text>
+						<Text type='bodyXS' colorVariant='muted'>
+							+10 dB
+						</Text>
 					</Div>
 					<Div transparent style={{ alignItems: 'center', marginTop: 4 }}>
 						<TouchableOpacity onPress={() => setOutputGain(0)}>

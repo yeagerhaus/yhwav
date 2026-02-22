@@ -5,7 +5,12 @@ import { Colors, DefaultStyles } from '@/constants/styles';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { hexWithOpacity } from '@/utils/styles';
 
-function SwitchRow({ label, description, value, onValueChange }: {
+function SwitchRow({
+	label,
+	description,
+	value,
+	onValueChange,
+}: {
 	label: string;
 	description?: string;
 	value: boolean;

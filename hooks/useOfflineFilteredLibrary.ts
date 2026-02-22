@@ -122,5 +122,16 @@ export function useOfflineFilteredLibrary(): {
 			recentlyPlayed: filteredRecentlyPlayed,
 			playlists: offlinePlaylists,
 		};
-	}, [isOffline, tracks, albums, artists, recentlyPlayed, playlists, musicDownloads, downloadedPlaylists, downloadedArtists, downloadedAlbums]);
+	}, [
+		isOffline,
+		tracks,
+		albums,
+		artists,
+		recentlyPlayed,
+		playlists,
+		musicDownloads,
+		downloadedPlaylists,
+		downloadedArtists,
+		downloadedAlbums,
+	]);
 }

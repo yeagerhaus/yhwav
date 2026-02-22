@@ -1,5 +1,5 @@
-import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import { Div, DynamicItem } from '@/components';
@@ -76,10 +76,7 @@ export default function ArtistDetailScreen() {
 	const downloadedAlbums = useMusicDownloadsStore((s) => s.downloadedAlbums);
 
 	// Prefer full library artist, fall back to persisted snapshot, then offline synthesis
-	const artist =
-		artistsById[artistId ?? ''] ||
-		downloadedArtists[artistId ?? ''] ||
-		offlineArtists.find((a) => a.key === artistId);
+	const artist = artistsById[artistId ?? ''] || downloadedArtists[artistId ?? ''] || offlineArtists.find((a) => a.key === artistId);
 
 	const artistTracks = useMemo(
 		() =>
@@ -92,10 +89,7 @@ export default function ArtistDetailScreen() {
 		[artist, tracks],
 	);
 
-	const downloadedCount = useMemo(
-		() => artistTracks.filter((t) => !!downloads[t.id]).length,
-		[artistTracks, downloads],
-	);
+	const downloadedCount = useMemo(() => artistTracks.filter((t) => !!downloads[t.id]).length, [artistTracks, downloads]);
 	const isFullyDownloaded = artistTracks.length > 0 && downloadedCount === artistTracks.length;
 	const isActive = useMemo(
 		() => artistTracks.some((s) => downloading.has(s.id) || queueStore.some((q) => q.id === s.id)),
@@ -138,17 +132,18 @@ export default function ArtistDetailScreen() {
 			for (const t of artistTracks) {
 				const key = t.album;
 				if (key && !albumMap.has(key)) {
-					const persisted = Object.values(downloadedAlbums).find(
-						(a) => a.title === t.album && a.artist === t.artist,
+					const persisted = Object.values(downloadedAlbums).find((a) => a.title === t.album && a.artist === t.artist);
+					albumMap.set(
+						key,
+						persisted || {
+							id: `dl-${encodeURIComponent(t.album)}-${encodeURIComponent(t.artist)}`,
+							title: t.album,
+							artist: t.artist,
+							artistKey: t.artistKey,
+							artwork: t.artworkUrl || '',
+							thumb: t.artworkUrl,
+						},
 					);
-					albumMap.set(key, persisted || {
-						id: `dl-${encodeURIComponent(t.album)}-${encodeURIComponent(t.artist)}`,
-						title: t.album,
-						artist: t.artist,
-						artistKey: t.artistKey,
-						artwork: t.artworkUrl || '',
-						thumb: t.artworkUrl,
-					});
 				}
 			}
 			allAlbums = Array.from(albumMap.values());
