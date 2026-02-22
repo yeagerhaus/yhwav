@@ -423,7 +423,7 @@ const DefaultStyles = StyleSheet.create({
 		borderRadius: DefaultSharedComponents.borderRadiusSM,
 		borderWidth: 2,
 		borderColor: Colors.brandPrimary,
-		marginBottom: 15,
+		marginVertical: 15,
 		minWidth: 120,
 		alignItems: 'center',
 	},

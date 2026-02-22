@@ -1,4 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
@@ -43,17 +44,16 @@ export default function PodcastsScreen() {
 	}, [fetchAllFeeds]);
 
 	const handleAddFeed = useCallback(() => {
+		router.push('/(tabs)/(podcasts)/search');
+	}, []);
+
+	const handleAddByUrl = useCallback(() => {
 		if (Platform.OS === 'ios') {
-			Alert.prompt(
-				'Add Podcast',
-				'Enter the RSS feed URL',
-				(url) => {
-					if (url?.trim()) addFeed(url.trim()).catch(() => {});
-				},
-				'plain-text',
-			);
+			Alert.prompt('Add by RSS URL', 'Enter the podcast RSS feed URL', (url) => {
+				if (url?.trim()) addFeed(url.trim()).catch(() => {});
+			}, 'plain-text');
 		} else {
-			Alert.alert('Add Podcast', 'Enter the RSS feed URL in the input when supported.');
+			Alert.alert('Add by RSS URL', 'Enter the RSS feed URL in the input when supported.');
 		}
 	}, [addFeed]);
 
@@ -84,12 +84,17 @@ export default function PodcastsScreen() {
 				style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 64, marginBottom: 16 }}
 			>
 				<Text type='h1'>Podcasts</Text>
-				<Pressable onPress={handleAddFeed} hitSlop={8}>
-					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
-				</Pressable>
+				<Div transparent style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+					<Pressable onPress={handleAddByUrl} hitSlop={8}>
+						<SymbolView name='dot.radiowaves.up.forward' size={22} tintColor={Colors.brandPrimary} />
+					</Pressable>
+					<Pressable onPress={handleAddFeed} hitSlop={8}>
+						<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
+					</Pressable>
+				</Div>
 			</Div>
 		),
-		[handleAddFeed],
+		[handleAddFeed, handleAddByUrl],
 	);
 
 	if (!hydrated && isLoading && feeds.length === 0) {
