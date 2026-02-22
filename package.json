@@ -10,6 +10,7 @@
 		"clean": "rm -rf node_modules && rm -rf ios/Pods ios/Podfile.lock && rm -rf .expo",
 		"up": "bun update; bunx expo@latest install --check",
 		"b": "eas build --profile development --platform ios",
+		"b:test": "npx expo run:ios --configuration Release --device",
 		"check:tsc": "tsc --project tsconfig.json --noEmit",
 		"check:biome": "biome check --formatter-enabled=true --linter-enabled=true --vcs-enabled=true --write --unsafe .",
 		"check:all": "bun check:tsc && bun check:biome"

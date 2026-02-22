@@ -12,6 +12,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -93,8 +94,9 @@ function AnimatedStack() {
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
-	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed } = useLibraryStore();
+	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed, setHasInitialized } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
+	const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
@@ -105,10 +107,11 @@ export default function RootLayout() {
 	}, [colorScheme]);
 
 	useEffect(() => {
+		hydrateAppearance();
 		hydrateDevSettings();
 		hydrateOfflineMode();
 		hydratePlaybackSettings();
-	}, [hydrateDevSettings, hydrateOfflineMode, hydratePlaybackSettings]);
+	}, [hydrateAppearance, hydrateDevSettings, hydrateOfflineMode, hydratePlaybackSettings]);
 
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
@@ -142,6 +145,7 @@ export default function RootLayout() {
 					hydrated = await rehydrateLibraryStore();
 					if (hydrated) {
 						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
+						setHasInitialized(true);
 					}
 				}
 
@@ -189,6 +193,7 @@ export default function RootLayout() {
 							if (playlists.length > 0) setPlaylists(playlists);
 							if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
 							console.log(`✅ Initial fetch complete: ${tracks.length} tracks`);
+								setHasInitialized(true);
 								if (!useAudioStore.getState().currentSong) {
 									useAudioStore
 										.getState()
@@ -201,6 +206,7 @@ export default function RootLayout() {
 							})
 							.catch((error) => {
 								console.error('❌ Failed to fetch library:', error);
+								setHasInitialized(true);
 								testPlexServer().catch(() => {
 									console.warn('⚠️ Cannot connect to Plex server');
 								});
@@ -211,10 +217,11 @@ export default function RootLayout() {
 					}
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');
+					setHasInitialized(true);
 				}
 			} catch (error) {
 				console.error('Failed to initialize app:', error);
-				// Don't block app startup - user can authenticate in Settings
+				setHasInitialized(true);
 			}
 		};
 

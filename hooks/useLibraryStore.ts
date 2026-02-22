@@ -12,11 +12,13 @@ interface LibraryState {
 	playlists: Playlist[];
 	playlistsById: Record<string, Playlist>;
 	recentlyPlayed: Song[];
+	hasInitialized: boolean;
 	setTracks: (songs: Song[]) => void;
 	setAlbums: (albums: Album[]) => void;
 	setArtists: (artists: Artist[]) => void;
 	setPlaylists: (playlists: Playlist[]) => void;
 	setRecentlyPlayed: (songs: Song[]) => void;
+	setHasInitialized: (value: boolean) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -29,7 +31,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 	playlists: [],
 	playlistsById: {},
 	recentlyPlayed: [],
+	hasInitialized: false,
 
+	setHasInitialized: (value: boolean) => set({ hasInitialized: value }),
 	setRecentlyPlayed: (songs: Song[]) => set({ recentlyPlayed: songs }),
 
 	setAlbums: (albums: Album[]) => {

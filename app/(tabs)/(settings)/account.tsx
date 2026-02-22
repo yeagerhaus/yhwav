@@ -153,10 +153,10 @@ export default function AccountScreen() {
 								{server.name}
 							</Text>
 							<Text type='bodySM' colorVariant='secondary' style={styles.serverDetails}>
-								{server.local ? 'Local' : 'Remote'} • 192.168.X.X:X
+								{server.local ? 'Local' : 'Remote'} • {server.address}:{server.port} {/* 192.168.X.X:X PLACEHOLDER */}
 							</Text>
 							<Text type='bodyXS' colorVariant='secondary' style={styles.serverId}>
-								ID: XXXX
+								ID: {server.serverId} {/* XXXX PLACEHOLDER */}
 							</Text>
 						</Div>
 						{authState.selectedServer?.id === server.id && <Text style={styles.selectedIndicator}>✓</Text>}
@@ -175,7 +175,7 @@ export default function AccountScreen() {
 			</Div>
 
 			{authState.isAuthenticated ? (
-				<Div flex={1} transparent style={{ gap: 24 }}>
+				<Div transparent flex={1} style={{ gap: 24 }}>
 					{renderServerList()}
 				</Div>
 			) : (
@@ -197,7 +197,7 @@ export default function AccountScreen() {
 								disabled={isLoading}
 							>
 								{isLoading ? (
-									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+									<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
 										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								) : (
@@ -209,14 +209,14 @@ export default function AccountScreen() {
 						</Div>
 					) : (
 						<Div style={DefaultStyles.section}>
-							<Div style={DefaultStyles.pinContainer}>
+							<Div transparent style={DefaultStyles.pinContainer}>
 								<Text type='body'>Enter this code on plex.tv/activate</Text>
-								<Div style={DefaultStyles.pinCodeContainer}>
+								<Div transparent style={DefaultStyles.pinCodeContainer}>
 									<Text style={styles.pinCode}>{pinCode}</Text>
 								</Div>
 								{pinStatus && <Text type='body'>{pinStatus}</Text>}
 								{isLoading && (
-									<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
+									<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
 										<ActivityIndicator size='large' color={Colors.brandPrimary} />
 									</Div>
 								)}
@@ -360,7 +360,8 @@ const styles = StyleSheet.create({
 	},
 	pinCode: {
 		color: Colors.brandPrimary,
-		fontSize: 32,
+		fontSize: 24,
+		textAlign: 'center',
 		fontWeight: 'bold',
 		letterSpacing: 4,
 		fontFamily: 'monospace',

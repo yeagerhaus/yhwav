@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { Colors } from '@/constants';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 
@@ -19,9 +20,11 @@ const SECTIONS = [
 export default function LibraryScreen() {
 	const router = useRouter();
 	const { tracks, albums, recentlyPlayed, playlists } = useOfflineFilteredLibrary();
+	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
 	const trackCount = tracks.length;
 	const [refreshing, setRefreshing] = useState(false);
-	const hasHydrated = tracks.length > 0;
+	const isLoading = !hasInitialized;
+	const isEmpty = hasInitialized && trackCount === 0;
 
 	const recentlyAdded = useMemo(
 		() =>
@@ -62,58 +65,82 @@ export default function LibraryScreen() {
 					renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
 				/>
 			</Div>
-			<Div transparent display='flex' flex={1} gap={16} style={{ paddingBottom: 40 }}>
-				<HomeSection
-					title='Recently Played'
-					data={limitedRecentlyPlayed}
-					keyExtractor={(item) => item.id}
-					renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />}
-					isLoading={!hasHydrated}
-					itemSize={ITEM_SIZE}
-				/>
 
-				<HomeSection
-					title='Recently Added'
-					data={recentlyAdded}
-					keyExtractor={(item) => item.id}
-					renderItem={(item) => (
-						<DynamicItem
-							type='album'
-							item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
-							size={ITEM_SIZE}
-						/>
-					)}
-					isLoading={!hasHydrated}
-					itemSize={ITEM_SIZE}
-				/>
+			{isEmpty ? (
+				<Div transparent style={styles.emptyState}>
+					<Text type='subtitle' style={styles.emptyText}>
+						No library data available
+					</Text>
+					<Text type='body' style={styles.emptySubtext}>
+						Pull to refresh or check your server connection
+					</Text>
+				</Div>
+			) : (
+				<Div transparent display='flex' flex={1} gap={16} style={{ paddingBottom: 40 }}>
+					<HomeSection
+						title='Recently Played'
+						data={limitedRecentlyPlayed}
+						keyExtractor={(item) => item.id}
+						renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />}
+						isLoading={isLoading}
+						itemSize={ITEM_SIZE}
+					/>
 
-				{/* <HomeSection
-					title='Most Played Artists'
-					data={mostPlayedArtists}
-					keyExtractor={(item) => item.key}
-					renderItem={(item) => <ArtistItem item={item} size={ITEM_SIZE} />}
-				/> */}
+					<HomeSection
+						title='Recently Added'
+						data={recentlyAdded}
+						keyExtractor={(item) => item.id}
+						renderItem={(item) => (
+							<DynamicItem
+								type='album'
+								item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
+								size={ITEM_SIZE}
+							/>
+						)}
+						isLoading={isLoading}
+						itemSize={ITEM_SIZE}
+					/>
 
-				<HomeSection
-					title='Recent Playlists'
-					data={recentPlaylists}
-					keyExtractor={(item) => item.key ?? item.id}
-					renderItem={(item) => (
-						<DynamicItem
-							type='playlist'
-							item={{
-								id: item.key ?? item.id,
-								title: item.title,
-								artwork: item.artworkUrl ?? '',
-								count: item.leafCount ?? 0,
-							}}
-							size={ITEM_SIZE}
-						/>
-					)}
-					isLoading={!hasHydrated}
-					itemSize={ITEM_SIZE}
-				/>
-			</Div>
+					<HomeSection
+						title='Recent Playlists'
+						data={recentPlaylists}
+						keyExtractor={(item) => item.key ?? item.id}
+						renderItem={(item) => (
+							<DynamicItem
+								type='playlist'
+								item={{
+									id: item.key ?? item.id,
+									title: item.title,
+									artwork: item.artworkUrl ?? '',
+									count: item.leafCount ?? 0,
+								}}
+								size={ITEM_SIZE}
+							/>
+						)}
+						isLoading={isLoading}
+						itemSize={ITEM_SIZE}
+					/>
+				</Div>
+			)}
 		</Main>
 	);
 }
+
+const styles = StyleSheet.create({
+	emptyState: {
+		flex: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingTop: 60,
+		paddingHorizontal: 32,
+	},
+	emptyText: {
+		opacity: 0.5,
+		marginBottom: 8,
+	},
+	emptySubtext: {
+		opacity: 0.35,
+		textAlign: 'center',
+		fontSize: 14,
+	},
+});

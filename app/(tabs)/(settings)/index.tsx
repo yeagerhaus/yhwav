@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import { Div, Text } from '@/components';
@@ -22,14 +22,24 @@ function SettingsRow({ label, icon, onPress }: { label: string; icon: SFSymbol; 
 export default function SettingsScreen() {
 	const router = useRouter();
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
+	const [refreshing, setRefreshing] = useState(false);
+
+	const refreshAuthState = useCallback(async () => {
+		const loaded = await plexAuthService.loadAuthState();
+		if (loaded) {
+			setAuthState(plexAuthService.getAuthState());
+		}
+	}, []);
 
 	useEffect(() => {
-		plexAuthService.loadAuthState().then((loaded) => {
-			if (loaded) {
-				setAuthState(plexAuthService.getAuthState());
-			}
-		});
-	}, []);
+		refreshAuthState();
+	}, [refreshAuthState]);
+
+	const onRefresh = useCallback(async () => {
+		setRefreshing(true);
+		await refreshAuthState();
+		setRefreshing(false);
+	}, [refreshAuthState]);
 
 	const handleLogout = async () => {
 		Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -46,7 +56,7 @@ export default function SettingsScreen() {
 	};
 
 	return (
-		<Main style={{ paddingHorizontal: 16 }}>
+		<Main style={{ paddingHorizontal: 16 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
 					Settings
@@ -86,6 +96,11 @@ export default function SettingsScreen() {
 					label='Account & Server'
 					icon='person.crop.circle'
 					onPress={() => router.push('/(tabs)/(settings)/account')}
+				/>
+				<SettingsRow
+					label='Appearance'
+					icon='paintbrush'
+					onPress={() => router.push('/(tabs)/(settings)/appearance')}
 				/>
 				<SettingsRow
 					label='Playback'

@@ -11,6 +11,13 @@ export default function PodcastsLayout() {
 		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }}>
 			<Stack.Screen name='index' />
 			<Stack.Screen
+				name='search'
+				options={{
+					headerShown: false,
+					presentation: 'modal',
+				}}
+			/>
+			<Stack.Screen
 				name='[feedId]'
 				options={{
 					headerShown: true,
