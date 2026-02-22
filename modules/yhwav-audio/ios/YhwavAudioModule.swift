@@ -366,7 +366,7 @@ final class AudioDSPState {
 
 // MARK: - Module
 
-public final class YhplayerAudioModule: Module {
+public final class YhwavAudioModule: Module {
 	fileprivate var queuePlayer: AVQueuePlayer?
 	private var trackMetadata: [String: TrackRecord] = [:]
 	private var trackOrder: [String] = []
@@ -389,7 +389,7 @@ public final class YhplayerAudioModule: Module {
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
 	public func definition() -> ModuleDefinition {
-		Name("YhplayerAudio")
+		Name("YhwavAudio")
 
 		Events(
 			"PlaybackProgressUpdated",
@@ -643,7 +643,7 @@ public final class YhplayerAudioModule: Module {
 			try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
 			try AVAudioSession.sharedInstance().setActive(true)
 		} catch {
-			print("YhplayerAudio: Failed to set audio session: \(error)")
+			print("YhwavAudio: Failed to set audio session: \(error)")
 		}
 	}
 
@@ -896,12 +896,12 @@ public final class YhplayerAudioModule: Module {
 // MARK: - Audio tap context (DSP + level metering)
 
 private final class AudioTapContext {
-	weak var module: YhplayerAudioModule?
+	weak var module: YhwavAudioModule?
 	private var lastSendTime: CFTimeInterval = 0
 	private let minInterval: CFTimeInterval = 0.06
 	private let lock = NSLock()
 
-	init(module: YhplayerAudioModule) {
+	init(module: YhwavAudioModule) {
 		self.module = module
 	}
 
@@ -942,7 +942,7 @@ private final class AudioTapContext {
 
 // MARK: - AVPlayerItem track association
 
-private let associatedTrackIdKey = UnsafeRawPointer(bitPattern: "yhplayer_track_id".hashValue)!
+private let associatedTrackIdKey = UnsafeRawPointer(bitPattern: "yhwav_track_id".hashValue)!
 
 extension AVPlayerItem {
 	func setAssociatedTrack(_ track: TrackRecord) {
@@ -957,12 +957,12 @@ extension AVPlayerItem {
 // MARK: - Now Playing / Lock Screen
 
 private final class NowPlayingManager {
-	weak var module: YhplayerAudioModule?
+	weak var module: YhwavAudioModule?
 	private var capabilities: Set<String> = ["Play", "Pause", "SkipToNext", "SkipToPrevious", "SeekTo"]
 	private var cachedArtworkUrl: String?
 	private var cachedArtwork: MPMediaItemArtwork?
 
-	init(module: YhplayerAudioModule) {
+	init(module: YhwavAudioModule) {
 		self.module = module
 	}
 

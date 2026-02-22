@@ -3,8 +3,8 @@ import type { ConfigContext, ExpoConfig } from '@expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
 	...config,
-	name: 'yhplayer',
-	slug: 'yhplayer',
+	name: 'yhwav',
+	slug: 'yhwav',
 	version: '1.0.0',
 	orientation: 'portrait',
 	icon: './assets/images/icon.png',
@@ -19,15 +19,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 	backgroundColor: '#080808',
 	ios: {
 		supportsTablet: true,
-		bundleIdentifier: 'com.alpineiq.yhplayer',
+		bundleIdentifier: 'com.yhprod.yhwav',
 		backgroundColor: '#080808',
-	},
-	android: {
-		adaptiveIcon: {
-			foregroundImage: './assets/images/adaptive-icon.png',
-			backgroundColor: '#000',
-		},
-		package: 'com.alpineiq.yhplayer',
 	},
 	web: {
 		bundler: 'metro',

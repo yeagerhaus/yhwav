@@ -254,7 +254,7 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (19.0.21):
     - ExpoModulesCore
-  - ExpoFont (14.0.9):
+  - ExpoFont (14.0.11):
     - ExpoModulesCore
   - ExpoGlassEffect (0.1.9):
     - ExpoModulesCore
@@ -312,9 +312,9 @@ PODS:
   - FBLazyVector (0.81.5)
   - fmt (11.0.2)
   - glog (0.3.5)
-  - hermes-engine (0.81.4):
-    - hermes-engine/Pre-built (= 0.81.4)
-  - hermes-engine/Pre-built (0.81.4)
+  - hermes-engine (0.81.5):
+    - hermes-engine/Pre-built (= 0.81.5)
+  - hermes-engine/Pre-built (0.81.5)
   - ImageColors (2.5.1):
     - ExpoModulesCore
   - RCT-Folly (2024.11.18.00):
@@ -2915,7 +2915,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNWorklets (0.5.1):
+  - RNWorklets (0.7.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -2942,10 +2942,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNWorklets/worklets (= 0.5.1)
+    - RNWorklets/worklets (= 0.7.4)
     - SocketRocket
     - Yoga
-  - RNWorklets/worklets (0.5.1):
+  - RNWorklets/worklets (0.7.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -2972,10 +2972,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNWorklets/worklets/apple (= 0.5.1)
+    - RNWorklets/worklets/apple (= 0.7.4)
     - SocketRocket
     - Yoga
-  - RNWorklets/worklets/apple (0.5.1):
+  - RNWorklets/worklets/apple (0.7.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -3005,7 +3005,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SocketRocket (0.7.1)
-  - YhplayerAudio (1.0.0):
+  - YhwavAudio (1.0.0):
     - ExpoModulesCore
   - Yoga (0.0.0)
 
@@ -3117,7 +3117,7 @@ DEPENDENCIES:
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - SocketRocket (~> 0.7.1)
-  - YhplayerAudio (from `../modules/yhplayer-audio/ios`)
+  - YhwavAudio (from `../modules/yhwav-audio/ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -3336,14 +3336,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-screens"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
-  YhplayerAudio:
-    :path: "../modules/yhplayer-audio/ios"
+  YhwavAudio:
+    :path: "../modules/yhwav-audio/ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  boost: c7db0cf32caf6315b467a902f922c7a38b1ae426
-  DoubleConversion: 9aae6cc0ecb301224cc36b63bf0ff0d9ea15d00e
+  boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
+  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
   EXManifests: a8d97683e5c7a3b026ffbd58559c64dc655b747b
@@ -3357,7 +3357,7 @@ SPEC CHECKSUMS:
   ExpoCrypto: b6105ebaa15d6b38a811e71e43b52cd934945322
   ExpoDevice: 6327c3c200816795708885adf540d26ecab83d1a
   ExpoFileSystem: 858a44267a3e6e9057e0888ad7c7cfbf55d52063
-  ExpoFont: cf9d90ec1d3b97c4f513211905724c8171f82961
+  ExpoFont: f543ce20a228dd702813668b1a07b46f51878d47
   ExpoGlassEffect: 93f0665d19063cb3b46bbd0a2ebea4a36b6a4e37
   ExpoHaptics: d3a6375d8dcc3a1083d003bc2298ff654fafb536
   ExpoHead: 7e19b2272edf492262acf8afb391a295198a6b23
@@ -3370,13 +3370,13 @@ SPEC CHECKSUMS:
   ExpoSystemUI: 2ad325f361a2fcd96a464e8574e19935c461c9cc
   ExpoWebBrowser: 17b064c621789e41d4816c95c93f429b84971f52
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
-  fast_float: ed7c24914726f9ca525dbc64706173fd20e4c6e2
+  fast_float: b32c788ed9c6a8c584d114d0047beda9664e7cc6
   FBLazyVector: 5beb8028d5a2e75dd9634917f23e23d3a061d2aa
-  fmt: 793e14dfc270e0be50ff8f6679d6de663e337e16
-  glog: 02d5a79e2d91544a6170b768f0b7791763d6a6ee
-  hermes-engine: 4f1a09c9dc711dbd174fd0fdf2d092c8dc6cbd12
+  fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
+  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
+  hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
   ImageColors: e12eb73e29bc1feaa3c228db8c174a1b25acb59d
-  RCT-Folly: 45fc6043467fd9de25116f1c96d8860628588cf3
+  RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 5eb1d2eeff5fb91151e8a8eef45b6c7658b6c897
   RCTRequired: cebcf9442fc296c9b89ac791dfd463021d9f6f23
   RCTTypeSafety: b99aa872829ee18f6e777e0ef55852521c5a6788
@@ -3446,11 +3446,11 @@ SPEC CHECKSUMS:
   RNGestureHandler: 3a73f098d74712952870e948b3d9cf7b6cae9961
   RNReanimated: 0a42c1fc618e8f510b7b1724164308e49220dbe2
   RNScreens: 0bbf16c074ae6bb1058a7bf2d1ae017f4306797c
-  RNWorklets: ad0606bee2a8103c14adb412149789c60b72bfb2
+  RNWorklets: ca03ce776c15a592ef0700386071466810c41ea0
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
-  YhplayerAudio: 397fa68f193ea5eae4df967c94b547b32f659d12
+  YhwavAudio: 92b9905cce463ff546c7d33590cd2acf8dc62220
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
 
-PODFILE CHECKSUM: ce91443708949fe740d96a94176bc9e906c62137
+PODFILE CHECKSUM: 67012b543a39ced735082eeacd734fcad29e749d
 
 COCOAPODS: 1.16.2

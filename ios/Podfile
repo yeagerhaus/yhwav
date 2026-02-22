@@ -14,7 +14,7 @@ install! 'cocoapods',
 
 prepare_react_native_project!
 
-target 'yhplayer' do
+target 'yhwav' do
   use_expo_modules!(
     modules_provider_script_phase: false
   )

@@ -280,8 +280,8 @@ export class PlexClient {
 		// Default headers for Plex API
 		const defaultHeaders = {
 			Accept: 'application/json',
-			'User-Agent': 'YHPlayer/1.0.0',
-			'X-Plex-Client-Identifier': 'yhplayer-mobile',
+			'User-Agent': 'YHWav/1.0.0',
+			'X-Plex-Client-Identifier': 'yhwav-mobile',
 			...headers,
 		};
 
