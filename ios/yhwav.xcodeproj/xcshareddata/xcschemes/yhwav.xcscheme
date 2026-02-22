@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "yhplayer.app"
-               BlueprintName = "yhplayer"
-               ReferencedContainer = "container:yhplayer.xcodeproj">
+               BuildableName = "yhwav.app"
+               BlueprintName = "yhwav"
+               ReferencedContainer = "container:yhwav.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "yhplayerTests.xctest"
-               BlueprintName = "yhplayerTests"
-               ReferencedContainer = "container:yhplayer.xcodeproj">
+               BuildableName = "yhwavTests.xctest"
+               BlueprintName = "yhwavTests"
+               ReferencedContainer = "container:yhwav.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "yhplayer.app"
-            BlueprintName = "yhplayer"
-            ReferencedContainer = "container:yhplayer.xcodeproj">
+            BuildableName = "yhwav.app"
+            BlueprintName = "yhwav"
+            ReferencedContainer = "container:yhwav.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "yhplayer.app"
-            BlueprintName = "yhplayer"
-            ReferencedContainer = "container:yhplayer.xcodeproj">
+            BuildableName = "yhwav.app"
+            BlueprintName = "yhwav"
+            ReferencedContainer = "container:yhwav.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -1,4 +1,4 @@
-# YH Player
+# YH Wav
 
 A music player for Plex, built with Expo and React Native.
 
@@ -57,7 +57,7 @@ bun start   # start Metro + launch iOS simulator
 ## Project Structure
 
 ```
-yhplayer/
+yhwav/
 ├── app/                        # expo-router file-based routing
 │   ├── (tabs)/
 │   │   ├── (library)/          # artists, albums, playlists, songs
@@ -94,7 +94,6 @@ Gesture-driven navigation via `react-native-gesture-handler`. Animated transitio
 ## Platforms
 
 - iOS — primary, fully supported
-- Android — project dir exists, untested
 - Web — not supported
 
 ## Author

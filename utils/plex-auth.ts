@@ -69,14 +69,14 @@ export class PlexAuthService {
 			const _deviceId = Device.modelId || 'unknown';
 			const timestamp = Date.now();
 			const random = Math.random().toString(36).substring(2, 10);
-			const identifier = `yhplayer-${platform}-${timestamp}-${random}`;
+			const identifier = `yhwav-${platform}-${timestamp}-${random}`;
 
 			await AsyncStorage.setItem(storageKey, identifier);
 			return identifier;
 		} catch (error) {
 			console.error('Failed to get/create client identifier:', error);
 			// Fallback identifier
-			return `yhplayer-${Platform.OS}-${Date.now()}`;
+			return `yhwav-${Platform.OS}-${Date.now()}`;
 		}
 	}
 
@@ -92,7 +92,7 @@ export class PlexAuthService {
 		const deviceId = Device.modelId || 'unknown';
 		const _timestamp = Date.now();
 		const random = Math.random().toString(36).substring(2, 10);
-		this.clientIdentifier = `yhplayer-${platform}-${deviceId}-${random}`;
+		this.clientIdentifier = `yhwav-${platform}-${deviceId}-${random}`;
 		return this.clientIdentifier;
 	}
 

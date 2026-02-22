@@ -16,7 +16,7 @@ export interface PlaybackState {
 	buffered?: number;
 }
 
-type YhplayerAudioModuleType = {
+type YhwavAudioModuleType = {
 	setupPlayer: (options?: Record<string, unknown>) => Promise<void>;
 	updateOptions: (options?: Record<string, unknown>) => Promise<void>;
 	add: (tracks: Track[], insertAfterIndex?: number) => Promise<void>;
@@ -43,4 +43,4 @@ type YhplayerAudioModuleType = {
 	removeListeners: (count: number) => void;
 };
 
-export default requireOptionalNativeModule<YhplayerAudioModuleType>('YhplayerAudio');
+export default requireOptionalNativeModule<YhwavAudioModuleType>('YhwavAudio');

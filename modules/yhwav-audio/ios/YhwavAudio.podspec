@@ -3,13 +3,13 @@ require 'json'
 package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
 
 Pod::Spec.new do |s|
-  s.name           = 'YhplayerAudio'
+  s.name           = 'YhwavAudio'
   s.version        = package['version']
   s.summary        = package['description']
   s.description    = package['description']
   s.license        = package['license']
   s.author         = package['author']
-  s.homepage       = package['homepage'] || 'https://github.com/placeholder/yhplayer-audio'
+  s.homepage       = package['homepage'] || 'https://github.com/placeholder/yhwav-audio'
   s.platforms      = { :ios => '15.1' }
   s.swift_version  = '5.9'
   s.source         = { :http => 'https://example.com' }

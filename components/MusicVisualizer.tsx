@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, useColorScheme } from 'react-native';
 import { Colors } from '@/constants/styles';
-import { isAvailable, YhplayerAudioModule } from '@/modules/yhplayer-audio';
+import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio';
 import { Div } from './Div';
 
 interface Props {
@@ -44,12 +44,12 @@ export function MusicVisualizer({ isPlaying }: Props) {
 
 	// Subscribe to real audio levels on iOS when playing
 	useEffect(() => {
-		if (!isPlaying || !isAvailable() || !YhplayerAudioModule) return;
+		if (!isPlaying || !isAvailable() || !YhwavAudioModule) return;
 
 		// Reset reference when starting so each track can adapt
 		refLevelRef.current = 0.2;
 
-		const sub = YhplayerAudioModule.addListener('AudioLevelsUpdated', (payload: unknown) => {
+		const sub = YhwavAudioModule.addListener('AudioLevelsUpdated', (payload: unknown) => {
 			const event = payload as { levels?: number[] };
 			const levels = event?.levels;
 			if (!Array.isArray(levels) || levels.length < BAR_COUNT) return;

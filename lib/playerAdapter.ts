@@ -1,10 +1,10 @@
 /**
- * Player: uses yhplayer-audio native module (AVQueuePlayer, gapless).
+ * Player: uses yhwav-audio native module (AVQueuePlayer, gapless).
  * Exposes Event/State/RepeatMode etc. and the same API shape for useAudioStore and components.
  */
 
 import React from 'react';
-import { isAvailable, YhplayerAudioModule } from '@/modules/yhplayer-audio';
+import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio';
 
 export const Event = {
 	PlaybackProgressUpdated: 'playback-progress-updated',
@@ -54,8 +54,8 @@ export const IOSCategoryMode = {
 } as const;
 
 function getPlayer() {
-	if (!isAvailable() || !YhplayerAudioModule) return null;
-	return YhplayerAudioModule;
+	if (!isAvailable() || !YhwavAudioModule) return null;
+	return YhwavAudioModule;
 }
 
 // Track shape: { id, url, title, artist, artwork, duration }
@@ -200,7 +200,7 @@ export function usePlaybackState(): { state: string } {
 	const [playbackState, setPlaybackState] = React.useState<{ state: string }>({ state: State.None });
 
 	React.useEffect(() => {
-		const mod = YhplayerAudioModule;
+		const mod = YhwavAudioModule;
 		if (!isAvailable() || mod == null) return;
 		const update = () => {
 			const s = mod.getPlaybackState();
@@ -222,12 +222,12 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 	callbackRef.current = callback;
 
 	React.useEffect(() => {
-		if (!isAvailable() || !YhplayerAudioModule) return;
+		if (!isAvailable() || !YhwavAudioModule) return;
 		const subscriptions: { remove: () => void }[] = [];
 		for (const eventName of events) {
 			const nativeName = Object.keys(NATIVE_EVENT_TO_EVENT).find((k) => NATIVE_EVENT_TO_EVENT[k] === eventName);
 			if (!nativeName) continue;
-			const sub = YhplayerAudioModule.addListener(nativeName, (payload: unknown) => {
+			const sub = YhwavAudioModule.addListener(nativeName, (payload: unknown) => {
 				const p = payload as Record<string, unknown>;
 				const toNum = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 				const idx = p?.track ?? p?.index;
