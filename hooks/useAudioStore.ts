@@ -1004,6 +1004,19 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				const position = event.position ?? 0;
 				const duration = event.duration ?? 0;
+
+				// Log significant duration changes or mismatches
+				if (__DEV__) {
+					const prevDur = state.duration;
+					if (duration > 0 && prevDur > 0 && Math.abs(duration - prevDur) > 2) {
+						console.log(`[XF-JS] Duration changed: ${prevDur.toFixed(1)}s → ${duration.toFixed(1)}s`);
+					}
+					const remaining = duration - position;
+					if (remaining > 0 && remaining < 15 && duration > 0) {
+						console.log(`[XF-JS] Approaching end: pos=${position.toFixed(1)}s dur=${duration.toFixed(1)}s remaining=${remaining.toFixed(1)}s`);
+					}
+				}
+
 				state._setPosition(position);
 				state._setDuration(duration);
 				lastProgressTimestamp = Date.now();
@@ -1046,6 +1059,7 @@ export function useTrackPlayerSync() {
 							if (playbackSettings.crossfadeAdaptiveEnabled) {
 								const { computeCrossfadeDuration, shouldSuppressCrossfade } = require('@/lib/crossfadeAlgorithm');
 								if (shouldSuppressCrossfade(state.currentSong, nextSong)) {
+									if (__DEV__) console.log(`[XF-JS] Suppressing crossfade (same album sequential): '${state.currentSong.title}' → '${nextSong.title}'`);
 									TrackPlayer.setNextCrossfadeDuration(0).catch(() => {});
 								} else {
 									const dur = computeCrossfadeDuration(
@@ -1053,8 +1067,11 @@ export function useTrackPlayerSync() {
 										nextSong.loudnessData,
 										{ defaultDuration: playbackSettings.crossfadeDuration, minDuration: 1, maxDuration: 8 },
 									);
+									if (__DEV__) console.log(`[XF-JS] Computed crossfade duration: ${dur.toFixed(1)}s for '${state.currentSong.title}' → '${nextSong.title}'`);
 									TrackPlayer.setNextCrossfadeDuration(dur).catch(() => {});
 								}
+							} else if (__DEV__) {
+								console.log(`[XF-JS] Adaptive crossfade disabled, using default ${playbackSettings.crossfadeDuration}s`);
 							}
 						}
 					}
@@ -1072,13 +1089,16 @@ export function useTrackPlayerSync() {
 					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
 				}
 				if (state.currentSong) scrobbleSong(state.currentSong);
-				console.log('🎵 Queue ended, repeat mode:', state.repeatMode);
+				console.log(`[XF-JS] Queue ended, repeat mode: ${state.repeatMode}, song: '${state.currentSong?.title ?? '?'}', pos=${state.position.toFixed(1)}s dur=${state.duration.toFixed(1)}s`);
 			}
 
 			if (event.type === Event.PlaybackActiveTrackChanged) {
 				pendingPodcastResume = null; // no longer applicable to previous track
 				// Use the event index + our Zustand queue — no native bridge calls needed
 				const trackIndex = event.index;
+				if (__DEV__) {
+					console.log(`[XF-JS] ActiveTrackChanged: index=${trackIndex}, queueLen=${state.queue.length}, currentSong=${state.currentSong?.title ?? '?'}`);
+				}
 				if (trackIndex == null || trackIndex < 0 || trackIndex >= state.queue.length) return;
 
 				const newCurrentSong = state.queue[trackIndex];

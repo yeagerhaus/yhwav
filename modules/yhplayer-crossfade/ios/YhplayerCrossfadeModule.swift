@@ -75,6 +75,7 @@ public final class YhplayerCrossfadeModule: Module {
 	private var crossfadeStartTime: CFAbsoluteTime = 0
 	private var currentCrossfadeDuration: Double = 0
 	private var crossfadeDisplayLink: CADisplayLink?
+	private var pendingCrossfadeIndex: Int?
 
 	// Audio tap on active deck only
 	private weak var itemWithAudioTap: AVPlayerItem?
@@ -82,6 +83,13 @@ public final class YhplayerCrossfadeModule: Module {
 	// Time observers
 	private var timeObserverA: Any?
 	private var timeObserverB: Any?
+
+	// End-of-track observers (safety net if crossfade doesn't trigger)
+	private var endOfTrackObserverA: NSObjectProtocol?
+	private var endOfTrackObserverB: NSObjectProtocol?
+
+	// Throttle progress logging
+	private var lastDurationLogTime: CFAbsoluteTime = 0
 
 	// Now Playing
 	private lazy var nowPlayingManager = XFNowPlayingManager(module: self)
@@ -98,6 +106,32 @@ public final class YhplayerCrossfadeModule: Module {
 
 	fileprivate func player(for deck: Deck) -> AVPlayer? {
 		deck == .a ? deckA : deckB
+	}
+
+	private func deckLabel(_ deck: Deck) -> String { deck == .a ? "A" : "B" }
+
+	private func log(_ msg: String) {
+		NSLog("[XF] %@", msg)
+	}
+
+	/// Authoritative track duration: prefer metadata from track record (Plex analysis),
+	/// fall back to AVPlayerItem.duration for streaming content where metadata is missing.
+	private func resolvedDuration(forTrackAt index: Int, item: AVPlayerItem?) -> Double {
+		if index >= 0, index < trackOrder.count,
+		   let track = trackMetadata[trackOrder[index]],
+		   let metaDur = track.duration, metaDur > 0 {
+			return metaDur
+		}
+		if let item = item {
+			let dur = item.duration.seconds
+			if dur.isFinite && dur > 0 { return dur }
+		}
+		return 0
+	}
+
+	/// Duration for the currently-active track
+	private func activeTrackDuration() -> Double {
+		return resolvedDuration(forTrackAt: currentIndex, item: activePlayer?.currentItem)
 	}
 
 	// MARK: - Module definition
@@ -121,7 +155,7 @@ public final class YhplayerCrossfadeModule: Module {
 		OnCreate {}
 
 		AsyncFunction("setupPlayer") { (options: XFSetupOptions?) in
-			guard !self.isInitialized else { return }
+			guard !self.isInitialized else { self.log("setupPlayer: already initialized"); return }
 			self.configureAudioSession()
 			self.deckA = AVPlayer()
 			self.deckB = AVPlayer()
@@ -132,6 +166,7 @@ public final class YhplayerCrossfadeModule: Module {
 			self.activeDeck = .a
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
+			self.log("setupPlayer: initialized, volume=\(self.volume)")
 		}
 
 		AsyncFunction("updateOptions") { (options: [String: Any]?) in
@@ -158,6 +193,7 @@ public final class YhplayerCrossfadeModule: Module {
 					let insertAt = min(afterIdx + 1, self.trackOrder.count)
 					self.trackOrder.insert(contentsOf: ids, at: insertAt)
 				}
+				self.log("add: \(tracks.count) tracks, total=\(self.trackOrder.count), afterIdx=\(afterIdx)")
 				// If nothing is playing, start the first track
 				if self.currentIndex < 0 && !self.trackOrder.isEmpty {
 					self.loadTrack(at: 0, on: self.activeDeck)
@@ -169,9 +205,11 @@ public final class YhplayerCrossfadeModule: Module {
 
 		AsyncFunction("reset") {
 			DispatchQueue.main.sync {
+				self.log("reset: clearing all state")
 				self.stopCrossfade()
 				self.stopProgressTimer()
 				self.teardownAudioTap()
+				self.removeEndOfTrackObservers()
 				self.deckA?.replaceCurrentItem(with: nil)
 				self.deckB?.replaceCurrentItem(with: nil)
 				self.deckA?.volume = self.volume
@@ -179,6 +217,7 @@ public final class YhplayerCrossfadeModule: Module {
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
 				self.currentIndex = -1
+				self.pendingCrossfadeIndex = nil
 				self.activeDeck = .a
 				self.lastEmittedState = "stopped"
 				AudioDSPState.shared.resetFilterState()
@@ -231,8 +270,14 @@ public final class YhplayerCrossfadeModule: Module {
 		}
 
 		AsyncFunction("skip") { (index: Int) in
-			guard index >= 0, index < self.trackOrder.count else { return }
+			guard index >= 0, index < self.trackOrder.count else {
+				self.log("skip: index \(index) out of range (count=\(self.trackOrder.count))")
+				return
+			}
 			DispatchQueue.main.sync {
+				let trackId = self.trackOrder[index]
+				let title = self.trackMetadata[trackId]?.title ?? "?"
+				self.log("skip: → index=\(index) '\(title)', fadeOnSkip=\(self.crossfadeConfig.fadeOnManualSkip), playing=\(self.activePlayer?.timeControlStatus == .playing)")
 				if self.crossfadeConfig.fadeOnManualSkip, self.activePlayer?.timeControlStatus == .playing {
 					self.performManualSkipFade(toIndex: index)
 				} else {
@@ -243,6 +288,7 @@ public final class YhplayerCrossfadeModule: Module {
 
 		AsyncFunction("play") {
 			DispatchQueue.main.async {
+				self.log("play: rate=\(self.rate), deck=\(self.deckLabel(self.activeDeck)), index=\(self.currentIndex)")
 				self.activePlayer?.rate = self.rate
 				self.startProgressTimerIfNeeded()
 				self.emitProgressUpdate()
@@ -251,6 +297,7 @@ public final class YhplayerCrossfadeModule: Module {
 
 		AsyncFunction("pause") {
 			DispatchQueue.main.async {
+				self.log("pause: deck=\(self.deckLabel(self.activeDeck)), isCrossfading=\(self.isCrossfading)")
 				self.activePlayer?.pause()
 				if self.isCrossfading {
 					self.onDeckPlayer?.pause()
@@ -261,6 +308,7 @@ public final class YhplayerCrossfadeModule: Module {
 		}
 
 		AsyncFunction("seekTo") { (position: Double) in
+			self.log("seekTo: \(String(format: "%.1f", position))s")
 			let cm = CMTime(seconds: position, preferredTimescale: 600)
 			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
 			self.activePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
@@ -317,10 +365,13 @@ public final class YhplayerCrossfadeModule: Module {
 
 		AsyncFunction("setCrossfadeConfig") { (config: XFCrossfadeConfig) in
 			self.crossfadeConfig = config
+			self.log("setCrossfadeConfig: defaultDuration=\(config.defaultDuration), fadeOnSkip=\(config.fadeOnManualSkip), skipFadeDur=\(config.manualSkipFadeDuration)")
 		}
 
 		AsyncFunction("setNextCrossfadeDuration") { (seconds: Double) in
-			self.nextCrossfadeDuration = max(0.5, min(12, seconds))
+			let clamped = max(0.5, min(12, seconds))
+			self.nextCrossfadeDuration = clamped
+			self.log("setNextCrossfadeDuration: \(String(format: "%.1f", clamped))s")
 		}
 
 		// MARK: - State queries
@@ -363,13 +414,29 @@ public final class YhplayerCrossfadeModule: Module {
 	// MARK: - Track loading
 
 	private func loadTrack(at index: Int, on deck: Deck) {
-		guard index >= 0, index < trackOrder.count else { return }
+		guard index >= 0, index < trackOrder.count else {
+			log("loadTrack: index \(index) out of range")
+			return
+		}
 		let id = trackOrder[index]
-		guard let track = trackMetadata[id], let url = URL(string: track.url) else { return }
+		guard let track = trackMetadata[id], let url = URL(string: track.url) else {
+			log("loadTrack: no metadata or URL for id=\(id)")
+			return
+		}
+		let metaDur = track.duration ?? -1
+		log("loadTrack: deck=\(deckLabel(deck)) idx=\(index) '\(track.title ?? "?")' metaDuration=\(String(format: "%.1f", metaDur))s")
+
 		let asset = AVURLAsset(url: url)
 		let item = AVPlayerItem(asset: asset)
 		player(for: deck)?.replaceCurrentItem(with: item)
 		setupAudioTapIfActive(deck: deck, item: item)
+		observeEndOfTrack(for: item, deck: deck)
+
+		// Log when AVPlayerItem resolves its duration (for comparison with metadata)
+		item.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak self] in
+			let itemDur = item.duration.seconds
+			self?.log("loadTrack: item duration resolved=\(String(format: "%.1f", itemDur))s vs metadata=\(String(format: "%.1f", metaDur))s (delta=\(String(format: "%.1f", itemDur - metaDur))s)")
+		}
 	}
 
 	private func preloadNextTrack() {
@@ -382,24 +449,47 @@ public final class YhplayerCrossfadeModule: Module {
 	// MARK: - Playback state
 
 	private func currentPlaybackState() -> (state: String, position: Double, duration: Double) {
-		guard let player = activePlayer, let item = player.currentItem else {
+		guard let player = activePlayer, player.currentItem != nil else {
 			return ("stopped", 0, 0)
 		}
 		let pos = CMTimeGetSeconds(player.currentTime())
-		let dur = item.duration.seconds
 		let validPos = pos.isFinite && pos >= 0 ? pos : 0
-		let validDur = dur.isFinite && dur >= 0 ? dur : 0
 
+		// Use metadata duration (from Plex/track record) as primary source —
+		// AVPlayerItem.duration is unreliable for streaming/transcoded content
+		let validDur = activeTrackDuration()
+
+		let state: String
 		switch player.timeControlStatus {
 		case .playing:
-			return ("playing", validPos, validDur)
+			state = "playing"
 		case .paused:
-			return ("paused", validPos, validDur)
+			state = "paused"
 		case .waitingToPlayAtSpecifiedRate:
-			return ("buffering", validPos, validDur)
+			state = "buffering"
 		@unknown default:
-			return ("ready", validPos, validDur)
+			state = "ready"
 		}
+
+		// Periodic duration comparison log (once per 10s) to help debug mismatches
+		let now = CFAbsoluteTimeGetCurrent()
+		if now - lastDurationLogTime > 10.0 {
+			lastDurationLogTime = now
+			let itemDur = player.currentItem?.duration.seconds ?? -1
+			let metaDur = metadataDurationForCurrentTrack()
+			if abs(validDur - itemDur) > 1.0 || !itemDur.isFinite {
+				log("DURATION MISMATCH: metadata=\(String(format: "%.1f", metaDur ?? -1))s, item=\(String(format: "%.1f", itemDur))s, using=\(String(format: "%.1f", validDur))s, pos=\(String(format: "%.1f", validPos))s")
+			}
+		}
+
+		return (state, validPos, validDur)
+	}
+
+	private func metadataDurationForCurrentTrack() -> Double? {
+		guard currentIndex >= 0, currentIndex < trackOrder.count,
+		      let track = trackMetadata[trackOrder[currentIndex]],
+		      let dur = track.duration, dur > 0 else { return nil }
+		return dur
 	}
 
 	// MARK: - Progress timer
@@ -430,6 +520,7 @@ public final class YhplayerCrossfadeModule: Module {
 		let (state, position, duration) = currentPlaybackState()
 		lastEmittedState = state
 		sendEvent("PlaybackProgressUpdated", [
+			"state": state,
 			"position": position,
 			"duration": duration,
 			"track": currentIndex,
@@ -445,21 +536,21 @@ public final class YhplayerCrossfadeModule: Module {
 		let trackId = currentIndex >= 0 && currentIndex < trackOrder.count ? trackOrder[currentIndex] : nil
 		let track = trackId.flatMap { trackMetadata[$0] }
 		let pos = activePlayer.map { CMTimeGetSeconds($0.currentTime()) }
-		let dur = activePlayer?.currentItem?.duration.seconds
+		let dur = activeTrackDuration()
 		let playing = activePlayer?.timeControlStatus == .playing
-		nowPlayingManager.updateNowPlaying(track: track, position: pos, duration: dur, isPlaying: playing)
+		nowPlayingManager.updateNowPlaying(track: track, position: pos, duration: dur > 0 ? dur : nil, isPlaying: playing)
 	}
 
 	// MARK: - Crossfade trigger
 
 	private func checkCrossfadeTrigger() {
 		guard !isCrossfading else { return }
-		guard let player = activePlayer, let item = player.currentItem else { return }
+		guard let player = activePlayer, player.currentItem != nil else { return }
 		guard player.timeControlStatus == .playing else { return }
 
-		let duration = item.duration.seconds
+		let duration = activeTrackDuration()
 		let position = CMTimeGetSeconds(player.currentTime())
-		guard duration.isFinite && duration > 0, position.isFinite else { return }
+		guard duration > 0, position.isFinite else { return }
 
 		let remaining = duration - position
 		let fadeDuration = nextCrossfadeDuration
@@ -470,7 +561,10 @@ public final class YhplayerCrossfadeModule: Module {
 		if remaining <= fadeDuration && remaining > 0 {
 			let nextIndex = computeNextIndex()
 			if let nextIndex = nextIndex {
-				beginCrossfade(toIndex: nextIndex, duration: fadeDuration)
+				let trackId = currentIndex >= 0 && currentIndex < trackOrder.count ? trackOrder[currentIndex] : "?"
+				let title = trackMetadata[trackId]?.title ?? "?"
+				log("CROSSFADE TRIGGER: '\(title)' pos=\(String(format: "%.1f", position))s / dur=\(String(format: "%.1f", duration))s, remaining=\(String(format: "%.1f", remaining))s, fadeDur=\(String(format: "%.1f", fadeDuration))s → nextIdx=\(nextIndex)")
+				beginCrossfade(toIndex: nextIndex, duration: min(fadeDuration, remaining))
 			}
 		}
 	}
@@ -488,18 +582,20 @@ public final class YhplayerCrossfadeModule: Module {
 	private func beginCrossfade(toIndex: Int, duration: Double) {
 		guard !isCrossfading else { return }
 		isCrossfading = true
+		pendingCrossfadeIndex = toIndex
 		crossfadeStartTime = CFAbsoluteTimeGetCurrent()
 		currentCrossfadeDuration = duration
 
 		let incomingDeck = activeDeck.other
+		let nextTrackId = toIndex < trackOrder.count ? trackOrder[toIndex] : "?"
+		let nextTitle = trackMetadata[nextTrackId]?.title ?? "?"
+		log("BEGIN CROSSFADE: deck \(deckLabel(activeDeck))→\(deckLabel(incomingDeck)), duration=\(String(format: "%.1f", duration))s, incoming='\(nextTitle)' (idx=\(toIndex))")
+
 		loadTrack(at: toIndex, on: incomingDeck)
 
 		let incomingPlayer = player(for: incomingDeck)
 		incomingPlayer?.volume = 0
 		incomingPlayer?.rate = rate
-
-		// Transfer audio tap to incoming deck mid-crossfade
-		// (done when incoming is at ~50% volume)
 
 		startCrossfadeDisplayLink()
 	}
@@ -511,6 +607,8 @@ public final class YhplayerCrossfadeModule: Module {
 		link.add(to: .main, forMode: .common)
 		crossfadeDisplayLink = link
 	}
+
+	private var lastCrossfadeMilestone: Int = -1
 
 	@objc private func crossfadeTick() {
 		guard isCrossfading else {
@@ -529,6 +627,13 @@ public final class YhplayerCrossfadeModule: Module {
 		activePlayer?.volume = fadeOutVolume
 		onDeckPlayer?.volume = fadeInVolume
 
+		// Log milestones: 25%, 50%, 75%
+		let milestone = Int(t * 4)
+		if milestone > lastCrossfadeMilestone && milestone < 4 {
+			lastCrossfadeMilestone = milestone
+			log("crossfade \(milestone * 25)%: out=\(String(format: "%.2f", fadeOutVolume)) in=\(String(format: "%.2f", fadeInVolume)) elapsed=\(String(format: "%.1f", elapsed))s")
+		}
+
 		// Transfer audio tap at the midpoint
 		if t >= 0.5, let incomingItem = onDeckPlayer?.currentItem, incomingItem !== itemWithAudioTap {
 			teardownAudioTap()
@@ -537,6 +642,7 @@ public final class YhplayerCrossfadeModule: Module {
 		}
 
 		if t >= 1.0 {
+			lastCrossfadeMilestone = -1
 			completeCrossfade()
 		}
 	}
@@ -544,7 +650,7 @@ public final class YhplayerCrossfadeModule: Module {
 	private func completeCrossfade() {
 		let outgoingDeck = activeDeck
 		let incomingDeck = activeDeck.other
-		let nextIndex = computeNextIndex() ?? currentIndex
+		let nextIndex = pendingCrossfadeIndex ?? computeNextIndex() ?? currentIndex
 
 		// Stop outgoing
 		player(for: outgoingDeck)?.pause()
@@ -554,11 +660,17 @@ public final class YhplayerCrossfadeModule: Module {
 		// Finalize incoming
 		player(for: incomingDeck)?.volume = volume
 		activeDeck = incomingDeck
+		let prevIndex = currentIndex
 		currentIndex = nextIndex
+		pendingCrossfadeIndex = nil
 
 		isCrossfading = false
 		crossfadeDisplayLink?.invalidate()
 		crossfadeDisplayLink = nil
+
+		let trackId = currentIndex >= 0 && currentIndex < trackOrder.count ? trackOrder[currentIndex] : "?"
+		let title = trackMetadata[trackId]?.title ?? "?"
+		log("CROSSFADE COMPLETE: \(prevIndex)→\(currentIndex) '\(title)', active deck=\(deckLabel(activeDeck))")
 
 		emitActiveTrackChanged()
 
@@ -568,7 +680,10 @@ public final class YhplayerCrossfadeModule: Module {
 
 	private func stopCrossfade() {
 		if isCrossfading {
+			log("stopCrossfade: aborting in-progress crossfade")
 			isCrossfading = false
+			pendingCrossfadeIndex = nil
+			lastCrossfadeMilestone = -1
 			crossfadeDisplayLink?.invalidate()
 			crossfadeDisplayLink = nil
 			onDeckPlayer?.pause()
@@ -628,6 +743,10 @@ public final class YhplayerCrossfadeModule: Module {
 	}
 
 	private func hardSkip(to index: Int) {
+		let trackId = index >= 0 && index < trackOrder.count ? trackOrder[index] : "?"
+		let title = trackMetadata[trackId]?.title ?? "?"
+		log("hardSkip: → idx=\(index) '\(title)'")
+
 		stopCrossfade()
 		teardownAudioTap()
 		AudioDSPState.shared.resetFilterState()
@@ -645,6 +764,55 @@ public final class YhplayerCrossfadeModule: Module {
 		emitActiveTrackChanged()
 		startProgressTimerIfNeeded()
 		preloadNextTrack()
+	}
+
+	// MARK: - End-of-track observer (safety net)
+
+	private func observeEndOfTrack(for item: AVPlayerItem, deck: Deck) {
+		let observer = NotificationCenter.default.addObserver(
+			forName: .AVPlayerItemDidPlayToEndTime,
+			object: item,
+			queue: .main
+		) { [weak self] _ in
+			self?.handleTrackEndedNaturally(deck: deck)
+		}
+		if deck == .a {
+			if let old = endOfTrackObserverA { NotificationCenter.default.removeObserver(old) }
+			endOfTrackObserverA = observer
+		} else {
+			if let old = endOfTrackObserverB { NotificationCenter.default.removeObserver(old) }
+			endOfTrackObserverB = observer
+		}
+	}
+
+	private func removeEndOfTrackObservers() {
+		if let o = endOfTrackObserverA { NotificationCenter.default.removeObserver(o) }
+		if let o = endOfTrackObserverB { NotificationCenter.default.removeObserver(o) }
+		endOfTrackObserverA = nil
+		endOfTrackObserverB = nil
+	}
+
+	private func handleTrackEndedNaturally(deck: Deck) {
+		log("TRACK ENDED NATURALLY on deck \(deckLabel(deck)), isCrossfading=\(isCrossfading), activeDeck=\(deckLabel(activeDeck))")
+		if isCrossfading {
+			// Crossfade already in progress — the outgoing track ran out before the
+			// crossfade volume ramp finished. Force-complete the crossfade now.
+			if deck == activeDeck {
+				log("  → outgoing deck ended during crossfade, force-completing")
+				lastCrossfadeMilestone = -1
+				completeCrossfade()
+			}
+			return
+		}
+		guard deck == activeDeck else { return }
+		if let nextIndex = computeNextIndex() {
+			log("  → advancing to next track idx=\(nextIndex)")
+			hardSkip(to: nextIndex)
+			activePlayer?.rate = rate
+		} else {
+			log("  → no next track, emitting QueueEnded")
+			sendEvent("PlaybackQueueEnded", [:])
+		}
 	}
 
 	// MARK: - Audio processing tap
@@ -713,6 +881,7 @@ public final class YhplayerCrossfadeModule: Module {
 		stopProgressTimer()
 		stopCrossfade()
 		teardownAudioTap()
+		removeEndOfTrackObservers()
 	}
 }
 

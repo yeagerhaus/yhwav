@@ -89,6 +89,8 @@ const TrackPlayer = {
 		if (crossfade === _crossfadeMode) return;
 		if (crossfade && (!isCrossfadeAvailable() || !YhplayerCrossfadeModule)) return;
 
+		console.log(`[XF-JS] switchEngine: ${_crossfadeMode ? 'crossfade' : 'gapless'} → ${crossfade ? 'crossfade' : 'gapless'}`);
+
 		const oldPlayer = getPlayer();
 		let currentState: { queue: TrackLike[]; index: number; position: number; wasPlaying: boolean } | null = null;
 
@@ -99,6 +101,7 @@ const TrackPlayer = {
 				const state = oldPlayer.getPlaybackState();
 				const wasPlaying = state.state === 'playing';
 				currentState = { queue, index, position: state.position, wasPlaying };
+				console.log(`[XF-JS] switchEngine: captured state: ${queue.length} tracks, idx=${index}, pos=${state.position.toFixed(1)}s, playing=${wasPlaying}`);
 			} catch {}
 			try { await oldPlayer.reset(); } catch {}
 		}
@@ -117,8 +120,9 @@ const TrackPlayer = {
 				if (currentState.wasPlaying) {
 					await newPlayer.play();
 				}
+				console.log('[XF-JS] switchEngine: restore complete');
 			} catch (e) {
-				console.error('Engine switch restore failed:', e);
+				console.error('[XF-JS] Engine switch restore failed:', e);
 			}
 		}
 	},

@@ -41,6 +41,7 @@
         "react-native-web": "^0.21.2",
         "tsx": "^4.21.0",
         "yhplayer-audio": "file:./modules/yhplayer-audio",
+        "yhplayer-crossfade": "file:./modules/yhplayer-crossfade",
         "zustand": "^5.0.11",
       },
       "devDependencies": {
@@ -2207,6 +2208,8 @@
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
     "yhplayer-audio": ["yhplayer-audio@file:modules/yhplayer-audio", { "devDependencies": { "expo-module-scripts": "^5.0.8" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }],
+
+    "yhplayer-crossfade": ["yhplayer-crossfade@file:modules/yhplayer-crossfade", { "devDependencies": { "expo-module-scripts": "^5.0.8" }, "peerDependencies": { "expo": "*", "react": "*", "react-native": "*" } }],
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
