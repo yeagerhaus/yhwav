@@ -1,14 +1,12 @@
 import { Stack } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { Colors } from '@/constants';
+import { useColors } from '@/hooks/useColors';
 import { useSearchStore } from '@/hooks';
 
 export default function SearchLayout() {
-	const colorScheme = useColorScheme();
-	const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+	const colors = useColors();
 
 	return (
-		<Stack screenOptions={{ contentStyle: { backgroundColor: bg } }}>
+		<Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
 			<Stack.Screen
 				name='index'
 				options={{

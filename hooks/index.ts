@@ -6,6 +6,7 @@ export { useLibraryStore } from './useLibraryStore';
 export { usePlaylists } from './usePlaylists';
 export { useSearch } from './useSearch';
 export { useSearchStore } from './useSearchStore';
+export { useColors, useThemedStyles } from './useColors';
 export { useThemeColor } from './useThemeColor';
 export { useTracks } from './useTracks';
 export { useUltraBlurColors } from './useUltraBlurColors';

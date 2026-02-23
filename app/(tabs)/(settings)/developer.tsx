@@ -2,11 +2,13 @@ import { StyleSheet, Switch } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
+import { useColors } from '@/hooks/useColors';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function DeveloperScreen() {
+	const colors = useColors();
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
 
@@ -24,8 +26,8 @@ export default function DeveloperScreen() {
 					<Switch
 						value={showPerformanceDebugger}
 						onValueChange={setShowPerformanceDebugger}
-						trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-						thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
+						trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+						thumbColor={showPerformanceDebugger ? colors.brand : colors.textMuted}
 					/>
 				</Div>
 			</Div>

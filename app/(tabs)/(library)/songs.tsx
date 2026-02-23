@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors } from '@/constants';
+import { useColors } from '@/hooks/useColors';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 
@@ -9,6 +9,7 @@ import { clearCacheAndReload } from '@/utils/cache';
 const ITEM_HEIGHT = 70;
 
 export default function SongsScreen() {
+	const colors = useColors();
 	const { tracks } = useOfflineFilteredLibrary();
 	const isIndexing = false; // Track indexing is now synchronous
 	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
@@ -109,7 +110,7 @@ export default function SongsScreen() {
 		return (
 			<Main scrollEnabled={false}>
 				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
-					<ActivityIndicator size='large' color={Colors.brandPrimary} />
+					<ActivityIndicator size='large' color={colors.brand} />
 					<Text type='body' style={{ marginTop: 16, opacity: 0.7 }}>
 						{isIndexing ? 'Indexing library...' : 'Sorting songs...'}
 					</Text>

@@ -5,8 +5,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 
 const PRESS_DOWN = { duration: 80 } as const;
 const PRESS_UP = { duration: 150 } as const;
@@ -49,6 +49,7 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 // Extract the content into a separate component for reusability
 const MiniPlayerContent = React.memo(() => {
 	const colorScheme = useColorScheme();
+	const colors = useColors();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const isPlaying = useAudioStore((state) => state.isPlaying);
 	const togglePlayPause = useAudioStore((state) => state.togglePlayPause);
@@ -74,18 +75,18 @@ const MiniPlayerContent = React.memo(() => {
 				{isPodcast ? (
 					<>
 						<Pressable style={styles.controlButton} onPress={skipBackward15}>
-							<SymbolView name='gobackward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+							<SymbolView name='gobackward.15' type='hierarchical' size={22} tintColor={colors.brand} />
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={togglePlayPause}>
 							<SymbolView
 								name={isPlaying ? 'pause.fill' : 'play.fill'}
 								type='hierarchical'
 								size={20}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 							/>
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={skipForward15}>
-							<SymbolView name='goforward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+							<SymbolView name='goforward.15' type='hierarchical' size={22} tintColor={colors.brand} />
 						</Pressable>
 					</>
 				) : (
@@ -95,11 +96,11 @@ const MiniPlayerContent = React.memo(() => {
 								name={isPlaying ? 'pause.fill' : 'play.fill'}
 								type='hierarchical'
 								size={20}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 							/>
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={skipToNext}>
-							<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brandPrimary} />
+							<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={colors.brand} />
 						</Pressable>
 					</>
 				)}

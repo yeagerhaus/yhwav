@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
-import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Image, Pressable, StyleSheet } from 'react-native';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import type { Artist } from '@/types/artist';
 import { Div } from '../Div';
 
@@ -12,7 +12,7 @@ interface SearchArtistItemProps {
 }
 
 export default function SearchArtistItem({ artist, query, onPress }: SearchArtistItemProps) {
-	const colorScheme = useColorScheme();
+	const colors = useColors();
 
 	const handlePress = () => {
 		router.push({
@@ -26,10 +26,11 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 	const highlightText = (text: string, query: string) => {
 		if (!query) return text;
 
-		const parts = text.split(new RegExp(`(${query})`, 'gi'));
+		const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === query.toLowerCase() ? (
-				<Text key={index} style={styles.highlighted}>
+				<Text key={index} style={[styles.highlighted, { backgroundColor: colors.brand, color: '#ffffff' }]}>
 					{part}
 				</Text>
 			) : (
@@ -51,16 +52,13 @@ export default function SearchArtistItem({ artist, query, onPress }: SearchArtis
 			)}
 			<Div
 				transparent
-				style={[
-					styles.artistInfoContainer,
-					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
-				]}
+				style={[styles.artistInfoContainer, { borderBottomColor: colors.listDivider }]}
 			>
 				<Div transparent style={styles.artistInfo}>
-					<Text type='defaultSemiBold' numberOfLines={1} style={styles.artistName}>
+					<Text type='body' numberOfLines={1} style={styles.artistName}>
 						{highlightText(artist.name, query)}
 					</Text>
-					<Text type='subtitle' numberOfLines={1} style={styles.artistStats}>
+					<Text type='bodySM' numberOfLines={1} style={styles.artistStats}>
 						{genreText}
 					</Text>
 				</Div>
@@ -119,8 +117,6 @@ const styles = StyleSheet.create({
 		opacity: 0.6,
 	},
 	highlighted: {
-		backgroundColor: Colors.brandPrimary,
-		color: 'white',
 		fontWeight: '600',
 	},
 });

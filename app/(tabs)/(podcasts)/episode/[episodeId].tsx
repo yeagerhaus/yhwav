@@ -8,7 +8,7 @@ import { Main } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
@@ -49,7 +49,7 @@ function isDownloadRecord(ep: PodcastEpisode | PodcastDownload): ep is PodcastDo
 
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
 
-function LinkedText({ text, style }: { text: string; style?: any }) {
+function LinkedText({ text, style, linkColor }: { text: string; style?: any; linkColor: string }) {
 	const parts = useMemo(() => {
 		const result: React.ReactNode[] = [];
 		let lastIndex = 0;
@@ -61,7 +61,7 @@ function LinkedText({ text, style }: { text: string; style?: any }) {
 			}
 			const url = match[0];
 			result.push(
-				<Text key={match.index} type='body' style={{ color: Colors.brandPrimary }} onPress={() => Linking.openURL(url)}>
+				<Text key={match.index} type='body' style={{ color: linkColor }} onPress={() => Linking.openURL(url)}>
 					{url}
 				</Text>,
 			);
@@ -72,7 +72,7 @@ function LinkedText({ text, style }: { text: string; style?: any }) {
 			result.push(text.slice(lastIndex));
 		}
 		return result;
-	}, [text]);
+	}, [text, linkColor]);
 
 	return (
 		<Text type='body' style={style}>
@@ -82,6 +82,7 @@ function LinkedText({ text, style }: { text: string; style?: any }) {
 }
 
 export default function EpisodeDetailScreen() {
+	const colors = useColors();
 	const { episodeId, feedId } = useLocalSearchParams<{ episodeId: string; feedId: string }>();
 	const colorScheme = useColorScheme();
 	const isDark = colorScheme === 'dark';
@@ -262,8 +263,8 @@ export default function EpisodeDetailScreen() {
 					) : null}
 					{downloaded && (
 						<Div transparent style={styles.downloadedBadge}>
-							<SymbolView name='checkmark.circle' size={14} tintColor={Colors.brandPrimary} />
-							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+							<SymbolView name='checkmark.circle' size={14} tintColor={colors.brand} />
+							<Text type='bodyXS' style={{ color: colors.brand }}>
 								Downloaded
 							</Text>
 						</Div>
@@ -286,7 +287,7 @@ export default function EpisodeDetailScreen() {
 					<SymbolView
 						name={isCurrentEpisode && isPlaying ? 'pause.fill' : 'play.fill'}
 						size={12}
-						tintColor={Colors.brandPrimary}
+						tintColor={colors.brand}
 					/>
 					<Div transparent style={styles.progressBarContainer}>
 						<Div
@@ -300,13 +301,13 @@ export default function EpisodeDetailScreen() {
 								transparent
 								style={[
 									styles.progressBarFill,
-									{ width: `${progressPercent * 100}%`, backgroundColor: Colors.brandPrimary },
+									{ width: `${progressPercent * 100}%`, backgroundColor: colors.brand },
 								]}
 							/>
 						</Div>
 					</Div>
 					<Div transparent style={styles.durationPill}>
-						<Text type='bodyXS' style={styles.durationText}>
+						<Text type='bodyXS' style={[styles.durationText, { color: colors.brand }]}>
 							{formatDurationShort(displayDuration)}
 						</Text>
 					</Div>
@@ -314,8 +315,8 @@ export default function EpisodeDetailScreen() {
 
 				<Div transparent style={styles.actionButtons}>
 					<Pressable onPress={handleDownload} disabled={isDownloading} style={styles.actionButton}>
-						<SymbolView name={downloaded ? 'trash' : 'arrow.down.circle'} size={22} tintColor={Colors.brandPrimary} />
-						<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+						<SymbolView name={downloaded ? 'trash' : 'arrow.down.circle'} size={22} tintColor={colors.brand} />
+						<Text type='bodyXS' style={{ color: colors.brand }}>
 							{isDownloading ? 'Downloading…' : downloaded ? 'Remove' : 'Download'}
 						</Text>
 					</Pressable>
@@ -332,16 +333,16 @@ export default function EpisodeDetailScreen() {
 						<SymbolView
 							name={progress?.completed ? 'arrow.counterclockwise' : 'checkmark.circle'}
 							size={22}
-							tintColor={Colors.brandPrimary}
+							tintColor={colors.brand}
 						/>
-						<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+						<Text type='bodyXS' style={{ color: colors.brand }}>
 							{progress?.completed ? 'Unplayed' : 'Played'}
 						</Text>
 					</Pressable>
 					{song && (
 						<Pressable onPress={() => addToQueue([song])} style={styles.actionButton}>
-							<SymbolView name='list.bullet' size={22} tintColor={Colors.brandPrimary} />
-							<Text type='bodyXS' style={{ color: Colors.brandPrimary }}>
+							<SymbolView name='list.bullet' size={22} tintColor={colors.brand} />
+							<Text type='bodyXS' style={{ color: colors.brand }}>
 								Queue
 							</Text>
 						</Pressable>
@@ -352,7 +353,7 @@ export default function EpisodeDetailScreen() {
 			{/* Description / show notes */}
 			{'description' in episode && episode.description ? (
 				<Div transparent style={styles.descriptionSection}>
-					<LinkedText text={episode.description} style={styles.description} />
+					<LinkedText text={episode.description} style={styles.description} linkColor={colors.brand} />
 				</Div>
 			) : null}
 		</Main>
@@ -449,7 +450,6 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgba(127,98,245,0.15)',
 	},
 	durationText: {
-		color: Colors.brandPrimary,
 		fontWeight: '600',
 	},
 	actionButtons: {

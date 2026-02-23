@@ -2,7 +2,8 @@ import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
 import { Modal, Pressable, type StyleProp, TouchableOpacity, type View, type ViewStyle } from 'react-native';
 import { Text } from '@/components/Text';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
 import { Div } from './Div';
 export interface ContextMenuItem {
 	label: string;
@@ -20,6 +21,8 @@ interface ContextMenuProps {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style }) => {
+	const colors = useColors();
+	const themed = useThemedStyles();
 	const [visible, setVisible] = React.useState(false);
 	const [position, setPosition] = React.useState({ x: 0, y: 0 });
 	const triggerRef = React.useRef<View>(null);
@@ -50,10 +53,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 			</Pressable>
 
 			<Modal visible={visible} transparent animationType='fade' onRequestClose={() => setVisible(false)}>
-				<TouchableOpacity style={DefaultStyles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
+				<TouchableOpacity style={themed.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
 					<Div
 						style={[
-							DefaultStyles.menuContainer,
+							themed.menuContainer,
 							{
 								top: position.y,
 								right: 16,
@@ -66,7 +69,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 								style={[
 									DefaultStyles.menuItem,
 									item.disabled && styles.menuItemDisabled,
-									index !== items.length - 1 && DefaultStyles.menuItemBorder,
+									index !== items.length - 1 && themed.menuItemBorder,
 								]}
 								onPress={() => handleItemPress(item)}
 								disabled={item.disabled}
@@ -76,20 +79,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 										<SymbolView
 											name={item.systemImage}
 											size={18}
-											tintColor={item.destructive ? Colors.dangerSolid : Colors.white}
+											tintColor={item.destructive ? colors.dangerSolid : colors.text}
 											style={styles.menuIcon}
 										/>
 									) : item.icon ? (
 										<SymbolView
 											name={item.icon}
 											size={18}
-											tintColor={item.destructive ? Colors.dangerSolid : Colors.white}
+											tintColor={item.destructive ? colors.dangerSolid : colors.text}
 											style={styles.menuIcon}
 										/>
 									) : null}
 									<Text
 										type='body'
-										colorVariant={item.destructive ? 'danger' : 'primaryInvert'}
+										colorVariant={item.destructive ? 'danger' : 'primary'}
 										style={[item.disabled && styles.menuItemDisabledText]}
 									>
 										{item.label}

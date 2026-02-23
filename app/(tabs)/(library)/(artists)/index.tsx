@@ -2,11 +2,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors } from '@/constants/styles';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
+import { useColors } from '@/hooks/useColors';
 import type { Artist } from '@/types';
 
 export default function ArtistsScreen() {
+	const colors = useColors();
 	const _router = useRouter();
 	const { artists } = useOfflineFilteredLibrary();
 
@@ -28,10 +29,10 @@ export default function ArtistsScreen() {
 	const listEmptyComponent = useMemo(
 		() => (
 			<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-				<ActivityIndicator size='large' color={Colors.brandPrimary} />
+				<ActivityIndicator size='large' color={colors.brand} />
 			</Div>
 		),
-		[],
+		[colors.brand],
 	);
 
 	return (

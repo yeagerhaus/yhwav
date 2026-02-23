@@ -13,6 +13,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { useColors } from '@/hooks/useColors';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
@@ -52,11 +53,11 @@ const CustomLightTheme = {
 };
 
 function AnimatedStack() {
+	const colors = useColors();
 	const { scale } = useRootScale();
 	const router = useRouter();
-	const colorScheme = useColorScheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
-	const screenBackground = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+	const screenBackground = colors.background;
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -103,7 +104,7 @@ export default function RootLayout() {
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
 
 	useEffect(() => {
-		const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+		const bg = Colors[colorScheme ?? 'dark'].background;
 		SystemUI.setBackgroundColorAsync(bg);
 	}, [colorScheme]);
 

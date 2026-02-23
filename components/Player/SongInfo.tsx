@@ -129,12 +129,11 @@ export const SongInfo = React.memo(() => {
 			<Div transparent style={styles.titleContainer}>
 				<Div transparent style={styles.titleRow}>
 					<Div transparent style={styles.titleMain}>
-						<Text type='title' style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
+						<Text type='h2' style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
 							{title}
 						</Text>
 						<Text
 							style={styles.artist}
-							// onPress={() => router.push(`/(tabs)/(library)/(artists)/${encodeURIComponent(artist || '')}`)}
 						>
 							{artist}
 						</Text>
@@ -144,7 +143,7 @@ export const SongInfo = React.memo(() => {
 						<Ionicons name='star-outline' size={18} color='#fff' />
 					</Pressable> */}
 						<ContextMenu items={menuItems} style={styles.iconButton}>
-							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+							<SymbolView name='ellipsis' size={24} tintColor='#fff' />
 						</ContextMenu>
 					</Div>
 				</Div>
@@ -199,7 +198,6 @@ const styles = StyleSheet.create({
 		width: 32,
 		height: 32,
 		borderRadius: 20,
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
