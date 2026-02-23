@@ -22,10 +22,10 @@ import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+import { setupCarPlay, teardownCarPlay } from '@/lib/carplay';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
-import { setupCarPlay, teardownCarPlay } from '@/lib/carplay';
 import { initScrobbleQueue } from '@/utils/scrobble-queue';
 
 function AudioSync() {

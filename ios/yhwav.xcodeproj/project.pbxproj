@@ -12,12 +12,12 @@
 		342CE455FFCBEBA50D51C3AA /* libPods-yhwav.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 40C9E3889BCF4F846992DF1B /* libPods-yhwav.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		CA000000000000000000000A /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000000000B /* CarPlaySceneDelegate.swift */; };
 		E7BFC3B55B8637D6D1BCF965 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 973DF22213096A2780923FB2 /* ExpoModulesProvider.swift */; };
 		EDB60C9D2E05BF9000397F81 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9C2E05BF9000397F81 /* MediaPlayer.framework */; };
 		EDB60C9F2E05BF9400397F81 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9E2E05BF9400397F81 /* AVFoundation.framework */; };
 		EDB60CA32E05BFA100397F81 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60CA22E05BFA100397F81 /* AudioToolbox.framework */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		CA000000000000000000000A /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000000000B /* CarPlaySceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,12 +29,12 @@
 		973DF22213096A2780923FB2 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-yhwav/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = yhwav/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		CA000000000000000000000B /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CarPlaySceneDelegate.swift; path = yhwav/CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EDB60C9C2E05BF9000397F81 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
 		EDB60C9E2E05BF9400397F81 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		EDB60CA22E05BFA100397F81 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = yhwav/AppDelegate.swift; sourceTree = "<group>"; };
-		CA000000000000000000000B /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CarPlaySceneDelegate.swift; path = yhwav/CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* yhwav-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "yhwav-Bridging-Header.h"; path = "yhwav/yhwav-Bridging-Header.h"; sourceTree = "<group>"; };
 		F283EF1410FE5BC46BBD0600 /* Pods-yhwav.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-yhwav.release.xcconfig"; path = "Target Support Files/Pods-yhwav/Pods-yhwav.release.xcconfig"; sourceTree = "<group>"; };
 		F2E0B9D63CD048973E84764D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = yhwav/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { CarPlay, ListTemplate, NowPlayingTemplate, TabBarTemplate } from 'react-native-carplay';
+import { CarPlay, ListTemplate, TabBarTemplate } from 'react-native-carplay';
 import type { ListItem } from 'react-native-carplay/lib/interfaces/ListItem';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -86,16 +86,9 @@ function onConnect() {
 	recentlyPlayedList = buildRecentlyPlayedTemplate(recentlyPlayed);
 	playlistsList = buildPlaylistsTemplate(playlists);
 
-	const nowPlaying = new NowPlayingTemplate({
-		id: 'carplay-now-playing',
-		tabTitle: 'Now Playing',
-		tabSystemImageName: 'play.fill',
-		buttons: [{ id: 'shuffle', type: 'shuffle' }, { id: 'repeat', type: 'repeat' }],
-	});
-
 	const tabBar = new TabBarTemplate({
 		title: 'yhwav',
-		templates: [recentlyPlayedList, playlistsList, nowPlaying],
+		templates: [recentlyPlayedList, playlistsList],
 		onTemplateSelect() {},
 	});
 
