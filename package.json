@@ -13,7 +13,8 @@
 		"b:test": "npx expo run:ios --configuration Release --device",
 		"check:tsc": "tsc --project tsconfig.json --noEmit",
 		"check:biome": "biome check --formatter-enabled=true --linter-enabled=true --vcs-enabled=true --write --unsafe .",
-		"check:all": "bun check:tsc && bun check:biome"
+		"check:all": "bun check:tsc && bun check:biome",
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@expo/metro-runtime": "~6.1.2",
@@ -60,6 +61,7 @@
 		"@biomejs/biome": "2.0.0",
 		"@types/react": "~19.1.17",
 		"baseline-browser-mapping": "^2.10.0",
+		"husky": "^9.1.7",
 		"typescript": "~5.9.3"
 	},
 	"overrides": {
