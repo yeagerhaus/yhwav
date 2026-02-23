@@ -1,6 +1,5 @@
 #!/bin/bash
 
-rm -rf android ios
 bun check:all
 biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched
 files="$(git status --porcelain | grep -Ev '^D|^ M' | awk '{ if ($1 ~ /^R/) print $4; else print $2 }')"
