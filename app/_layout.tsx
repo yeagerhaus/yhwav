@@ -24,6 +24,7 @@ import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+import { setupCarPlay, teardownCarPlay } from '@/lib/carplay';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
@@ -155,6 +156,8 @@ export default function RootLayout() {
 				await initializePlayer();
 				console.log('✅ Audio player initialized');
 
+				setupCarPlay();
+
 				if (authLoaded && plexAuthService.isAuthenticated()) {
 					initScrobbleQueue().catch(() => {});
 
@@ -216,6 +219,7 @@ export default function RootLayout() {
 		};
 
 		init();
+		return () => teardownCarPlay();
 	}, []);
 
 	return (
