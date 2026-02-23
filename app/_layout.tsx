@@ -8,6 +8,7 @@ import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-na
 LogBox.ignoreAllLogs();
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
@@ -218,13 +219,15 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={styles.container}>
-			<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-				<RootScaleProvider>
-					<AudioSync />
-					<AnimatedStack />
-					<AddToPlaylistModal />
-				</RootScaleProvider>
-			</ThemeProvider>
+			<SafeAreaProvider initialMetrics={initialWindowMetrics}>
+				<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
+					<RootScaleProvider>
+						<AudioSync />
+						<AnimatedStack />
+						<AddToPlaylistModal />
+					</RootScaleProvider>
+				</ThemeProvider>
+			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }

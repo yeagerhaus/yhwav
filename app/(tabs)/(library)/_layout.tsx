@@ -59,6 +59,7 @@ export default function LibraryLayout() {
 			<Stack.Screen
 				name='songs'
 				options={{
+					headerShown: true,
 					title: 'Songs',
 					header: () => <InternalHeader />,
 				}}

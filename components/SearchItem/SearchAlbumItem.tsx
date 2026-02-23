@@ -120,13 +120,11 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 4,
 		flexDirection: 'row',
+		alignItems: 'center',
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		paddingBottom: 14,
-		paddingRight: 14,
 	},
 	albumInfo: {
 		flex: 1,
-		gap: 2,
 		backgroundColor: 'transparent',
 	},
 	albumTitle: {

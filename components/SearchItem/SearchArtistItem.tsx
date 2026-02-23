@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
 	},
 	artistInfo: {
 		flex: 1,
-		gap: 2,
 		backgroundColor: 'transparent',
 	},
 	artistName: {

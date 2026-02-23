@@ -131,7 +131,7 @@ export default function SongsScreen() {
 				windowSize={10}
 				initialNumToRender={15}
 				updateCellsBatchingPeriod={50}
-				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
+				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
 			/>
 		</Main>
