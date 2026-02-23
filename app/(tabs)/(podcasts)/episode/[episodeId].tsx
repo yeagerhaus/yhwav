@@ -8,8 +8,8 @@ import { Main } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { useColors } from '@/hooks/useColors';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -284,11 +284,7 @@ export default function EpisodeDetailScreen() {
 						},
 					]}
 				>
-					<SymbolView
-						name={isCurrentEpisode && isPlaying ? 'pause.fill' : 'play.fill'}
-						size={12}
-						tintColor={colors.brand}
-					/>
+					<SymbolView name={isCurrentEpisode && isPlaying ? 'pause.fill' : 'play.fill'} size={12} tintColor={colors.brand} />
 					<Div transparent style={styles.progressBarContainer}>
 						<Div
 							transparent
@@ -299,10 +295,7 @@ export default function EpisodeDetailScreen() {
 						>
 							<Div
 								transparent
-								style={[
-									styles.progressBarFill,
-									{ width: `${progressPercent * 100}%`, backgroundColor: colors.brand },
-								]}
+								style={[styles.progressBarFill, { width: `${progressPercent * 100}%`, backgroundColor: colors.brand }]}
 							/>
 						</Div>
 					</Div>

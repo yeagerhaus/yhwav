@@ -208,10 +208,7 @@ const PodcastEpisodeItem = React.memo(
 
 		return (
 			<Pressable onPress={handlePress} style={styles.row}>
-				<Div
-					style={[styles.info, { borderBottomColor: colors.listDivider }]}
-					transparent
-				>
+				<Div style={[styles.info, { borderBottomColor: colors.listDivider }]} transparent>
 					<Div style={styles.titleRow} transparent>
 						<Text
 							type='h3'

@@ -200,7 +200,9 @@ export default function ArtistDetailScreen() {
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}
 					</Text>
-					{artist.genres.length > 0 && <Text style={[styles.genres, { color: colors.textMuted }]}>{artist.genres.join(', ')}</Text>}
+					{artist.genres.length > 0 && (
+						<Text style={[styles.genres, { color: colors.textMuted }]}>{artist.genres.join(', ')}</Text>
+					)}
 					{artist.country && <Text style={[styles.country, { color: colors.textMuted }]}>{artist.country}</Text>}
 				</Div>
 				{artist.summary ? (
@@ -215,11 +217,7 @@ export default function ArtistDetailScreen() {
 						{isActive ? (
 							<ActivityIndicator size='small' color={colors.brand} />
 						) : (
-							<SymbolView
-								name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
-								size={20}
-								tintColor={colors.brand}
-							/>
+							<SymbolView name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'} size={20} tintColor={colors.brand} />
 						)}
 						<Text type='bodySM' style={{ color: colors.brand }}>
 							{downloadLabel}

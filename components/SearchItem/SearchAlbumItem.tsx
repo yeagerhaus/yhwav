@@ -5,8 +5,8 @@ import { Image, Pressable, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
-import { useColors } from '@/hooks/useColors';
 import { useArtists } from '@/hooks/useArtists';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
 import { Div } from '../Div';
@@ -77,10 +77,7 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<Div
-				transparent
-				style={[styles.albumInfoContainer, { borderBottomColor: colors.listDivider }]}
-			>
+			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colors.listDivider }]}>
 				<Div transparent style={styles.albumInfo}>
 					<Text type='body' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}

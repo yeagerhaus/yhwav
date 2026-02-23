@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
-import { useColors } from '@/hooks/useColors';
 import { useSearchStore } from '@/hooks';
+import { useColors } from '@/hooks/useColors';
 
 export default function SearchLayout() {
 	const colors = useColors();

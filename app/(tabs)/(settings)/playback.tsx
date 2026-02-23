@@ -4,8 +4,8 @@ import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-na
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { DefaultStyles } from '@/constants/styles';
-import { EQ_PRESETS, formatFrequency, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { useColors, useThemedStyles } from '@/hooks/useColors';
+import { EQ_PRESETS, formatFrequency, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 const EQ_TRACK_LENGTH = 150;

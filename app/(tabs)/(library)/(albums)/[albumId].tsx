@@ -118,11 +118,7 @@ export default function AlbumDetailScreen() {
 							{isActive ? (
 								<ActivityIndicator size='small' color={colors.brand} />
 							) : (
-								<SymbolView
-									name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
-									size={20}
-									tintColor={colors.brand}
-								/>
+								<SymbolView name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'} size={20} tintColor={colors.brand} />
 							)}
 							<Text type='bodySM' style={{ color: colors.brand }}>
 								{downloadLabel}

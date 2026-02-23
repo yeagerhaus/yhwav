@@ -5,10 +5,10 @@ import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextI
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { DefaultSharedComponents } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
-import { useColors } from '@/hooks/useColors';
 import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
@@ -208,7 +208,7 @@ export default function DetailScreen() {
 	const renderEditItem = useCallback(
 		({ item, drag, isActive }: RenderItemParams<Song>) => (
 			<ScaleDecorator>
-						<Pressable onLongPress={drag} disabled={isActive} style={[styles.editRow, isActive && styles.editRowActive]}>
+				<Pressable onLongPress={drag} disabled={isActive} style={[styles.editRow, isActive && styles.editRowActive]}>
 					<Pressable
 						onPress={() => item.playlistItemId && editor.removeTrack(item.playlistItemId)}
 						hitSlop={8}

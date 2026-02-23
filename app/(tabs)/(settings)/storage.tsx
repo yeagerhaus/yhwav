@@ -102,14 +102,19 @@ export default function StorageScreen() {
 						<Switch
 							value={offlineMode}
 							onValueChange={setOfflineMode}
-trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
-						thumbColor={offlineMode ? colors.brand : colors.textMuted}
+							trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+							thumbColor={offlineMode ? colors.brand : colors.textMuted}
 						/>
 					</Div>
 				</Div>
 
 				<TouchableOpacity
-					style={[themed.cancelButton, styles.actionButton, { borderColor: colors.borderSubtle }, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleClearCache}
 					disabled={isLoading}
 				>
@@ -123,7 +128,12 @@ trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 
 				</TouchableOpacity>
 
 				<TouchableOpacity
-					style={[themed.cancelButton, styles.actionButton, { borderColor: colors.borderSubtle }, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleRemoveAllDownloads}
 					disabled={isLoading}
 				>

@@ -15,7 +15,14 @@ export default function AccountScreen() {
 			serverItem: { borderColor: colors.surfaceTertiary },
 			selectedServerItem: { borderColor: colors.brand, backgroundColor: hexWithOpacity(colors.brand, 0.1) },
 			selectedIndicator: { color: colors.brand, fontSize: 20, fontWeight: 'bold' as const },
-			pinCode: { color: colors.brand, fontSize: 24, textAlign: 'center' as const, fontWeight: 'bold' as const, letterSpacing: 4, fontFamily: 'monospace' },
+			pinCode: {
+				color: colors.brand,
+				fontSize: 24,
+				textAlign: 'center' as const,
+				fontWeight: 'bold' as const,
+				letterSpacing: 4,
+				fontFamily: 'monospace',
+			},
 			advancedSection: { borderTopColor: colors.surfaceTertiary },
 			tokenButton: { backgroundColor: colors.surfaceTertiary },
 		}),
@@ -200,11 +207,7 @@ export default function AccountScreen() {
 					{!pinCode ? (
 						<Div style={DefaultStyles.section}>
 							<TouchableOpacity
-								style={[
-									themed.primaryButton,
-									styles.connectButtonPadding,
-									isLoading && DefaultStyles.buttonDisabled,
-								]}
+								style={[themed.primaryButton, styles.connectButtonPadding, isLoading && DefaultStyles.buttonDisabled]}
 								onPress={handlePinLogin}
 								disabled={isLoading}
 							>
@@ -287,11 +290,7 @@ export default function AccountScreen() {
 												</Text>
 											</TouchableOpacity>
 											<TouchableOpacity
-												style={[
-													themed.primaryButton,
-													styles.flex1,
-													isLoading && DefaultStyles.buttonDisabled,
-												]}
+												style={[themed.primaryButton, styles.flex1, isLoading && DefaultStyles.buttonDisabled]}
 												onPress={handleTokenLogin}
 												disabled={isLoading}
 											>
@@ -310,7 +309,10 @@ export default function AccountScreen() {
 										</Div>
 									</Div>
 								) : (
-									<TouchableOpacity style={[styles.tokenButton, dynamicStyles.tokenButton]} onPress={() => setShowTokenInput(true)}>
+									<TouchableOpacity
+										style={[styles.tokenButton, dynamicStyles.tokenButton]}
+										onPress={() => setShowTokenInput(true)}
+									>
 										<Text type='label' colorVariant='primaryInvert'>
 											Enter Token Manually
 										</Text>

@@ -8,14 +8,14 @@ import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-na
 LogBox.ignoreAllLogs();
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
-import { useColors } from '@/hooks/useColors';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';

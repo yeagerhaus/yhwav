@@ -1,7 +1,7 @@
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { DynamicColorIOS } from 'react-native';
-import { useColors } from '@/hooks/useColors';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
+import { useColors } from '@/hooks/useColors';
 
 export default function TabLayout() {
 	const colors = useColors();
@@ -19,17 +19,11 @@ export default function TabLayout() {
 			}}
 		>
 			<NativeTabs.Trigger name='(library)'>
-				<Icon
-					sf={{ default: 'music.note.square.stack', selected: 'music.note.square.stack.fill' }}
-					selectedColor={colors.brand}
-				/>
+				<Icon sf={{ default: 'music.note.square.stack', selected: 'music.note.square.stack.fill' }} selectedColor={colors.brand} />
 				<Label>Library</Label>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='(podcasts)' hidden={!showPodcastsTab}>
-				<Icon
-					sf={{ default: 'apple.podcasts.pages.fill', selected: 'apple.podcasts.pages.fill' }}
-					selectedColor={colors.brand}
-				/>
+				<Icon sf={{ default: 'apple.podcasts.pages.fill', selected: 'apple.podcasts.pages.fill' }} selectedColor={colors.brand} />
 				<Label>Podcasts</Label>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name='(settings)'>

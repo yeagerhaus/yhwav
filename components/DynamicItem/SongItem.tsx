@@ -5,10 +5,10 @@ import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
-import { useColors } from '@/hooks/useColors';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
@@ -128,21 +128,13 @@ const SongItem = React.memo(
 							</Text>
 						)}
 					</Div>
-					<Div
-						style={[
-							styles.songInfoContainerList,
-							{ borderBottomColor: colors.listDivider },
-						]}
-						transparent
-					>
+					<Div style={[styles.songInfoContainerList, { borderBottomColor: colors.listDivider }]} transparent>
 						<Div style={styles.songInfo} transparent>
 							<Text type='body' numberOfLines={1} style={styles.songTitle}>
 								{item.title}
 							</Text>
 							<Div style={styles.artistRow} transparent>
-								{item.id === String(currentSong?.id) && (
-									<SymbolView name='music.note' size={12} tintColor={colors.brand} />
-								)}
+								{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
 								{downloadIndicator}
 								<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 									{item.artist}
@@ -185,21 +177,13 @@ const SongItem = React.memo(
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
 					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 				</Div>
-				<Div
-					transparent
-					style={[
-						styles.songInfoContainer,
-						{ borderBottomColor: colors.listDivider },
-					]}
-				>
+				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 					<Div transparent style={styles.songInfo}>
 						<Text type='body' numberOfLines={1} style={styles.songTitle}>
 							{item.title}
 						</Text>
 						<Div transparent style={styles.artistRow}>
-							{item.id === String(currentSong?.id) && (
-								<SymbolView name='music.note' size={12} tintColor={colors.brand} />
-							)}
+							{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
 							{downloadIndicator}
 							<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}

@@ -3,8 +3,8 @@ import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
 import { DefaultStyles } from '@/constants/styles';
-import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useColors } from '@/hooks/useColors';
+import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function DeveloperScreen() {

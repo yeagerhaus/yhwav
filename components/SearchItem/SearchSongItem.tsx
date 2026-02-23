@@ -6,10 +6,10 @@ import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
-import { useColors } from '@/hooks/useColors';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
@@ -101,10 +101,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
 				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 			</Div>
-			<Div
-				transparent
-				style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}
-			>
+			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 				<Div transparent style={styles.songInfo}>
 					<Text type='body' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}

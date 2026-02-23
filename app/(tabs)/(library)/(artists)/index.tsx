@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { useColors } from '@/hooks/useColors';
+import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Artist } from '@/types';
 
 export default function ArtistsScreen() {
