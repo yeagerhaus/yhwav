@@ -3,8 +3,8 @@ import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { toPlayableSong } from '@/types';
@@ -57,6 +57,7 @@ function isDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload
 const PodcastEpisodeItem = React.memo(
 	({ episode, showTitle, showImageUrl, queue, listItem: _listItem = true, feed: _feed }: PodcastEpisodeItemProps) => {
 		const colorScheme = useColorScheme();
+		const colors = useColors();
 		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
 		const playNext = useAudioStore((state) => state.playNext);
@@ -207,28 +208,25 @@ const PodcastEpisodeItem = React.memo(
 
 		return (
 			<Pressable onPress={handlePress} style={styles.row}>
-				<Div
-					style={[styles.info, { borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark }]}
-					transparent
-				>
+				<Div style={[styles.info, { borderBottomColor: colors.listDivider }]} transparent>
 					<Div style={styles.titleRow} transparent>
 						<Text
 							type='h3'
 							numberOfLines={1}
-							style={[styles.title, { flex: 1, color: isCurrentEpisode ? Colors.brandPrimary : Colors.white }]}
+							style={[styles.title, { flex: 1, color: isCurrentEpisode ? colors.brand : colors.text }]}
 						>
 							{episode.title}
 						</Text>
 						{progress?.completed ? (
-							<SymbolView name='checkmark.circle' size={16} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+							<SymbolView name='checkmark.circle' size={16} tintColor={colors.brand} style={{ marginLeft: 4 }} />
 						) : null}
 						{isDownloading ? (
-							<ActivityIndicator size='small' color={Colors.brandPrimary} />
+							<ActivityIndicator size='small' color={colors.brand} />
 						) : isDownloaded || isDownload(episode) ? (
 							<SymbolView
 								name='arrow.down.to.line.circle.fill'
 								size={16}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 								style={{ marginLeft: 4 }}
 							/>
 						) : null}
@@ -264,7 +262,7 @@ const PodcastEpisodeItem = React.memo(
 							<SymbolView
 								name={isCurrentEpisode && isPlaying ? 'pause.fill' : 'play.fill'}
 								size={12}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 							/>
 							<View style={styles.durationPill}>
 								<Text type='bodyXS' style={styles.durationText}>
@@ -274,7 +272,7 @@ const PodcastEpisodeItem = React.memo(
 						</Pressable>
 
 						<ContextMenu items={menuItems} style={styles.menuButton}>
-							<SymbolView name='ellipsis' size={16} tintColor={Colors.brandPrimary} />
+							<SymbolView name='ellipsis' size={16} tintColor={colors.brand} />
 						</ContextMenu>
 					</Div>
 				</Div>
@@ -334,7 +332,6 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	resumeLabel: {
-		color: Colors.brandPrimary,
 		marginRight: 6,
 	},
 	playbackRow: {
@@ -356,7 +353,6 @@ const styles = StyleSheet.create({
 		backgroundColor: 'rgba(127,98,245,0.15)',
 	},
 	durationText: {
-		color: Colors.brandPrimary,
 		fontWeight: '600',
 	},
 });

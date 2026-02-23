@@ -4,8 +4,8 @@ import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColor } from '@/hooks';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { useUltraBlurColors } from '@/hooks/useUltraBlurColors';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
@@ -31,7 +31,8 @@ export const ExpandedPlayer = React.memo(
 		const insets = useSafeAreaInsets();
 
 		// Fallback: single-color gradient using artworkBgColor
-		const podcastFallbackColor = useThemeColor({ light: '#FFFFFF', dark: '#000000' }, 'background');
+		const colors = useColors();
+		const podcastFallbackColor = colors.background;
 		const fallbackColor = isPodcast ? podcastFallbackColor : artworkBgColor || '#000000';
 
 		const MemoizedScrollComponent = React.useMemo(() => {

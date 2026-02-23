@@ -54,6 +54,36 @@ target 'yhwav' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
+    # Fix RCT-Folly New.h for Xcode 26+ compatibility
+    # The FOLLY_CREATE_QUAL_INVOKER wrappers for ::operator new/delete fail
+    # SFINAE resolution under Xcode 26's Clang; replace with direct impls.
+    folly_new_h = File.join(__dir__, 'Pods', 'RCT-Folly', 'folly', 'lang', 'New.h')
+    if File.exist?(folly_new_h)
+      require 'fileutils'
+      FileUtils.chmod(0644, folly_new_h)
+      content = File.read(folly_new_h)
+      content.gsub!(
+        'FOLLY_CREATE_QUAL_INVOKER(op_new_library_fn_, ::operator new);',
+        "struct op_new_library_fn_ {\n" \
+        "  template <typename... A>\n" \
+        "  FOLLY_ERASE void* operator()(A&&... a) const {\n" \
+        "    return ::operator new(static_cast<A&&>(a)...);\n" \
+        "  }\n" \
+        "};"
+      )
+      content.gsub!(
+        'FOLLY_CREATE_QUAL_INVOKER(op_del_library_fn_, ::operator delete);',
+        "struct op_del_library_fn_ {\n" \
+        "  template <typename... A>\n" \
+        "  FOLLY_ERASE void operator()(A&&... a) const noexcept {\n" \
+        "    ::operator delete(static_cast<A&&>(a)...);\n" \
+        "  }\n" \
+        "};"
+      )
+      File.write(folly_new_h, content)
+      puts "  ✅ Patched folly/lang/New.h for Xcode 26 compatibility"
+    end
+
     # Apply gapless playback patches to SwiftAudioEx
     patches_dir = File.join(__dir__, 'patches', 'SwiftAudioEx')
     if File.directory?(patches_dir)

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
@@ -10,6 +11,8 @@ import { clearCacheAndReload } from '@/utils/cache';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function StorageScreen() {
+	const colors = useColors();
+	const themed = useThemedStyles();
 	const [isLoading, setIsLoading] = useState(false);
 	const offlineMode = useOfflineModeStore((state) => state.offlineMode);
 	const setOfflineMode = useOfflineModeStore((state) => state.setOfflineMode);
@@ -99,20 +102,25 @@ export default function StorageScreen() {
 						<Switch
 							value={offlineMode}
 							onValueChange={setOfflineMode}
-							trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-							thumbColor={offlineMode ? Colors.brandPrimary : Colors.textMuted}
+							trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+							thumbColor={offlineMode ? colors.brand : colors.textMuted}
 						/>
 					</Div>
 				</Div>
 
 				<TouchableOpacity
-					style={[DefaultStyles.cancelButton, styles.actionButton, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleClearCache}
 					disabled={isLoading}
 				>
 					{isLoading ? (
 						<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-							<ActivityIndicator size='large' color={Colors.brandPrimary} />
+							<ActivityIndicator size='large' color={colors.brand} />
 						</Div>
 					) : (
 						<Text type='h3'>Clear Cache & Reload Library</Text>
@@ -120,7 +128,12 @@ export default function StorageScreen() {
 				</TouchableOpacity>
 
 				<TouchableOpacity
-					style={[DefaultStyles.cancelButton, styles.actionButton, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleRemoveAllDownloads}
 					disabled={isLoading}
 				>
@@ -148,6 +161,5 @@ const styles = StyleSheet.create({
 	},
 	actionButton: {
 		borderWidth: 1,
-		borderColor: Colors.surfaceDarkBorder,
 	},
 });

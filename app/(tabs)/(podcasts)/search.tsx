@@ -1,21 +1,17 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Div, Text } from '@/components';
-import { Colors } from '@/constants';
+import { useColors } from '@/hooks/useColors';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { type ITunesPodcastResult, searchPodcasts } from '@/utils/itunes-search';
 
 const DEBOUNCE_MS = 400;
 
 export default function PodcastSearchScreen() {
-	const colorScheme = useColorScheme();
-	const isDark = colorScheme === 'dark';
-	const bg = isDark ? Colors.dark.background : Colors.light.background;
-	const textColor = isDark ? Colors.dark.text : Colors.light.text;
-
+	const colors = useColors();
 	const [query, setQuery] = useState('');
 	const [results, setResults] = useState<ITunesPodcastResult[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -83,53 +79,53 @@ export default function PodcastSearchScreen() {
 				<Pressable style={styles.resultRow} onPress={() => handleAdd(item)} disabled={added || isAdding}>
 					<Image source={{ uri: item.artworkUrl100 }} style={styles.artwork} />
 					<Div transparent style={styles.resultInfo}>
-						<Text style={[styles.resultTitle, { color: textColor }]} numberOfLines={1}>
+						<Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={1}>
 							{item.trackName}
 						</Text>
-						<Text style={styles.resultArtist} numberOfLines={1}>
+						<Text style={[styles.resultArtist, { color: colors.textMuted }]} numberOfLines={1}>
 							{item.artistName}
 						</Text>
 						{item.genres.length > 0 && (
-							<Text style={styles.resultGenre} numberOfLines={1}>
+							<Text style={[styles.resultGenre, { color: colors.textMuted }]} numberOfLines={1}>
 								{item.genres.slice(0, 2).join(', ')}
 							</Text>
 						)}
 					</Div>
 					<Div transparent style={styles.addButtonContainer}>
 						{isAdding ? (
-							<ActivityIndicator size='small' color={Colors.brandPrimary} />
+							<ActivityIndicator size='small' color={colors.brand} />
 						) : added ? (
-							<SymbolView name='checkmark.circle.fill' size={24} tintColor={Colors.green500} />
+							<SymbolView name='checkmark.circle.fill' size={24} tintColor={colors.success} />
 						) : (
-							<SymbolView name='plus.circle' size={24} tintColor={Colors.brandPrimary} />
+							<SymbolView name='plus.circle' size={24} tintColor={colors.brand} />
 						)}
 					</Div>
 				</Pressable>
 			);
 		},
-		[addingId, handleAdd, isAlreadyAdded, textColor],
+		[addingId, handleAdd, isAlreadyAdded, colors.text],
 	);
 
 	const keyExtractor = useCallback((item: ITunesPodcastResult) => String(item.trackId), []);
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
 			<Div transparent style={styles.header}>
 				<Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
-					<SymbolView name='chevron.left' size={20} tintColor={Colors.brandPrimary} />
+					<SymbolView name='chevron.left' size={20} tintColor={colors.brand} />
 				</Pressable>
-				<Text style={[styles.headerTitle, { color: textColor }]}>Add Podcast</Text>
+				<Text style={[styles.headerTitle, { color: colors.text }]}>Add Podcast</Text>
 				<Div transparent style={styles.backButton} />
 			</Div>
 
 			<Div transparent style={styles.searchRow}>
-				<Div transparent style={[styles.searchInputContainer, isDark && styles.searchInputContainerDark]}>
-					<SymbolView name='magnifyingglass' size={16} tintColor={Colors.textMuted} />
+				<Div transparent style={[styles.searchInputContainer, colors.background === '#080808' && styles.searchInputContainerDark]}>
+					<SymbolView name='magnifyingglass' size={16} tintColor={colors.textMuted} />
 					<TextInput
 						ref={inputRef}
-						style={[styles.searchInput, { color: textColor }]}
+						style={[styles.searchInput, { color: colors.text }]}
 						placeholder='Search podcasts...'
-						placeholderTextColor={Colors.textMuted}
+						placeholderTextColor={colors.textMuted}
 						value={query}
 						onChangeText={setQuery}
 						autoCapitalize='none'
@@ -138,7 +134,7 @@ export default function PodcastSearchScreen() {
 					/>
 					{query.length > 0 && (
 						<Pressable onPress={() => setQuery('')} hitSlop={8}>
-							<SymbolView name='xmark.circle.fill' size={16} tintColor={Colors.textMuted} />
+							<SymbolView name='xmark.circle.fill' size={16} tintColor={colors.textMuted} />
 						</Pressable>
 					)}
 				</Div>
@@ -146,16 +142,16 @@ export default function PodcastSearchScreen() {
 
 			{loading && !searched ? (
 				<Div transparent style={styles.centered}>
-					<ActivityIndicator color={Colors.brandPrimary} />
+					<ActivityIndicator color={colors.brand} />
 				</Div>
 			) : searched && results.length === 0 ? (
 				<Div transparent style={styles.centered}>
-					<Text style={styles.emptyText}>No podcasts found for "{query}"</Text>
+					<Text style={[styles.emptyText, { color: colors.textMuted }]}>No podcasts found for "{query}"</Text>
 				</Div>
 			) : !searched ? (
 				<Div transparent style={styles.centered}>
-					<SymbolView name='mic.fill' size={48} tintColor={Colors.textMuted} type='hierarchical' />
-					<Text style={styles.emptyText}>Search for a podcast by name</Text>
+					<SymbolView name='mic.fill' size={48} tintColor={colors.textMuted} type='hierarchical' />
+					<Text style={[styles.emptyText, { color: colors.textMuted }]}>Search for a podcast by name</Text>
 				</Div>
 			) : (
 				<FlatList
@@ -165,7 +161,7 @@ export default function PodcastSearchScreen() {
 					contentContainerStyle={styles.listContent}
 					keyboardDismissMode='on-drag'
 					onScrollBeginDrag={() => Keyboard.dismiss()}
-					ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} color={Colors.brandPrimary} /> : null}
+					ListFooterComponent={loading ? <ActivityIndicator style={{ marginVertical: 16 }} color={colors.brand} /> : null}
 				/>
 			)}
 		</SafeAreaView>
@@ -218,7 +214,6 @@ const styles = StyleSheet.create({
 		gap: 12,
 	},
 	emptyText: {
-		color: Colors.textMuted,
 		fontSize: 15,
 	},
 	listContent: {
@@ -247,11 +242,9 @@ const styles = StyleSheet.create({
 	},
 	resultArtist: {
 		fontSize: 13,
-		color: Colors.textMuted,
 	},
 	resultGenre: {
 		fontSize: 11,
-		color: Colors.textMuted,
 		opacity: 0.7,
 	},
 	addButtonContainer: {

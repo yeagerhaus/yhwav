@@ -5,8 +5,9 @@ import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
-import { Colors, DefaultSharedComponents } from '@/constants/styles';
+import { DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
+import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Album } from '@/types/album';
@@ -61,6 +62,7 @@ interface AlbumSection {
 }
 
 export default function ArtistDetailScreen() {
+	const colors = useColors();
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
 	const { albums, tracks, artists: offlineArtists } = useOfflineFilteredLibrary();
@@ -198,12 +200,14 @@ export default function ArtistDetailScreen() {
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}
 					</Text>
-					{artist.genres.length > 0 && <Text style={styles.genres}>{artist.genres.join(', ')}</Text>}
-					{artist.country && <Text style={styles.country}>{artist.country}</Text>}
+					{artist.genres.length > 0 && (
+						<Text style={[styles.genres, { color: colors.textMuted }]}>{artist.genres.join(', ')}</Text>
+					)}
+					{artist.country && <Text style={[styles.country, { color: colors.textMuted }]}>{artist.country}</Text>}
 				</Div>
 				{artist.summary ? (
 					<Div transparent style={styles.bioContainer}>
-						<Text style={styles.bio} numberOfLines={4}>
+						<Text style={[styles.bio, { color: colors.iconMuted }]} numberOfLines={4}>
 							{artist.summary}
 						</Text>
 					</Div>
@@ -211,15 +215,11 @@ export default function ArtistDetailScreen() {
 				{artistTracks.length > 0 && (
 					<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
 						{isActive ? (
-							<ActivityIndicator size='small' color={Colors.brandPrimary} />
+							<ActivityIndicator size='small' color={colors.brand} />
 						) : (
-							<SymbolView
-								name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
-								size={20}
-								tintColor={Colors.brandPrimary}
-							/>
+							<SymbolView name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'} size={20} tintColor={colors.brand} />
 						)}
-						<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+						<Text type='bodySM' style={{ color: colors.brand }}>
 							{downloadLabel}
 						</Text>
 					</Pressable>
@@ -248,10 +248,10 @@ const styles = StyleSheet.create({
 	container: { flex: 1, padding: 16, marginTop: 100 },
 	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
 	banner: { width: '100%', height: 200, borderRadius: DefaultSharedComponents.borderRadiusSM, marginBottom: 16 },
-	genres: { fontSize: 14, color: Colors.textMuted, marginBottom: 4 },
-	country: { fontSize: 14, color: Colors.textMuted, marginBottom: 16 },
+	genres: { fontSize: 14, marginBottom: 4 },
+	country: { fontSize: 14, marginBottom: 16 },
 	bioContainer: { marginBottom: 16 },
-	bio: { fontSize: 14, color: Colors.gray400, lineHeight: 20 },
+	bio: { fontSize: 14, lineHeight: 20 },
 	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
 	downloadButton: {
 		flexDirection: 'row',

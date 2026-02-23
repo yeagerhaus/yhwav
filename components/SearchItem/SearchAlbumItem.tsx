@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Image, Pressable, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useArtists } from '@/hooks/useArtists';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Album } from '@/types/album';
 import { Div } from '../Div';
@@ -18,7 +18,7 @@ interface SearchAlbumItemProps {
 }
 
 export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumItemProps) {
-	const colorScheme = useColorScheme();
+	const colors = useColors();
 	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 	const { artists } = useArtists();
 	const allTracks = useLibraryStore((s) => s.tracks);
@@ -59,10 +59,11 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	const highlightText = (text: string, q: string) => {
 		if (!q) return text;
 
-		const parts = text.split(new RegExp(`(${q})`, 'gi'));
+		const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === q.toLowerCase() ? (
-				<Text key={index} style={styles.highlighted}>
+				<Text key={index} style={[styles.highlighted, { backgroundColor: colors.brand, color: '#ffffff' }]}>
 					{part}
 				</Text>
 			) : (
@@ -76,22 +77,16 @@ export default function SearchAlbumItem({ album, query, onPress }: SearchAlbumIt
 	return (
 		<Pressable onPress={handlePress} style={styles.albumItem}>
 			<Image source={{ uri: artworkUri }} style={styles.albumArtwork} />
-			<Div
-				transparent
-				style={[
-					styles.albumInfoContainer,
-					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
-				]}
-			>
+			<Div transparent style={[styles.albumInfoContainer, { borderBottomColor: colors.listDivider }]}>
 				<Div transparent style={styles.albumInfo}>
-					<Text type='defaultSemiBold' numberOfLines={1} style={styles.albumTitle}>
+					<Text type='body' numberOfLines={1} style={styles.albumTitle}>
 						{highlightText(album.title, query)}
 					</Text>
-					<Text type='subtitle' numberOfLines={1} style={styles.albumArtist}>
+					<Text type='bodySM' numberOfLines={1} style={styles.albumArtist}>
 						{highlightText(album.artist, query)}
 					</Text>
 					{album.year && (
-						<Text type='subtitle' numberOfLines={1} style={styles.albumYear}>
+						<Text type='bodySM' numberOfLines={1} style={styles.albumYear}>
 							{album.year}
 						</Text>
 					)}
@@ -120,13 +115,11 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 4,
 		flexDirection: 'row',
+		alignItems: 'center',
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		paddingBottom: 14,
-		paddingRight: 14,
 	},
 	albumInfo: {
 		flex: 1,
-		gap: 2,
 		backgroundColor: 'transparent',
 	},
 	albumTitle: {
@@ -147,8 +140,6 @@ const styles = StyleSheet.create({
 		padding: 8,
 	},
 	highlighted: {
-		backgroundColor: Colors.brandPrimary,
-		color: 'white',
 		fontWeight: '600',
 	},
 });

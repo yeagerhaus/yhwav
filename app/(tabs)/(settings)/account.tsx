@@ -1,15 +1,33 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, useColorScheme } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors, DefaultStyles } from '@/constants/styles';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
 import { plexAuthService } from '@/utils/plex-auth';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function AccountScreen() {
-	const _colorScheme = useColorScheme();
-	const backgroundColor = useThemeColor({ light: Colors.light.background, dark: Colors.dark.background }, 'background');
+	const colors = useColors();
+	const themed = useThemedStyles();
+	const dynamicStyles = useMemo(
+		() => ({
+			serverItem: { borderColor: colors.surfaceTertiary },
+			selectedServerItem: { borderColor: colors.brand, backgroundColor: hexWithOpacity(colors.brand, 0.1) },
+			selectedIndicator: { color: colors.brand, fontSize: 20, fontWeight: 'bold' as const },
+			pinCode: {
+				color: colors.brand,
+				fontSize: 24,
+				textAlign: 'center' as const,
+				fontWeight: 'bold' as const,
+				letterSpacing: 4,
+				fontFamily: 'monospace',
+			},
+			advancedSection: { borderTopColor: colors.surfaceTertiary },
+			tokenButton: { backgroundColor: colors.surfaceTertiary },
+		}),
+		[colors],
+	);
 	const [plexToken, setPlexToken] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
@@ -143,8 +161,9 @@ export default function AccountScreen() {
 						key={server.id}
 						style={[
 							styles.serverItem,
-							{ backgroundColor: hexWithOpacity(backgroundColor, 0.5) },
-							authState.selectedServer?.id === server.id && styles.selectedServerItem,
+							dynamicStyles.serverItem,
+							{ backgroundColor: hexWithOpacity(colors.background, 0.5) },
+							authState.selectedServer?.id === server.id && dynamicStyles.selectedServerItem,
 						]}
 						onPress={() => handleSelectServer(server.id)}
 					>
@@ -159,7 +178,7 @@ export default function AccountScreen() {
 								ID: {server.serverId} {/* XXXX PLACEHOLDER */}
 							</Text>
 						</Div>
-						{authState.selectedServer?.id === server.id && <Text style={styles.selectedIndicator}>✓</Text>}
+						{authState.selectedServer?.id === server.id && <Text style={dynamicStyles.selectedIndicator}>✓</Text>}
 					</TouchableOpacity>
 				))}
 			</Div>
@@ -188,17 +207,13 @@ export default function AccountScreen() {
 					{!pinCode ? (
 						<Div style={DefaultStyles.section}>
 							<TouchableOpacity
-								style={[
-									DefaultStyles.primaryButton,
-									styles.connectButtonPadding,
-									isLoading && DefaultStyles.buttonDisabled,
-								]}
+								style={[themed.primaryButton, styles.connectButtonPadding, isLoading && DefaultStyles.buttonDisabled]}
 								onPress={handlePinLogin}
 								disabled={isLoading}
 							>
 								{isLoading ? (
 									<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size='large' color={Colors.brandPrimary} />
+										<ActivityIndicator size='large' color={colors.brand} />
 									</Div>
 								) : (
 									<Text type='body' colorVariant='primaryInvert'>
@@ -209,20 +224,20 @@ export default function AccountScreen() {
 						</Div>
 					) : (
 						<Div style={DefaultStyles.section}>
-							<Div transparent style={DefaultStyles.pinContainer}>
+							<Div transparent style={themed.pinContainer}>
 								<Text type='body'>Enter this code on plex.tv/activate</Text>
-								<Div transparent style={DefaultStyles.pinCodeContainer}>
-									<Text style={styles.pinCode}>{pinCode}</Text>
+								<Div transparent style={themed.pinCodeContainer}>
+									<Text style={dynamicStyles.pinCode}>{pinCode}</Text>
 								</Div>
 								{pinStatus && <Text type='body'>{pinStatus}</Text>}
 								{isLoading && (
 									<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-										<ActivityIndicator size='large' color={Colors.brandPrimary} />
+										<ActivityIndicator size='large' color={colors.brand} />
 									</Div>
 								)}
 							</Div>
 							<TouchableOpacity
-								style={DefaultStyles.cancelButton}
+								style={themed.cancelButton}
 								onPress={() => {
 									setPinCode(null);
 									setPinStatus('');
@@ -244,7 +259,7 @@ export default function AccountScreen() {
 						</TouchableOpacity>
 
 						{showAdvanced && (
-							<Div style={styles.advancedSection}>
+							<Div style={[styles.advancedSection, dynamicStyles.advancedSection]}>
 								<Text style={DefaultStyles.sectionDescription}>
 									If PIN authentication doesn't work, you can manually enter your Plex token.
 								</Text>
@@ -253,18 +268,18 @@ export default function AccountScreen() {
 									<Div style={styles.tokenInputSection}>
 										<Text style={DefaultStyles.inputLabel}>Plex Token</Text>
 										<TextInput
-											style={DefaultStyles.input}
+											style={themed.input}
 											value={plexToken}
 											onChangeText={setPlexToken}
 											placeholder='Enter your Plex token'
-											placeholderTextColor={Colors.textMuted}
+											placeholderTextColor={colors.textMuted}
 											secureTextEntry
 											autoCapitalize='none'
 											autoCorrect={false}
 										/>
 										<Div style={DefaultStyles.buttonRow}>
 											<TouchableOpacity
-												style={[DefaultStyles.cancelButton, styles.flex1]}
+												style={[themed.cancelButton, styles.flex1]}
 												onPress={() => {
 													setShowTokenInput(false);
 													setPlexToken('');
@@ -275,11 +290,7 @@ export default function AccountScreen() {
 												</Text>
 											</TouchableOpacity>
 											<TouchableOpacity
-												style={[
-													DefaultStyles.primaryButton,
-													styles.flex1,
-													isLoading && DefaultStyles.buttonDisabled,
-												]}
+												style={[themed.primaryButton, styles.flex1, isLoading && DefaultStyles.buttonDisabled]}
 												onPress={handleTokenLogin}
 												disabled={isLoading}
 											>
@@ -287,7 +298,7 @@ export default function AccountScreen() {
 													<Div
 														style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}
 													>
-														<ActivityIndicator size='large' color={Colors.brandPrimary} />
+														<ActivityIndicator size='large' color={colors.brand} />
 													</Div>
 												) : (
 													<Text type='body' colorVariant='primaryInvert'>
@@ -298,7 +309,10 @@ export default function AccountScreen() {
 										</Div>
 									</Div>
 								) : (
-									<TouchableOpacity style={styles.tokenButton} onPress={() => setShowTokenInput(true)}>
+									<TouchableOpacity
+										style={[styles.tokenButton, dynamicStyles.tokenButton]}
+										onPress={() => setShowTokenInput(true)}
+									>
 										<Text type='label' colorVariant='primaryInvert'>
 											Enter Token Manually
 										</Text>
@@ -333,11 +347,6 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 		marginBottom: 10,
 		borderWidth: 1,
-		borderColor: Colors.surfaceDark,
-	},
-	selectedServerItem: {
-		borderColor: Colors.brandPrimary,
-		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.1),
 	},
 	serverInfo: {
 		flex: 1,
@@ -353,19 +362,6 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 		fontFamily: 'monospace',
 	},
-	selectedIndicator: {
-		color: Colors.brandPrimary,
-		fontSize: 20,
-		fontWeight: 'bold',
-	},
-	pinCode: {
-		color: Colors.brandPrimary,
-		fontSize: 24,
-		textAlign: 'center',
-		fontWeight: 'bold',
-		letterSpacing: 4,
-		fontFamily: 'monospace',
-	},
 	advancedToggle: {
 		padding: 10,
 	},
@@ -376,13 +372,11 @@ const styles = StyleSheet.create({
 		marginTop: 10,
 		paddingTop: 15,
 		borderTopWidth: 1,
-		borderTopColor: Colors.surfaceDark,
 	},
 	tokenInputSection: {
 		marginTop: 15,
 	},
 	tokenButton: {
-		backgroundColor: Colors.surfaceDark,
 		padding: 12,
 		borderRadius: 8,
 		alignItems: 'center',

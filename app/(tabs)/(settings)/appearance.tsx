@@ -1,8 +1,9 @@
 import { StyleSheet, Switch } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
+import { useColors } from '@/hooks/useColors';
 import { hexWithOpacity } from '@/utils/styles';
 
 function SwitchRow({
@@ -16,6 +17,7 @@ function SwitchRow({
 	value: boolean;
 	onValueChange: (v: boolean) => void;
 }) {
+	const colors = useColors();
 	return (
 		<Div transparent style={styles.switchRow}>
 			<Div transparent style={{ flex: 1, marginRight: 12 }}>
@@ -29,8 +31,8 @@ function SwitchRow({
 			<Switch
 				value={value}
 				onValueChange={onValueChange}
-				trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-				thumbColor={value ? Colors.brandPrimary : Colors.textMuted}
+				trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+				thumbColor={value ? colors.brand : colors.textMuted}
 			/>
 		</Div>
 	);

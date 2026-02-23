@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors, DefaultSharedComponents } from '@/constants/styles';
+import { DefaultSharedComponents } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
@@ -18,6 +19,7 @@ import { hexWithOpacity } from '@/utils/styles';
 const ITEM_HEIGHT = 70;
 
 export default function DetailScreen() {
+	const colors = useColors();
 	const { playlistId } = useLocalSearchParams<{ playlistId: string }>();
 	const { playlists, loadPlaylistTracks, refreshPlaylists } = usePlaylists();
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
@@ -149,6 +151,45 @@ export default function DetailScreen() {
 		]);
 	}, [playlist, playlists, setPlaylists]);
 
+	const styles = useMemo(
+		() => ({
+			...staticStyles,
+			editButton: {
+				paddingVertical: 6,
+				paddingHorizontal: 14,
+				borderRadius: 16,
+				backgroundColor: hexWithOpacity(colors.brand, 0.15),
+			},
+			titleInput: {
+				fontSize: 24,
+				fontWeight: 'bold' as const,
+				color: colors.text,
+				borderBottomWidth: 1,
+				borderBottomColor: colors.brand,
+				paddingVertical: 8,
+				marginBottom: 16,
+			},
+			editRowActive: {
+				backgroundColor: hexWithOpacity(colors.brand, 0.1),
+				borderRadius: DefaultSharedComponents.borderRadiusSM,
+			},
+			editSongArtist: {
+				fontSize: 13,
+				color: colors.textMuted,
+			},
+			downloadBtn: {
+				flexDirection: 'row' as const,
+				alignItems: 'center' as const,
+				gap: 6,
+				paddingVertical: 6,
+				paddingHorizontal: 14,
+				borderRadius: 16,
+				backgroundColor: hexWithOpacity(colors.brand, 0.15),
+			},
+		}),
+		[colors],
+	);
+
 	const keyExtractor = useCallback((item: Song) => item.id, []);
 	const renderItem = useCallback(
 		({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} playlistRatingKey={ratingKey} />,
@@ -173,7 +214,7 @@ export default function DetailScreen() {
 						hitSlop={8}
 						style={styles.removeButton}
 					>
-						<SymbolView name='minus.circle' size={24} tintColor={Colors.dangerSolid} />
+						<SymbolView name='minus.circle' size={24} tintColor={colors.dangerSolid} />
 					</Pressable>
 					<Div style={styles.editSongInfo} transparent>
 						<Text numberOfLines={1} style={styles.editSongTitle}>
@@ -183,11 +224,11 @@ export default function DetailScreen() {
 							{item.artist}
 						</Text>
 					</Div>
-					<SymbolView name='text.justify' size={24} tintColor={Colors.textMuted} />
+					<SymbolView name='text.justify' size={24} tintColor={colors.textMuted} />
 				</Pressable>
 			</ScaleDecorator>
 		),
-		[editor],
+		[editor, colors.dangerSolid, colors.textMuted],
 	);
 
 	const listHeaderComponent = useMemo(
@@ -219,11 +260,11 @@ export default function DetailScreen() {
 								value={editTitle}
 								onChangeText={setEditTitle}
 								style={styles.titleInput}
-								placeholderTextColor={Colors.textMuted}
+								placeholderTextColor={colors.textMuted}
 								placeholder='Playlist title'
 							/>
 							<Pressable onPress={handleDelete} style={styles.deleteButton}>
-								<SymbolView name='trash' size={18} tintColor={Colors.dangerSolid} />
+								<SymbolView name='trash' size={18} tintColor={colors.dangerSolid} />
 								<Text type='body' colorVariant='danger'>
 									Delete Playlist
 								</Text>
@@ -246,15 +287,15 @@ export default function DetailScreen() {
 									{songs.length > 0 && (
 										<Pressable onPress={handleDownloadPlaylist} disabled={isDlActive} style={styles.downloadBtn}>
 											{isDlActive ? (
-												<ActivityIndicator size='small' color={Colors.brandPrimary} />
+												<ActivityIndicator size='small' color={colors.brand} />
 											) : (
 												<SymbolView
 													name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
 													size={18}
-													tintColor={Colors.brandPrimary}
+													tintColor={colors.brand}
 												/>
 											)}
-											<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+											<Text type='bodySM' style={{ color: colors.brand }}>
 												{dlLabel}
 											</Text>
 										</Pressable>
@@ -289,6 +330,7 @@ export default function DetailScreen() {
 			dlLabel,
 			handleDownloadPlaylist,
 			isOffline,
+			colors,
 		],
 	);
 
@@ -326,7 +368,7 @@ export default function DetailScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
 	editHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
@@ -337,24 +379,9 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'flex-start',
 	},
-	editButton: {
-		paddingVertical: 6,
-		paddingHorizontal: 14,
-		borderRadius: 16,
-		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.15),
-	},
 	editButtonText: {
 		fontSize: 15,
 		fontWeight: '600',
-	},
-	titleInput: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		color: Colors.white,
-		borderBottomWidth: 1,
-		borderBottomColor: Colors.brandPrimary,
-		paddingVertical: 8,
-		marginBottom: 16,
 	},
 	deleteButton: {
 		flexDirection: 'row',
@@ -368,10 +395,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 10,
 		gap: 12,
 	},
-	editRowActive: {
-		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.1),
-		borderRadius: DefaultSharedComponents.borderRadiusSM,
-	},
 	removeButton: {
 		padding: 4,
 	},
@@ -382,18 +405,5 @@ const styles = StyleSheet.create({
 	editSongTitle: {
 		fontSize: 15,
 		fontWeight: '400',
-	},
-	editSongArtist: {
-		fontSize: 13,
-		color: Colors.textMuted,
-	},
-	downloadBtn: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 6,
-		paddingVertical: 6,
-		paddingHorizontal: 14,
-		borderRadius: 16,
-		backgroundColor: hexWithOpacity(Colors.brandPrimary, 0.15),
 	},
 });

@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors } from '@/constants/styles';
 import { useAlbums } from '@/hooks/useAlbums';
+import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Song } from '@/types/song';
 
 export default function AlbumDetailScreen() {
+	const colors = useColors();
 	const { albumId } = useLocalSearchParams<{ albumId: string }>();
 	const { tracks: allTracks, albums: offlineAlbums } = useOfflineFilteredLibrary();
 	const { albumsById } = useAlbums();
@@ -115,15 +116,11 @@ export default function AlbumDetailScreen() {
 					{songs.length > 0 && (
 						<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
 							{isActive ? (
-								<ActivityIndicator size='small' color={Colors.brandPrimary} />
+								<ActivityIndicator size='small' color={colors.brand} />
 							) : (
-								<SymbolView
-									name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
-									size={20}
-									tintColor={Colors.brandPrimary}
-								/>
+								<SymbolView name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'} size={20} tintColor={colors.brand} />
 							)}
-							<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+							<Text type='bodySM' style={{ color: colors.brand }}>
 								{downloadLabel}
 							</Text>
 						</Pressable>

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
-import { Colors } from '@/constants';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
@@ -18,6 +18,7 @@ const SECTIONS = [
 ];
 
 export default function LibraryScreen() {
+	const colors = useColors();
 	const router = useRouter();
 	const { tracks, albums, recentlyPlayed, playlists } = useOfflineFilteredLibrary();
 	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
@@ -53,7 +54,7 @@ export default function LibraryScreen() {
 	}, []);
 
 	return (
-		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}>
+		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
 			<Div flex={1} style={{ paddingHorizontal: 16, marginBottom: 16 }} transparent>
 				<Text type='h3' style={{ marginBottom: 16 }}>
 					{Number(trackCount).toLocaleString()} {trackCount === 1 ? 'Song' : 'Songs'} in Library
@@ -68,7 +69,7 @@ export default function LibraryScreen() {
 
 			{isEmpty ? (
 				<Div transparent style={styles.emptyState}>
-					<Text type='subtitle' style={styles.emptyText}>
+					<Text type='bodySM' style={styles.emptyText}>
 						No library data available
 					</Text>
 					<Text type='body' style={styles.emptySubtext}>

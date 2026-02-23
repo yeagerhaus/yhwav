@@ -9,11 +9,13 @@ LogBox.ignoreAllLogs();
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
@@ -51,11 +53,11 @@ const CustomLightTheme = {
 };
 
 function AnimatedStack() {
+	const colors = useColors();
 	const { scale } = useRootScale();
 	const router = useRouter();
-	const colorScheme = useColorScheme();
 	const currentSong = useAudioStore((state) => state.currentSong);
-	const screenBackground = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+	const screenBackground = colors.background;
 
 	const animatedStyle = useAnimatedStyle(() => {
 		return {
@@ -102,7 +104,7 @@ export default function RootLayout() {
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
 
 	useEffect(() => {
-		const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+		const bg = Colors[colorScheme ?? 'dark'].background;
 		SystemUI.setBackgroundColorAsync(bg);
 	}, [colorScheme]);
 
@@ -218,13 +220,15 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={styles.container}>
-			<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
-				<RootScaleProvider>
-					<AudioSync />
-					<AnimatedStack />
-					<AddToPlaylistModal />
-				</RootScaleProvider>
-			</ThemeProvider>
+			<SafeAreaProvider initialMetrics={initialWindowMetrics}>
+				<ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : CustomLightTheme}>
+					<RootScaleProvider>
+						<AudioSync />
+						<AnimatedStack />
+						<AddToPlaylistModal />
+					</RootScaleProvider>
+				</ThemeProvider>
+			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }

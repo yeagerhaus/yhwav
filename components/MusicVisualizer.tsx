@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, useColorScheme } from 'react-native';
-import { Colors } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio';
 import { Div } from './Div';
 
@@ -34,6 +34,7 @@ function levelToBarScale(level: number): number {
 
 export function MusicVisualizer({ isPlaying }: Props) {
 	const theme = useColorScheme();
+	const colors = useColors();
 	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(0))).current;
 	const [prominentBar, setProminentBar] = useState(0);
 	const randomScales = useRef(new Array(BAR_COUNT).fill(0).map(() => 0.3 + Math.random() * 0.4)).current;
@@ -136,7 +137,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 				{animatedValues.map((value, index) => (
 					<Animated.View
 						key={index}
-						style={[styles.bar, { backgroundColor: Colors.brandPrimary }, { transform: [{ scaleY: value }] }]}
+						style={[styles.bar, { backgroundColor: colors.brand }, { transform: [{ scaleY: value }] }]}
 					/>
 				))}
 			</Div>
@@ -151,7 +152,7 @@ export function MusicVisualizer({ isPlaying }: Props) {
 					key={index}
 					style={[
 						styles.bar,
-						{ backgroundColor: Colors.brandPrimary },
+						{ backgroundColor: colors.brand },
 						{
 							transform: [
 								{

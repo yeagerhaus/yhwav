@@ -1,14 +1,14 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
@@ -18,7 +18,7 @@ import { Div } from '../Div';
 // Memoized component to prevent unnecessary re-renders
 const SongItem = React.memo(
 	({ item, queue, listItem, playlistRatingKey }: { item: Song; queue?: Song[]; listItem?: boolean; playlistRatingKey?: string }) => {
-		const colorScheme = useColorScheme();
+		const colors = useColors();
 		const playbackState = usePlaybackState();
 		const { artists } = useArtists();
 		const { albums } = useAlbums();
@@ -111,9 +111,9 @@ const SongItem = React.memo(
 
 		const downloadIndicator =
 			downloading || queued ? (
-				<ActivityIndicator size='small' color={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+				<ActivityIndicator size='small' color={colors.brand} style={{ marginLeft: 4 }} />
 			) : downloaded ? (
-				<SymbolView name='arrow.down.circle.fill' size={14} tintColor={Colors.brandPrimary} style={{ marginLeft: 4 }} />
+				<SymbolView name='arrow.down.circle.fill' size={14} tintColor={colors.brand} style={{ marginLeft: 4 }} />
 			) : null;
 
 		if (listItem) {
@@ -123,28 +123,20 @@ const SongItem = React.memo(
 						{isCurrentSong && playbackState.state === State.Playing ? (
 							<MusicVisualizer isPlaying={playbackState.state === State.Playing} />
 						) : (
-							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+							<Text type='body' numberOfLines={1} style={styles.songTitle}>
 								{item.playlistIndex !== undefined ? item.playlistIndex + 1 : item.trackNumber}
 							</Text>
 						)}
 					</Div>
-					<Div
-						style={[
-							styles.songInfoContainerList,
-							{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
-						]}
-						transparent
-					>
+					<Div style={[styles.songInfoContainerList, { borderBottomColor: colors.listDivider }]} transparent>
 						<Div style={styles.songInfo} transparent>
-							<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+							<Text type='body' numberOfLines={1} style={styles.songTitle}>
 								{item.title}
 							</Text>
 							<Div style={styles.artistRow} transparent>
-								{item.id === String(currentSong?.id) && (
-									<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
-								)}
+								{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
 								{downloadIndicator}
-								<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
+								<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 									{item.artist}
 								</Text>
 							</Div>
@@ -185,23 +177,15 @@ const SongItem = React.memo(
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
 					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
 				</Div>
-				<Div
-					transparent
-					style={[
-						styles.songInfoContainer,
-						{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
-					]}
-				>
+				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 					<Div transparent style={styles.songInfo}>
-						<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+						<Text type='body' numberOfLines={1} style={styles.songTitle}>
 							{item.title}
 						</Text>
 						<Div transparent style={styles.artistRow}>
-							{item.id === String(currentSong?.id) && (
-								<SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />
-							)}
+							{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
 							{downloadIndicator}
-							<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
+							<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}
 							</Text>
 						</Div>
