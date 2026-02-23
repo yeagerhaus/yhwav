@@ -2,7 +2,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
 LogBox.ignoreAllLogs();
@@ -25,9 +25,14 @@ import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
+import '@/utils/background-fetch-task';
+import { registerBackgroundFetch } from '@/utils/background-fetch-task';
+import { addNotificationResponseListener, requestNotificationPermissions, setupNotificationHandler } from '@/utils/notifications';
 import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 import { initScrobbleQueue } from '@/utils/scrobble-queue';
+
+setupNotificationHandler();
 
 function AudioSync() {
 	useTrackPlayerSync();
@@ -94,14 +99,25 @@ function AnimatedStack() {
 	);
 }
 
+const LIBRARY_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
+	const router = useRouter();
 	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed, setHasInitialized } = useLibraryStore();
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 	const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
+	const plexAuthReady = useRef(false);
+
+	useEffect(() => {
+		requestNotificationPermissions();
+		registerBackgroundFetch().catch((err) => console.warn('Background fetch registration failed:', err));
+		const sub = addNotificationResponseListener(router);
+		return () => sub.remove();
+	}, [router]);
 
 	useEffect(() => {
 		const bg = Colors[colorScheme ?? 'dark'].background;
@@ -156,23 +172,8 @@ export default function RootLayout() {
 				console.log('✅ Audio player initialized');
 
 				if (authLoaded && plexAuthService.isAuthenticated()) {
+					plexAuthReady.current = true;
 					initScrobbleQueue().catch(() => {});
-
-					const backgroundRefreshAll = () => {
-						Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
-							.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
-								if (tracks.length > 0) setTracks(tracks);
-								if (albums.length > 0) setAlbums(albums);
-								if (artists.length > 0) setArtists(artists);
-								if (playlists.length > 0) setPlaylists(playlists);
-								if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
-								console.log(`🔄 Background refresh complete: ${tracks.length} tracks`);
-								InteractionManager.runAfterInteractions(() => {
-									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-								});
-							})
-							.catch((err) => console.warn('⚠️ Background refresh failed:', err));
-					};
 
 					if (!hydrated) {
 						Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
@@ -201,9 +202,6 @@ export default function RootLayout() {
 									console.warn('⚠️ Cannot connect to Plex server');
 								});
 							});
-					} else {
-						// Cache loaded -- defer full refresh to background (5 min)
-						setTimeout(backgroundRefreshAll, 5 * 60 * 1000);
 					}
 				} else {
 					console.log('🔐 No existing authentication found. Please sign in through Settings.');
@@ -217,6 +215,29 @@ export default function RootLayout() {
 
 		init();
 	}, []);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			if (!plexAuthReady.current) return;
+			if (useOfflineModeStore.getState().offlineMode) return;
+
+			Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
+				.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
+					if (tracks.length > 0) setTracks(tracks);
+					if (albums.length > 0) setAlbums(albums);
+					if (artists.length > 0) setArtists(artists);
+					if (playlists.length > 0) setPlaylists(playlists);
+					if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
+					console.log(`🔄 Periodic refresh complete: ${tracks.length} tracks`);
+					InteractionManager.runAfterInteractions(() => {
+						saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+					});
+				})
+				.catch((err) => console.warn('⚠️ Periodic refresh failed:', err));
+		}, LIBRARY_REFRESH_INTERVAL);
+
+		return () => clearInterval(interval);
+	}, [setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed]);
 
 	return (
 		<GestureHandlerRootView style={styles.container}>

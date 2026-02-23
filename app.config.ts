@@ -21,6 +21,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 		supportsTablet: true,
 		bundleIdentifier: 'com.yhprod.yhwav',
 		backgroundColor: '#080808',
+		infoPlist: {
+			UIBackgroundModes: ['fetch', 'audio'],
+		},
 	},
 	web: {
 		bundler: 'metro',
@@ -40,6 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 			},
 		],
 		'expo-web-browser',
+		'expo-notifications',
 	],
 	experiments: {
 		typedRoutes: true,
