@@ -3,18 +3,29 @@ import { useAudioStore } from '@/hooks/useAudioStore';
 import { Div } from '../Div';
 import { Text } from '../Text';
 
-const formatTime = (seconds: number) => {
-	const minutes = Math.floor(seconds / 60);
-	const secs = Math.floor(seconds % 60);
+const formatTime = (seconds: number, includeHours: boolean) => {
+	const totalSeconds = Math.floor(seconds);
+	if (includeHours) {
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const secs = totalSeconds % 60;
+		return `${hours}:${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+	}
+	const minutes = Math.floor(totalSeconds / 60);
+	const secs = totalSeconds % 60;
 	return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
 export const TimeDisplay = React.memo(() => {
 	const position = useAudioStore((state) => state.position);
 	const duration = useAudioStore((state) => state.duration);
+	const currentSong = useAudioStore((state) => state.currentSong);
 
-	const currentTime = formatTime(position);
-	const remainingTime = `-${formatTime(Math.max(0, duration - position))}`;
+	const isPodcast = currentSong?.source === 'podcast';
+	const useLongFormat = isPodcast && duration >= 3600;
+
+	const currentTime = formatTime(position, useLongFormat);
+	const remainingTime = `-${formatTime(Math.max(0, duration - position), useLongFormat)}`;
 
 	return (
 		<Div
