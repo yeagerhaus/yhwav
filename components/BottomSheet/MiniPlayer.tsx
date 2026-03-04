@@ -6,6 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
+import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 
@@ -13,6 +14,7 @@ const PRESS_DOWN = { duration: 80 } as const;
 const PRESS_UP = { duration: 150 } as const;
 
 export function MiniPlayer() {
+	const { useBlurInsteadOfGlass } = useAppearanceStore();
 	const router = useRouter();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const insets = useSafeAreaInsets();
@@ -45,7 +47,15 @@ export function MiniPlayer() {
 			style={[styles.container, { bottom: bottomPosition }]}
 		>
 			<Animated.View style={animatedStyle}>
-				<Div useGlass style={styles.content}>
+				<Div
+					useGlass
+					style={{
+						...styles.content,
+						marginHorizontal: useBlurInsteadOfGlass ? 0 : 22,
+						borderRadius: useBlurInsteadOfGlass ? 0 : 100,
+						marginBottom: useBlurInsteadOfGlass ? -10 : 0,
+					}}
+				>
 					<MiniPlayerContent />
 				</Div>
 			</Animated.View>
@@ -135,9 +145,6 @@ const styles = StyleSheet.create({
 	content: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		// height: 40,
-		marginHorizontal: 20,
-		borderRadius: 100,
 		overflow: 'hidden',
 		zIndex: 1000,
 		flex: 1,
@@ -149,9 +156,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		height: '100%',
 		paddingHorizontal: 10,
-		// backgroundColor: '#ffffffa4',
 	},
-	androidContainer: {},
 	title: {
 		fontWeight: '500',
 	},
