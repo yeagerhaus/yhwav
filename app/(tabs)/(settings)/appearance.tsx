@@ -1,10 +1,21 @@
-import { StyleSheet, Switch } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Switch, TextInput } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { DefaultStyles } from '@/constants/styles';
-import { useAppearanceStore } from '@/hooks/useAppearanceStore';
+import { DEFAULT_BRAND_COLOR, useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useColors } from '@/hooks/useColors';
 import { hexWithOpacity } from '@/utils/styles';
+
+const HEX_REGEX = /^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+function normalizeHex(input: string): string | null {
+	const m = input.trim().match(HEX_REGEX);
+	if (!m) return null;
+	let hex = m[1];
+	if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+	return `#${hex}`;
+}
 
 function SwitchRow({
 	label,
@@ -39,7 +50,38 @@ function SwitchRow({
 }
 
 export default function AppearanceScreen() {
-	const { showPodcastsTab, setShowPodcastsTab } = useAppearanceStore();
+	const {
+		showPodcastsTab,
+		setShowPodcastsTab,
+		showMusicTab,
+		setShowMusicTab,
+		brandColor,
+		setBrandColor,
+		useBlurInsteadOfGlass,
+		setUseBlurInsteadOfGlass,
+	} = useAppearanceStore();
+	const colors = useColors();
+	const effectiveBrand = brandColor ?? DEFAULT_BRAND_COLOR;
+	const [hexInput, setHexInput] = useState(effectiveBrand);
+
+	useEffect(() => {
+		setHexInput(brandColor ?? DEFAULT_BRAND_COLOR);
+	}, [brandColor]);
+
+	const handleHexSubmit = () => {
+		const normalized = normalizeHex(hexInput);
+		if (normalized) {
+			setBrandColor(normalized);
+			setHexInput(normalized);
+		} else {
+			setHexInput(effectiveBrand);
+		}
+	};
+
+	const handleResetBrand = () => {
+		setBrandColor(null);
+		setHexInput(DEFAULT_BRAND_COLOR);
+	};
 
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
@@ -51,8 +93,83 @@ export default function AppearanceScreen() {
 
 			<Div transparent style={DefaultStyles.section}>
 				<Text type='h3' style={DefaultStyles.sectionTitle}>
+					Brand color
+				</Text>
+				<Div transparent style={styles.brandRow}>
+					<Pressable
+						onPress={() => {}}
+						style={[styles.swatch, { backgroundColor: effectiveBrand }]}
+						accessibilityLabel='Brand color preview'
+					/>
+					<TextInput
+						style={[
+							styles.hexInput,
+							{ color: colors.text, borderColor: colors.border, backgroundColor: colors.inputBackground },
+						]}
+						value={hexInput}
+						onChangeText={setHexInput}
+						onBlur={handleHexSubmit}
+						onSubmitEditing={handleHexSubmit}
+						placeholder={DEFAULT_BRAND_COLOR}
+						placeholderTextColor={colors.textMuted}
+						autoCapitalize='none'
+						autoCorrect={false}
+						maxLength={9}
+						selectTextOnFocus
+					/>
+					<Pressable
+						onPress={handleResetBrand}
+						style={[styles.defaultButton, { backgroundColor: colors.surfaceTertiary }]}
+						accessibilityLabel='Reset to default brand color'
+					>
+						<Text type='bodySM' style={{ color: colors.text }}>
+							Default
+						</Text>
+					</Pressable>
+				</Div>
+				{Platform.OS === 'web' && (
+					<Div transparent style={styles.webColorRow}>
+						<Text type='bodyXS' colorVariant='muted' style={{ marginRight: 8 }}>
+							Pick color:
+						</Text>
+						<input
+							type='color'
+							value={effectiveBrand}
+							onChange={(e) => {
+								const v = e.target.value;
+								setHexInput(v);
+								setBrandColor(v);
+							}}
+							style={{ width: 40, height: 32, padding: 0, border: 'none', cursor: 'pointer', borderRadius: 6 }}
+						/>
+					</Div>
+				)}
+			</Div>
+
+			<Div transparent style={DefaultStyles.section}>
+				<Text type='h3' style={DefaultStyles.sectionTitle}>
+					Liquid Glass
+				</Text>
+
+				<SwitchRow
+					label='Use blur instead of liquid glass'
+					description='Replace liquid glass (nav, mini player, back button) with classic blur. Use if you prefer blur or if glass tints look inconsistent with the tab bar.'
+					value={useBlurInsteadOfGlass}
+					onValueChange={setUseBlurInsteadOfGlass}
+				/>
+			</Div>
+
+			<Div transparent style={DefaultStyles.section}>
+				<Text type='h3' style={DefaultStyles.sectionTitle}>
 					Tabs
 				</Text>
+
+				<SwitchRow
+					label='Show Music Tab'
+					description='Toggle the Music tab in the bottom navigation bar.'
+					value={showMusicTab}
+					onValueChange={setShowMusicTab}
+				/>
 
 				<SwitchRow
 					label='Show Podcasts Tab'
@@ -71,5 +188,38 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingVertical: 8,
+	},
+	brandRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+		paddingVertical: 8,
+	},
+	swatch: {
+		width: 36,
+		height: 36,
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: 'rgba(0,0,0,0.15)',
+	},
+	hexInput: {
+		flex: 1,
+		height: 40,
+		borderWidth: 1,
+		borderRadius: 8,
+		paddingHorizontal: 12,
+		fontSize: 14,
+	},
+	defaultButton: {
+		paddingHorizontal: 14,
+		height: 40,
+		borderRadius: 8,
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	webColorRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 4,
 	},
 });

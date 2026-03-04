@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { InternalHeader } from '@/components/navigation/InternalHeader';
+import { InternalHeader } from '@/components/Navigation/InternalHeader';
 import { useColors } from '@/hooks/useColors';
 
 export default function PodcastsLayout() {

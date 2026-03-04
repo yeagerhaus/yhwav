@@ -9,45 +9,44 @@ interface Props {
 }
 
 const BAR_COUNT = 5;
-const ANIMATION_DURATION = 300;
-const NATIVE_LEVEL_SMOOTH_MS = 80;
+const BAR_HEIGHT = 14;
+const BAR_WIDTH = 2.5;
+const BAR_GAP = 1.5;
+const NATIVE_SMOOTH_MS = 75;
 
-// Leave headroom so loud sections don't max out; keep visible variation between bars.
-const LEVEL_GAIN = 0.38;
+const SCALE_MIN = 0.15;
+const SCALE_MAX = 1.1;
 const LEVEL_CURVE = 0.5;
-const BAR_SCALE_MIN = 0.2;
-const BAR_SCALE_MAX = 1.2;
 
-// Adaptive normalization: track a running "reference" level so quiet and loud masters
-// both use the full visual range. Ref rises quickly on peaks, decays slowly so we
-// don't over-boost after a single quiet moment.
-const REF_DECAY = 0.996; // per update (~15 fps) — slow decay = remember track level
-const REF_ATTACK = 1.15; // rise fast when we see a bigger peak
-const REF_FLOOR = 0.04; // never divide by less (avoids blowing up in silence)
+// Per-bar fallback: varied speeds + staggered starts for organic out-of-phase feel
+const BAR_DURATIONS = [480, 340, 580, 420, 640];
+const BAR_DELAYS = [0, 90, 180, 45, 135];
+const BAR_FALLBACK_TARGETS = [0.7, 0.95, 0.55, 1.0, 0.75];
 
-function levelToBarScale(level: number): number {
+// Adaptive normalization: ref rises fast on peaks, decays slowly
+const REF_DECAY = 0.996;
+const REF_ATTACK = 1.15;
+const REF_FLOOR = 0.04;
+
+function levelToScale(level: number): number {
 	const clamped = Math.min(1, Math.max(0, level));
 	const curved = clamped ** LEVEL_CURVE;
-	const scaled = curved * LEVEL_GAIN;
-	return BAR_SCALE_MIN + scaled * (BAR_SCALE_MAX - BAR_SCALE_MIN);
+	return SCALE_MIN + curved * (SCALE_MAX - SCALE_MIN);
 }
 
 export function MusicVisualizer({ isPlaying }: Props) {
-	const theme = useColorScheme();
 	const colors = useColors();
-	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(0))).current;
-	const [prominentBar, setProminentBar] = useState(0);
-	const randomScales = useRef(new Array(BAR_COUNT).fill(0).map(() => 0.3 + Math.random() * 0.4)).current;
+	const theme = useColorScheme();
+	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(SCALE_MIN))).current;
 	const [useNativeLevels, setUseNativeLevels] = useState(false);
-	const fallbackLoopRef = useRef<Animated.CompositeAnimation | null>(null);
-	// Running reference level for adaptive normalization (avoids re-renders)
 	const refLevelRef = useRef(0.2);
+	const loopsRef = useRef<Animated.CompositeAnimation[]>([]);
+	const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-	// Subscribe to real audio levels on iOS when playing
+	// Native audio levels on iOS
 	useEffect(() => {
 		if (!isPlaying || !isAvailable() || !YhwavAudioModule) return;
 
-		// Reset reference when starting so each track can adapt
 		refLevelRef.current = 0.2;
 
 		const sub = YhwavAudioModule.addListener('AudioLevelsUpdated', (payload: unknown) => {
@@ -65,12 +64,10 @@ export function MusicVisualizer({ isPlaying }: Props) {
 			refLevelRef.current = ref;
 
 			const normalized = slice.map((l) => Math.min(1, l / ref));
-
 			normalized.forEach((level, i) => {
-				const scale = levelToBarScale(level);
 				Animated.timing(animatedValues[i], {
-					toValue: scale,
-					duration: NATIVE_LEVEL_SMOOTH_MS,
+					toValue: levelToScale(level),
+					duration: NATIVE_SMOOTH_MS,
 					useNativeDriver: true,
 				}).start();
 			});
@@ -82,89 +79,61 @@ export function MusicVisualizer({ isPlaying }: Props) {
 		};
 	}, [isPlaying]);
 
-	// Fallback: random bar animation when not using native levels (Android or before first event)
+	// Fallback: organic staggered loops when native levels aren't available
 	useEffect(() => {
-		let prominentInterval: ReturnType<typeof setInterval>;
+		const stopAll = () => {
+			loopsRef.current.forEach((l) => l.stop());
+			loopsRef.current = [];
+			timeoutsRef.current.forEach(clearTimeout);
+			timeoutsRef.current = [];
+		};
 
-		if (isPlaying && !useNativeLevels) {
-			prominentInterval = setInterval(() => {
-				setProminentBar((prev) => (prev + 1) % BAR_COUNT);
-				randomScales.forEach((_, i) => {
-					randomScales[i] = 0.3 + Math.random() * 0.4;
-				});
-			}, 250);
+		if (!isPlaying) {
+			stopAll();
+			animatedValues.forEach((v) => v.setValue(SCALE_MIN));
+			return;
+		}
 
-			const animations = animatedValues.map((value) =>
+		if (useNativeLevels) {
+			stopAll();
+			return;
+		}
+
+		stopAll();
+
+		loopsRef.current = animatedValues.map((value, i) => {
+			const target = SCALE_MIN + BAR_FALLBACK_TARGETS[i] * (SCALE_MAX - SCALE_MIN);
+			const loop = Animated.loop(
 				Animated.sequence([
 					Animated.timing(value, {
-						toValue: 1,
-						duration: ANIMATION_DURATION * (0.2 + Math.random() * 0.3),
+						toValue: target,
+						duration: BAR_DURATIONS[i] * 0.55,
 						useNativeDriver: true,
 					}),
 					Animated.timing(value, {
-						toValue: 0,
-						duration: ANIMATION_DURATION * (0.2 + Math.random() * 0.3),
+						toValue: SCALE_MIN,
+						duration: BAR_DURATIONS[i] * 0.45,
 						useNativeDriver: true,
 					}),
 				]),
 			);
 
-			const loop = Animated.loop(Animated.parallel(animations));
-			fallbackLoopRef.current = loop;
-			loop.start();
+			const t = setTimeout(() => loop.start(), BAR_DELAYS[i]);
+			timeoutsRef.current.push(t);
+			return loop;
+		});
 
-			return () => {
-				loop.stop();
-				fallbackLoopRef.current = null;
-				clearInterval(prominentInterval);
-			};
-		}
-
-		if (!isPlaying) {
-			animatedValues.forEach((v) => v.setValue(0));
-		} else if (useNativeLevels) {
-			// Reset to min scale when switching to native so next event drives the bars
-			animatedValues.forEach((v) => v.setValue(BAR_SCALE_MIN));
-		}
+		return stopAll;
 	}, [isPlaying, useNativeLevels]);
 
 	if (!isPlaying) return null;
 
-	// Native levels: animated values hold scale (0.2..1.2). Bar scaleY = value directly.
-	if (useNativeLevels) {
-		return (
-			<Div style={{ ...styles.container, backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }}>
-				{animatedValues.map((value, index) => (
-					<Animated.View
-						key={index}
-						style={[styles.bar, { backgroundColor: colors.brand }, { transform: [{ scaleY: value }] }]}
-					/>
-				))}
-			</Div>
-		);
-	}
+	const bgColor = theme === 'dark' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
 
-	// Fallback: interpolate 0..1 to bar scale with prominent/random
 	return (
-		<Div style={{ ...styles.container, backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }}>
+		<Div style={[styles.container, { backgroundColor: bgColor }]}>
 			{animatedValues.map((value, index) => (
-				<Animated.View
-					key={index}
-					style={[
-						styles.bar,
-						{ backgroundColor: colors.brand },
-						{
-							transform: [
-								{
-									scaleY: value.interpolate({
-										inputRange: [0, 1],
-										outputRange: [0.2, index === prominentBar ? 1.4 : randomScales[index]],
-									}),
-								},
-							],
-						},
-					]}
-				/>
+				<Animated.View key={index} style={[styles.bar, { backgroundColor: colors.brand }, { transform: [{ scaleY: value }] }]} />
 			))}
 		</Div>
 	);
@@ -175,7 +144,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		gap: 1.5,
+		gap: BAR_GAP,
 		position: 'absolute',
 		top: 0,
 		left: 0,
@@ -184,8 +153,8 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 	},
 	bar: {
-		width: 2.5,
-		height: 16,
-		borderRadius: 1,
+		width: BAR_WIDTH,
+		height: BAR_HEIGHT,
+		borderRadius: 1.5,
 	},
 });

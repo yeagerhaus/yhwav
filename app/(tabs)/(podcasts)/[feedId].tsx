@@ -6,6 +6,7 @@ import { Div, DynamicItem, Main, Text } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
+import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { toPlayableSong } from '@/types';
 import type { PodcastDownload, PodcastEpisode } from '@/types/podcast';
@@ -16,6 +17,7 @@ export default function PodcastFeedScreen() {
 	const colorScheme = useColorScheme();
 	const { feeds, episodesByFeedId, fetchFeed, removeFeed } = usePodcastStore();
 	const isOffline = useOfflineModeStore((s) => s.offlineMode);
+	const markEpisodesAsPlayed = usePodcastProgressStore((s) => s.markEpisodesAsPlayed);
 	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 	const [filterQuery, setFilterQuery] = useState('');
@@ -64,6 +66,13 @@ export default function PodcastFeedScreen() {
 				},
 			},
 			{
+				label: 'Mark all as played',
+				systemImage: 'checkmark.circle',
+				onPress: () => {
+					markEpisodesAsPlayed(allEpisodes.map((ep) => ({ id: ep.id, durationSeconds: ep.durationSeconds })));
+				},
+			},
+			{
 				label: 'Unsubscribe',
 				systemImage: 'minus.circle',
 				destructive: true,
@@ -82,7 +91,7 @@ export default function PodcastFeedScreen() {
 				},
 			},
 		],
-		[feedId, showTitle, fetchFeed, removeFeed],
+		[feedId, showTitle, allEpisodes, fetchFeed, removeFeed, markEpisodesAsPlayed],
 	);
 
 	const keyExtractor = useCallback((item: PodcastEpisode | PodcastDownload) => item.id, []);

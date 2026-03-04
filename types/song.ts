@@ -1,4 +1,4 @@
-export interface Song {
+export type Song = {
 	id: string;
 	title: string;
 	artist: string;
@@ -21,4 +21,4 @@ export interface Song {
 	albumLower?: string;
 	// When set, player UI shows podcast controls (15s skip, speed; no queue/next/prev)
 	source?: 'podcast';
-}
+};

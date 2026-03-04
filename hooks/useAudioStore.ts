@@ -213,9 +213,21 @@ function songToTrack(song: Song) {
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}
+
+	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
+	let finalUrl = url ?? song.uri ?? '';
+	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
+		const { usePlaybackSettingsStore, STREAMING_QUALITY_BITRATES } = require('@/hooks/usePlaybackSettingsStore');
+		const quality = usePlaybackSettingsStore.getState().streamingQuality;
+		const bitrate = STREAMING_QUALITY_BITRATES[quality];
+		if (bitrate !== null) {
+			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+		}
+	}
+
 	return {
 		id: song.id.toString(),
-		url: url ?? song.uri ?? '',
+		url: finalUrl,
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,

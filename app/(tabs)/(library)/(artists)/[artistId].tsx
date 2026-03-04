@@ -12,20 +12,31 @@ import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Album } from '@/types/album';
 
-type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations';
+type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations' | 'Live Albums';
 
-const CATEGORY_ORDER: AlbumCategory[] = ['Albums', 'EPs', 'Singles', 'Compilations'];
+const CATEGORY_ORDER: AlbumCategory[] = ['Albums', 'EPs', 'Singles', 'Compilations', 'Live Albums'];
 
-function classifyAlbum(album: Album): AlbumCategory {
-	if (album.subformat === 'Compilation') return 'Compilations';
-	switch (album.format) {
-		case 'EP':
-			return 'EPs';
-		case 'Single':
-			return 'Singles';
-		default:
-			return 'Albums';
-	}
+function classifyAlbum(album: Album, trackCount?: number): AlbumCategory {
+	const t = album.title.toLowerCase();
+
+	// Live patterns win first
+	if (/\blive\b|\blive at\b|\bin concert\b|\bconcert\b|\bunplugged\b/.test(t)) return 'Live Albums';
+
+	// Compilation patterns
+	if (/greatest hits|best of\b|the best|collection|anthology|compilation|essential|very best|retrospective|hits &|hits and/.test(t))
+		return 'Compilations';
+
+	// EP patterns
+	if (/\bep\b|\be\.p\.\b|extended play/.test(t)) return 'EPs';
+
+	// Single patterns
+	if (/\bsingle\b/.test(t)) return 'Singles';
+
+	// Track count heuristics (when available)
+	if (trackCount === 1) return 'Singles';
+	if (trackCount !== undefined && trackCount >= 2 && trackCount <= 6) return 'EPs';
+
+	return 'Albums';
 }
 
 function sortAlbums(albums: Album[]): Album[] {
@@ -153,7 +164,8 @@ export default function ArtistDetailScreen() {
 
 		const grouped = new Map<AlbumCategory, Album[]>();
 		for (const album of allAlbums) {
-			const category = classifyAlbum(album);
+			const albumTrackCount = (album.leafCount ?? artistTracks.filter((t) => t.album === album.title).length) || undefined;
+			const category = classifyAlbum(album, albumTrackCount);
 			const list = grouped.get(category);
 			if (list) {
 				list.push(album);
@@ -224,22 +236,23 @@ export default function ArtistDetailScreen() {
 						</Text>
 					</Pressable>
 				)}
-				{sections.map((section) => (
-					<Div key={section.category} transparent>
-						<Text style={styles.sectionHeader}>{section.category}</Text>
-						<FlatList
-							scrollEnabled={false}
-							data={section.albums}
-							keyExtractor={(item) => item.id}
-							numColumns={2}
-							contentContainerStyle={{ paddingBottom: 16 }}
-							columnWrapperStyle={{ justifyContent: 'space-between' }}
-							renderItem={({ item }) => <DynamicItem item={item} type='album' />}
-						/>
-					</Div>
-				))}
-				<Div transparent style={{ height: 64 }} />
 			</Div>
+			{sections.map((section) => (
+				<Div key={section.category} transparent style={{ marginBottom: 8 }}>
+					<Text type='h2' style={styles.sectionHeader}>
+						{section.category}
+					</Text>
+					<FlatList
+						horizontal
+						data={section.albums}
+						keyExtractor={(item) => item.id}
+						showsHorizontalScrollIndicator={false}
+						contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
+						renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
+					/>
+				</Div>
+			))}
+			<Div transparent style={{ height: 64 }} />
 		</Main>
 	);
 }
@@ -252,7 +265,7 @@ const styles = StyleSheet.create({
 	country: { fontSize: 14, marginBottom: 16 },
 	bioContainer: { marginBottom: 16 },
 	bio: { fontSize: 14, lineHeight: 20 },
-	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
+	sectionHeader: { paddingHorizontal: 16, marginBottom: 12, marginTop: 16 },
 	downloadButton: {
 		flexDirection: 'row',
 		alignItems: 'center',

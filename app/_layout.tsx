@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useRef } from 'react';
-import { InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
+import { AppState, InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
 LogBox.ignoreAllLogs();
 
@@ -26,9 +26,18 @@ import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
 import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
 import '@/utils/background-fetch-task';
+import { hasSeenNotificationPrompt } from '@/app/notification-prompt';
 import { registerBackgroundFetch } from '@/utils/background-fetch-task';
-import { addNotificationResponseListener, requestNotificationPermissions, setupNotificationHandler } from '@/utils/notifications';
-import { fetchAllAlbums, fetchAllArtists, fetchAllPlaylists, fetchAllTracks, fetchRecentlyPlayed, testPlexServer } from '@/utils/plex';
+import { addNotificationResponseListener, setupNotificationHandler } from '@/utils/notifications';
+import {
+	fetchAllAlbums,
+	fetchAllArtists,
+	fetchAllPlaylists,
+	fetchAllTracks,
+	fetchRecentlyPlayed,
+	plexClient,
+	testPlexServer,
+} from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 import { initScrobbleQueue } from '@/utils/scrobble-queue';
 
@@ -60,7 +69,6 @@ const CustomLightTheme = {
 function AnimatedStack() {
 	const colors = useColors();
 	const { scale } = useRootScale();
-	const router = useRouter();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const screenBackground = colors.background;
 
@@ -90,10 +98,19 @@ function AnimatedStack() {
 							},
 						}}
 					/>
+					<Stack.Screen
+						name='notification-prompt'
+						options={{
+							presentation: 'transparentModal',
+							headerShown: false,
+							animation: 'fade',
+							contentStyle: { backgroundColor: 'transparent' },
+						}}
+					/>
 					<Stack.Screen name='_not-found' />
 				</Stack>
 
-				{currentSong && <MiniPlayer onPress={() => router.push(`/music/${currentSong.id}`)} />}
+				{currentSong && <MiniPlayer />}
 			</Animated.View>
 		</Div>
 	);
@@ -113,8 +130,10 @@ export default function RootLayout() {
 	const plexAuthReady = useRef(false);
 
 	useEffect(() => {
-		requestNotificationPermissions();
 		registerBackgroundFetch().catch((err) => console.warn('Background fetch registration failed:', err));
+		hasSeenNotificationPrompt().then((seen) => {
+			if (!seen) router.push('/notification-prompt');
+		});
 		const sub = addNotificationResponseListener(router);
 		return () => sub.remove();
 	}, [router]);
@@ -214,6 +233,14 @@ export default function RootLayout() {
 		};
 
 		init();
+
+		const appStateSub = AppState.addEventListener('change', (state) => {
+			if (state === 'active' && plexAuthReady.current) {
+				plexClient.refreshConnectionIfNeeded().catch(() => {});
+			}
+		});
+
+		return () => appStateSub.remove();
 	}, []);
 
 	useEffect(() => {

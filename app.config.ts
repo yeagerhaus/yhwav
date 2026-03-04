@@ -1,54 +1,87 @@
 import 'dotenv/config';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ConfigContext, ExpoConfig } from '@expo/config';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
-	...config,
-	name: 'yhwav',
-	slug: 'yhwav',
-	version: '1.0.0',
-	orientation: 'portrait',
-	icon: './assets/images/icon.png',
-	scheme: 'myapp',
-	userInterfaceStyle: 'automatic',
-	newArchEnabled: false,
-	splash: {
-		image: './assets/images/splash.png',
-		resizeMode: 'contain',
-		backgroundColor: '#000000',
-	},
-	backgroundColor: '#080808',
-	ios: {
-		supportsTablet: true,
-		bundleIdentifier: 'com.yhprod.yhwav',
-		backgroundColor: '#080808',
-		infoPlist: {
-			UIBackgroundModes: ['fetch', 'audio'],
+function getBaseVersion(): string {
+	const pkgPath = join(process.cwd(), 'package.json');
+	const raw = readFileSync(pkgPath, 'utf-8');
+	const pkg = JSON.parse(raw) as { version?: string };
+	const v = pkg.version ?? '0.1';
+	const segments = v.split('.');
+	// Use first two segments (major.minor); if only one, use as-is and append 0
+	const base = segments.length >= 2 ? `${segments[0]}.${segments[1]}` : `${v}.0`;
+	return base;
+}
+
+function getCommitCount(): string {
+	try {
+		return execSync('git rev-list --count HEAD', { encoding: 'utf-8' }).trim();
+	} catch {
+		return '0';
+	}
+}
+
+export default ({ config }: ConfigContext): ExpoConfig => {
+	const baseVersion = getBaseVersion();
+	const commitCount = getCommitCount();
+	const version = `${baseVersion}.${commitCount}`;
+
+	return {
+		...config,
+		name: 'yhwav',
+		slug: 'yhwav',
+		version,
+		orientation: 'portrait',
+		icon: './assets/images/icon.png',
+		scheme: 'myapp',
+		userInterfaceStyle: 'automatic',
+		newArchEnabled: false,
+		splash: {
+			image: './assets/images/splash.png',
+			resizeMode: 'contain',
+			backgroundColor: '#000000',
 		},
-	},
-	web: {
-		bundler: 'metro',
-		output: 'static',
-		favicon: './assets/images/favicon.png',
-	},
-	plugins: [
-		'expo-router',
-		[
-			'expo-splash-screen',
-			{
-				image: './assets/images/splash-icon.png',
-				imageWidth: 200,
-				resizeMode: 'contain',
-				backgroundColor: '#000',
-				preventAutoHide: true,
+		backgroundColor: '#080808',
+		ios: {
+			supportsTablet: true,
+			bundleIdentifier: 'com.yhprod.yhwav',
+			backgroundColor: '#080808',
+			buildNumber: commitCount,
+			infoPlist: {
+				UIBackgroundModes: ['fetch', 'audio'],
 			},
+		},
+		android: {
+			...(typeof config.android === 'object' && config.android ? config.android : {}),
+			versionCode: Number.parseInt(commitCount, 10),
+		},
+		web: {
+			bundler: 'metro',
+			output: 'static',
+			favicon: './assets/images/favicon.png',
+		},
+		plugins: [
+			'expo-router',
+			[
+				'expo-splash-screen',
+				{
+					image: './assets/images/splash-icon.png',
+					imageWidth: 200,
+					resizeMode: 'contain',
+					backgroundColor: '#000',
+					preventAutoHide: true,
+				},
+			],
+			'expo-web-browser',
+			'expo-notifications',
 		],
-		'expo-web-browser',
-		'expo-notifications',
-	],
-	experiments: {
-		typedRoutes: true,
-	},
-	extra: {
-		...config.extra,
-	},
-});
+		experiments: {
+			typedRoutes: true,
+		},
+		extra: {
+			...config.extra,
+		},
+	};
+};
