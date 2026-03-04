@@ -126,7 +126,7 @@ export async function registerBackgroundFetch() {
 	if (isRegistered) return;
 
 	await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-		minimumInterval: 12 * 60 * 60, // 12 hours
+		minimumInterval: 4 * 60 * 60, // 4 hours
 		stopOnTerminate: false,
 		startOnBoot: false,
 	});
