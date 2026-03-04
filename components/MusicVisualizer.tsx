@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet, useColorScheme } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio';
 import { Div } from './Div';
@@ -8,22 +8,20 @@ interface Props {
 	isPlaying: boolean;
 }
 
-const BAR_COUNT = 3;
-const BAR_HEIGHT = 13;
+const BAR_COUNT = 5;
+const BAR_HEIGHT = 14;
 const BAR_WIDTH = 2.5;
-const BAR_GAP = 2;
-const NATIVE_SMOOTH_MS = 80;
+const BAR_GAP = 1.5;
+const NATIVE_SMOOTH_MS = 75;
 
-// Scale range: SCALE_MIN is nearly invisible (resting), SCALE_MAX is full height
-const SCALE_MIN = 0.06;
-const SCALE_MAX = 1.0;
-const LEVEL_CURVE = 0.55; // square-ish root for perceptual feel
+const SCALE_MIN = 0.15;
+const SCALE_MAX = 1.1;
+const LEVEL_CURVE = 0.5;
 
-// Per-bar fallback timings so bars go out of phase naturally
-const BAR_DURATIONS = [420, 310, 530];
-const BAR_DELAYS = [0, 130, 65];
-// Fixed per-bar target heights (fraction of SCALE_MAX) for consistent but varied look
-const BAR_FALLBACK_TARGETS = [0.85, 0.6, 0.95];
+// Per-bar fallback: varied speeds + staggered starts for organic out-of-phase feel
+const BAR_DURATIONS = [480, 340, 580, 420, 640];
+const BAR_DELAYS = [0, 90, 180, 45, 135];
+const BAR_FALLBACK_TARGETS = [0.7, 0.95, 0.55, 1.0, 0.75];
 
 // Adaptive normalization: ref rises fast on peaks, decays slowly
 const REF_DECAY = 0.996;
@@ -38,15 +36,12 @@ function levelToScale(level: number): number {
 
 export function MusicVisualizer({ isPlaying }: Props) {
 	const colors = useColors();
-	// animatedValues always hold the final scaleY in [SCALE_MIN, SCALE_MAX]
+	const theme = useColorScheme();
 	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(SCALE_MIN))).current;
 	const [useNativeLevels, setUseNativeLevels] = useState(false);
 	const refLevelRef = useRef(0.2);
 	const loopsRef = useRef<Animated.CompositeAnimation[]>([]);
 	const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-	// Bottom-anchor transform: when scaleY = s, translateY by +height/2*(1-s) to keep bottom edge fixed
-	const translateYRange = [(BAR_HEIGHT / 2) * (1 - SCALE_MIN), (BAR_HEIGHT / 2) * (1 - SCALE_MAX)];
 
 	// Native audio levels on iOS
 	useEffect(() => {
@@ -107,19 +102,17 @@ export function MusicVisualizer({ isPlaying }: Props) {
 		stopAll();
 
 		loopsRef.current = animatedValues.map((value, i) => {
-			const duration = BAR_DURATIONS[i];
 			const target = SCALE_MIN + BAR_FALLBACK_TARGETS[i] * (SCALE_MAX - SCALE_MIN);
-
 			const loop = Animated.loop(
 				Animated.sequence([
 					Animated.timing(value, {
 						toValue: target,
-						duration: duration * 0.55,
+						duration: BAR_DURATIONS[i] * 0.55,
 						useNativeDriver: true,
 					}),
 					Animated.timing(value, {
 						toValue: SCALE_MIN,
-						duration: duration * 0.45,
+						duration: BAR_DURATIONS[i] * 0.45,
 						useNativeDriver: true,
 					}),
 				]),
@@ -135,27 +128,12 @@ export function MusicVisualizer({ isPlaying }: Props) {
 
 	if (!isPlaying) return null;
 
+	const bgColor = theme === 'dark' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+
 	return (
-		<Div style={styles.container} transparent>
+		<Div style={[styles.container, { backgroundColor: bgColor }]}>
 			{animatedValues.map((value, index) => (
-				<Animated.View
-					key={index}
-					style={[
-						styles.bar,
-						{ backgroundColor: colors.brand },
-						{
-							transform: [
-								{
-									translateY: value.interpolate({
-										inputRange: [SCALE_MIN, SCALE_MAX],
-										outputRange: translateYRange,
-									}),
-								},
-								{ scaleY: value },
-							],
-						},
-					]}
-				/>
+				<Animated.View key={index} style={[styles.bar, { backgroundColor: colors.brand }, { transform: [{ scaleY: value }] }]} />
 			))}
 		</Div>
 	);
@@ -172,6 +150,7 @@ const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		bottom: 0,
+		borderRadius: 4,
 	},
 	bar: {
 		width: BAR_WIDTH,
