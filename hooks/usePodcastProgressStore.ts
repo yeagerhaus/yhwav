@@ -19,8 +19,10 @@ interface PodcastProgressState {
 	getProgress: (episodeId: string) => EpisodeProgress | undefined;
 	/** Save progress for an episode (only called for episodes we've played). */
 	saveProgress: (episodeId: string, position: number, duration: number, completed?: boolean) => void;
-	/** Mark episode as fully played so we don't resume. */
-	markAsPlayed: (episodeId: string) => void;
+	/** Mark episode as fully played so we don't resume. Optionally pass duration (e.g. when marking as played without playback). */
+	markAsPlayed: (episodeId: string, duration?: number) => void;
+	/** Mark multiple episodes as played (e.g. when importing a feed you're already up to date on). */
+	markEpisodesAsPlayed: (episodes: Array<{ id: string; durationSeconds?: number }>) => void;
 }
 
 async function persistProgress(progressByEpisodeId: Record<string, EpisodeProgress>) {
@@ -76,16 +78,34 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 		persistProgress(nextMap).catch(() => {});
 	},
 
-	markAsPlayed: (episodeId: string) => {
+	markAsPlayed: (episodeId: string, duration?: number) => {
 		const { progressByEpisodeId } = get();
 		const existing = progressByEpisodeId[episodeId];
+		const durationToUse = duration ?? existing?.duration ?? 0;
 		const next: EpisodeProgress = {
-			position: existing?.position ?? 0,
-			duration: existing?.duration ?? 0,
+			position: existing?.position ?? durationToUse,
+			duration: durationToUse,
 			completed: true,
 			updatedAt: Date.now(),
 		};
 		const nextMap = { ...progressByEpisodeId, [episodeId]: next };
+		set({ progressByEpisodeId: nextMap });
+		persistProgress(nextMap).catch(() => {});
+	},
+	markEpisodesAsPlayed: (episodes: Array<{ id: string; durationSeconds?: number }>) => {
+		const { progressByEpisodeId } = get();
+		const nextMap = { ...progressByEpisodeId };
+		const now = Date.now();
+		for (const { id, durationSeconds } of episodes) {
+			const existing = nextMap[id];
+			const durationToUse = durationSeconds ?? existing?.duration ?? 0;
+			nextMap[id] = {
+				position: existing?.position ?? durationToUse,
+				duration: durationToUse,
+				completed: true,
+				updatedAt: now,
+			};
+		}
 		set({ progressByEpisodeId: nextMap });
 		persistProgress(nextMap).catch(() => {});
 	},
