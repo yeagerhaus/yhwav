@@ -652,8 +652,9 @@ export class PlexClient {
 			artwork: thumb || '',
 			year: raw.year ? parseInt(raw.year) : undefined,
 			addedAt: raw.addedAt ? parseInt(raw.addedAt) : undefined,
-			format: raw.Format?.[0]?.tag,
-			subformat: raw.Subformat?.[0]?.tag,
+			guid: raw.guid || undefined,
+			studio: raw.studio || undefined,
+			leafCount: raw.leafCount ? parseInt(raw.leafCount) : undefined,
 			originallyAvailableAt: raw.originallyAvailableAt,
 		};
 	}

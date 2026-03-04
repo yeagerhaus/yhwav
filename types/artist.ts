@@ -1,4 +1,4 @@
-export interface Artist {
+export type Artist = {
 	key: string;
 	name: string;
 	thumb?: string;
@@ -8,4 +8,4 @@ export interface Artist {
 	country?: string;
 	addedAt?: number;
 	viewCount?: number;
-}
+};
