@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback } from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
@@ -11,7 +12,9 @@ import { useColors } from '@/hooks/useColors';
 const PRESS_DOWN = { duration: 80 } as const;
 const PRESS_UP = { duration: 150 } as const;
 
-export function MiniPlayer({ onPress }: { onPress: () => void }) {
+export function MiniPlayer() {
+	const router = useRouter();
+	const currentSong = useAudioStore((state) => state.currentSong);
 	const insets = useSafeAreaInsets();
 	const pressScale = useSharedValue(1);
 
@@ -21,6 +24,10 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 		flex: 1,
 		transform: [{ scale: pressScale.value }],
 	}));
+
+	const handlePress = useCallback(() => {
+		if (currentSong) router.push(`/music/${currentSong.id}`);
+	}, [router, currentSong]);
 
 	const handlePressIn = useCallback(() => {
 		pressScale.value = withTiming(0.97, PRESS_DOWN);
@@ -32,7 +39,7 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 
 	return (
 		<Pressable
-			onPress={onPress}
+			onPress={handlePress}
 			onPressIn={handlePressIn}
 			onPressOut={handlePressOut}
 			style={[styles.container, { bottom: bottomPosition }]}

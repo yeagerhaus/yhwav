@@ -139,6 +139,43 @@ export class PlexClient {
 	}
 
 	/**
+	 * Silently re-test the current connection and switch to a working URI if needed.
+	 * Called when the app returns to the foreground so stale local/remote URIs are swapped out.
+	 */
+	async refreshConnectionIfNeeded(): Promise<void> {
+		if (!this.initialized || !this.baseURL || !this.token) return;
+
+		const token = this.token;
+		const currentBase = this.baseURL;
+
+		// Quick check: is the current baseURL still reachable?
+		try {
+			const testUrl = `${currentBase}/identity?X-Plex-Token=${encodeURIComponent(token)}`;
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 3000);
+			const response = await fetch(testUrl, { signal: controller.signal });
+			clearTimeout(timeoutId);
+			if (response.ok) return; // Still connected
+		} catch {
+			// Fall through to reconnect
+		}
+
+		console.log('🔄 Connection lost, attempting to find a working URI...');
+
+		const selectedServer = plexAuthService.getSelectedServer();
+		if (!selectedServer) return;
+
+		const reachable = await plexDiscoveryService.testServerConnection(selectedServer, token);
+		if (reachable) {
+			const newBase = selectedServer.uri.replace(/\/$/, '');
+			if (newBase !== currentBase) {
+				console.log(`🔄 Switching connection: ${currentBase} → ${newBase}`);
+			}
+			this.baseURL = newBase;
+		}
+	}
+
+	/**
 	 * Clear initialization cache (call when server changes)
 	 */
 	clearInitialization(): void {

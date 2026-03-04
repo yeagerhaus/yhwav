@@ -107,13 +107,9 @@ export default function SettingsScreen() {
 				<SettingsRow label='Appearance' icon='paintbrush' onPress={() => router.push('/(tabs)/(settings)/appearance')} />
 				<SettingsRow label='Playback' icon='waveform' onPress={() => router.push('/(tabs)/(settings)/playback')} />
 				<SettingsRow label='Storage & Data' icon='externaldrive' onPress={() => router.push('/(tabs)/(settings)/storage')} />
-				{__DEV__ && (
-					<SettingsRow
-						label='Developer'
-						icon='wrench.and.screwdriver'
-						onPress={() => router.push('/(tabs)/(settings)/developer')}
-					/>
-				)}
+				{/* {__DEV__ && ( */}
+				<SettingsRow label='Developer' icon='wrench.and.screwdriver' onPress={() => router.push('/(tabs)/(settings)/developer')} />
+				{/* )} */}
 			</Div>
 		</Main>
 	);

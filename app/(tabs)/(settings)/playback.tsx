@@ -5,7 +5,8 @@ import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { DefaultStyles } from '@/constants/styles';
 import { useColors, useThemedStyles } from '@/hooks/useColors';
-import { EQ_PRESETS, formatFrequency, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
+import type { StreamingQuality } from '@/hooks/usePlaybackSettingsStore';
+import { EQ_PRESETS, formatFrequency, STREAMING_QUALITY_BITRATES, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 const EQ_TRACK_LENGTH = 150;
@@ -113,6 +114,7 @@ export default function PlaybackScreen() {
 		outputGainDb,
 		normalizationEnabled,
 		monoAudioEnabled,
+		streamingQuality,
 		setEqualizerEnabled,
 		setBandGain,
 		setPreset,
@@ -120,6 +122,7 @@ export default function PlaybackScreen() {
 		setOutputGain,
 		setNormalizationEnabled,
 		setMonoAudioEnabled,
+		setStreamingQuality,
 	} = usePlaybackSettingsStore();
 
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -148,6 +151,27 @@ export default function PlaybackScreen() {
 					<Text type='h1' style={{ marginBottom: 16 }}>
 						Playback
 					</Text>
+				</Div>
+
+				{/* Streaming Quality Section */}
+				<Div transparent style={DefaultStyles.section}>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Streaming Quality
+					</Text>
+					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>
+						Controls Plex server transcoding for remote streams. Original plays the file as-is; lower settings reduce data use
+						and buffering.
+					</Text>
+					<Div transparent style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+						{(Object.keys(STREAMING_QUALITY_BITRATES) as StreamingQuality[]).map((q) => (
+							<PresetChip
+								key={q}
+								name={q.charAt(0).toUpperCase() + q.slice(1)}
+								selected={streamingQuality === q}
+								onPress={() => setStreamingQuality(q)}
+							/>
+						))}
+					</Div>
 				</Div>
 
 				{/* Equalizer Section */}

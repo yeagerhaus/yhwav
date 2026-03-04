@@ -45,7 +45,7 @@ export function PerformanceDebugger() {
 	const [memory, setMemory] = useState<ReturnType<typeof getMemoryUsage>>(getMemoryUsage());
 
 	useEffect(() => {
-		if (!__DEV__) return;
+		// if (!__DEV__) return;
 
 		const interval = setInterval(() => {
 			setMetrics(performanceMonitor.getMetrics());
@@ -55,7 +55,7 @@ export function PerformanceDebugger() {
 		return () => clearInterval(interval);
 	}, []);
 
-	if (!__DEV__) return null;
+	// if (!__DEV__) return null;
 
 	const slowest = performanceMonitor.getSlowestOperations(5);
 	const avgPlaySound = performanceMonitor.getAverageDuration('playSound');

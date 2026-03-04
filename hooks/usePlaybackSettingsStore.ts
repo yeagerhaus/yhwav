@@ -8,6 +8,16 @@ const STORAGE_EQ_PRESET = 'PLAYBACK_EQ_PRESET';
 const STORAGE_OUTPUT_GAIN = 'PLAYBACK_OUTPUT_GAIN';
 const STORAGE_NORMALIZATION = 'PLAYBACK_NORMALIZATION';
 const STORAGE_MONO_AUDIO = 'PLAYBACK_MONO_AUDIO';
+const STORAGE_STREAMING_QUALITY = 'PLAYBACK_STREAMING_QUALITY';
+
+export type StreamingQuality = 'original' | 'high' | 'medium' | 'low';
+
+export const STREAMING_QUALITY_BITRATES: Record<StreamingQuality, number | null> = {
+	original: null,
+	high: 320,
+	medium: 192,
+	low: 96,
+};
 
 export interface EQBand {
 	frequency: number;
@@ -50,6 +60,7 @@ interface PlaybackSettingsState {
 	outputGainDb: number;
 	normalizationEnabled: boolean;
 	monoAudioEnabled: boolean;
+	streamingQuality: StreamingQuality;
 
 	hydrate: () => Promise<void>;
 	setEqualizerEnabled: (enabled: boolean) => void;
@@ -60,6 +71,7 @@ interface PlaybackSettingsState {
 	setOutputGain: (db: number) => void;
 	setNormalizationEnabled: (enabled: boolean) => void;
 	setMonoAudioEnabled: (enabled: boolean) => void;
+	setStreamingQuality: (q: StreamingQuality) => void;
 }
 
 function applyBandsToNative(bands: EQBand[]) {
@@ -74,16 +86,18 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	outputGainDb: 0,
 	normalizationEnabled: false,
 	monoAudioEnabled: false,
+	streamingQuality: 'original',
 
 	hydrate: async () => {
 		try {
-			const [eqEnabledRaw, bandsRaw, presetRaw, gainRaw, normRaw, monoRaw] = await Promise.all([
+			const [eqEnabledRaw, bandsRaw, presetRaw, gainRaw, normRaw, monoRaw, streamingQualityRaw] = await Promise.all([
 				AsyncStorage.getItem(STORAGE_EQ_ENABLED),
 				AsyncStorage.getItem(STORAGE_EQ_BANDS),
 				AsyncStorage.getItem(STORAGE_EQ_PRESET),
 				AsyncStorage.getItem(STORAGE_OUTPUT_GAIN),
 				AsyncStorage.getItem(STORAGE_NORMALIZATION),
 				AsyncStorage.getItem(STORAGE_MONO_AUDIO),
+				AsyncStorage.getItem(STORAGE_STREAMING_QUALITY),
 			]);
 
 			const eqEnabled = eqEnabledRaw === '1';
@@ -92,6 +106,7 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			const gainDb = gainRaw ? Number.parseFloat(gainRaw) : 0;
 			const normalization = normRaw === '1';
 			const mono = monoRaw === '1';
+			const streamingQuality = (streamingQualityRaw as StreamingQuality | null) || 'original';
 
 			set({
 				hydrated: true,
@@ -101,6 +116,7 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 				outputGainDb: gainDb,
 				normalizationEnabled: normalization,
 				monoAudioEnabled: mono,
+				streamingQuality,
 			});
 
 			TrackPlayer.setEqualizerEnabled(eqEnabled).catch(() => {});
@@ -173,5 +189,10 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		set({ monoAudioEnabled: enabled });
 		TrackPlayer.setMonoAudioEnabled(enabled).catch(() => {});
 		AsyncStorage.setItem(STORAGE_MONO_AUDIO, enabled ? '1' : '0').catch(() => {});
+	},
+
+	setStreamingQuality: (q: StreamingQuality) => {
+		set({ streamingQuality: q });
+		AsyncStorage.setItem(STORAGE_STREAMING_QUALITY, q).catch(() => {});
 	},
 }));

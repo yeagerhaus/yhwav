@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { StyleSheet, Switch } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
@@ -11,12 +12,16 @@ export default function DeveloperScreen() {
 	const colors = useColors();
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
+	const version = Constants.expoConfig?.version ?? '—';
 
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
 					Developer
+				</Text>
+				<Text type='body' style={styles.version}>
+					App version: {version}
 				</Text>
 			</Div>
 
@@ -46,5 +51,8 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingVertical: 8,
+	},
+	version: {
+		marginBottom: 8,
 	},
 });
