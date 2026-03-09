@@ -11,4 +11,5 @@ export * from './Overlay/OverlayContext';
 export * from './Overlay/OverlayProvider';
 export * from './PerformanceDebugger';
 export * from './SearchItem';
+export * from './SplashOverlay';
 export * from './Text';
