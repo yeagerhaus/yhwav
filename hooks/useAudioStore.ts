@@ -593,9 +593,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else if (newQueue) {
-						// New queue — reset and load. Podcasts: single-episode queue only (no next/prev, avoids slow 292-track add).
-						const queueToUse =
-							song.source === 'podcast' ? [song] : state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
+						// New queue — reset and load. Podcasts don't shuffle; music respects shuffle state.
+						const queueToUse = state.isShuffled && song.source !== 'podcast' ? createShuffledQueue(newQueue, song) : newQueue;
 
 						await TrackPlayer.reset();
 						await TrackPlayer.add(queueToUse.map(songToTrack));
@@ -605,8 +604,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 							await TrackPlayer.skip(trackIndex);
 						}
 
-						saveQueueState(queueToUse, song.source === 'podcast' ? [song] : newQueue, song);
-						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
+						saveQueueState(queueToUse, newQueue, song);
+						set({ queue: queueToUse, originalQueue: newQueue });
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
