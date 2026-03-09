@@ -375,6 +375,7 @@ public final class YhwavAudioModule: Module {
 	private var repeatMode: Int = 2 // 0=Off, 1=Track, 2=Queue
 	private var volume: Float = 1.0
 	fileprivate var rate: Float = 1.0
+	private var preferredBufferDuration: TimeInterval = 30
 	private var currentItemObservation: NSKeyValueObservation?
 	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
@@ -410,6 +411,9 @@ public final class YhwavAudioModule: Module {
 
 		AsyncFunction("setupPlayer") { (options: SetupOptions?) in
 			guard !self.isInitialized else { return }
+			if let playBuffer = options?.playBuffer, playBuffer > 0 {
+				self.preferredBufferDuration = playBuffer
+			}
 			self.configureAudioSession()
 			self.queuePlayer = AVQueuePlayer()
 			self.queuePlayer?.volume = self.volume
@@ -532,10 +536,18 @@ public final class YhwavAudioModule: Module {
 
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
+			let wasPlaying = player.timeControlStatus == .playing
 			DispatchQueue.main.sync {
 				self.suppressTrackChangeEvents = true
-				self.rebuildQueueFromOrder(makeCurrentIndex: index)
-				player.rate = self.rate
+				let currentIdx = self.currentActiveTrackIndex()
+				if player.items().count == self.trackOrder.count && currentIdx >= 0 && index >= currentIdx {
+					// Fast path: items already loaded in order, just advance (preserves buffered data)
+					let steps = index - currentIdx
+					for _ in 0..<steps { player.advanceToNextItem() }
+				} else {
+					self.rebuildQueueFromOrder(makeCurrentIndex: index)
+				}
+				if wasPlaying { player.rate = self.rate }
 				self.suppressTrackChangeEvents = false
 				self.emitActiveTrackChanged(index: index)
 				self.startProgressTimerIfNeeded()
@@ -655,6 +667,7 @@ public final class YhwavAudioModule: Module {
 		}
 		let asset = AVURLAsset(url: u)
 		let item = AVPlayerItem(asset: asset)
+		item.preferredForwardBufferDuration = preferredBufferDuration
 		return item
 	}
 

@@ -511,8 +511,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				await TrackPlayer.pause();
 			}
 
-			const color = await extractArtworkColor(currentSong);
-			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
+			// Set state immediately so the mini player renders; extract color async
+			set({ currentSong, queue, position, artworkBgColor: null, isPlaying: false });
+			extractArtworkColor(currentSong)
+				.then((color) => useAudioStore.setState({ artworkBgColor: color }))
+				.catch(() => {});
 
 			if (currentSong.source !== 'podcast') {
 				await TrackPlayer.setRate(1);
