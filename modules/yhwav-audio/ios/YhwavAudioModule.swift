@@ -380,6 +380,8 @@ public final class YhwavAudioModule: Module {
 	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
 	private var suppressTrackChangeEvents = false
+	/// Pre-loaded audio tracks keyed by track ID — lets the DSP tap attach instantly on natural advances.
+	private var cachedAudioTracks: [String: AVAssetTrack] = [:]
 
 	// Playback state for JS: "playing" | "paused" | "buffering" | "ready" | "loading" | "stopped" | "error"
 	private var lastEmittedState: String = "stopped"
@@ -451,6 +453,7 @@ public final class YhwavAudioModule: Module {
 					item.setAssociatedTrack(track)
 					self.trackMetadata[track.id] = track
 					player.insert(item, after: insertAfter)
+					self.preloadAudioTrack(id: track.id, asset: item.asset)
 					insertAfter = item
 				}
 				if self.trackOrder.isEmpty {
@@ -473,6 +476,7 @@ public final class YhwavAudioModule: Module {
 				self.queuePlayer?.removeAllItems()
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
+				self.cachedAudioTracks.removeAll()
 				self.lastEmittedState = "stopped"
 				AudioDSPState.shared.resetFilterState()
 			}
@@ -490,6 +494,7 @@ public final class YhwavAudioModule: Module {
 					}
 					self.trackOrder.remove(at: idx)
 					self.trackMetadata.removeValue(forKey: id)
+					self.cachedAudioTracks.removeValue(forKey: id)
 				}
 			}
 		}
@@ -704,8 +709,16 @@ public final class YhwavAudioModule: Module {
 		}
 		if repeatMode == 2, !trackOrder.isEmpty {
 			if queuePlayer?.items().count == 1 {
-				rebuildQueueFromOrder(makeCurrentIndex: 0)
-				queuePlayer?.rate = rate
+				// Last track is ending — re-insert all tracks so AVQueuePlayer advances naturally
+				// into the loop without a rebuild (gapless). preferredForwardBufferDuration gives
+				// the first re-inserted item time to buffer during the last track's tail.
+				for id in trackOrder {
+					guard let meta = trackMetadata[id] else { continue }
+					let loopItem = createPlayerItem(url: meta.url)
+					loopItem.setAssociatedTrack(meta)
+					queuePlayer?.insert(loopItem, after: queuePlayer?.items().last)
+					preloadAudioTrack(id: id, asset: loopItem.asset)
+				}
 				return
 			}
 		}
@@ -812,6 +825,7 @@ public final class YhwavAudioModule: Module {
 			let item = createPlayerItem(url: track.url)
 			item.setAssociatedTrack(track)
 			player.insert(item, after: player.items().last)
+			preloadAudioTrack(id: id, asset: item.asset)
 		}
 		if let idx = makeCurrentIndex, idx >= 0, idx < trackOrder.count {
 			for _ in 0..<idx {
@@ -830,6 +844,19 @@ public final class YhwavAudioModule: Module {
 
 	// MARK: - Audio processing tap (DSP + level metering)
 
+	/// Kicks off async loading of an item's first audio track and caches it by track ID.
+	/// Called when items are added so the DSP tap can attach instantly when the item becomes current.
+	private func preloadAudioTrack(id: String, asset: AVAsset) {
+		guard cachedAudioTracks[id] == nil else { return }
+		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
+			guard let self = self else { return }
+			var error: NSError?
+			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
+			guard let track = asset.tracks(withMediaType: .audio).first else { return }
+			DispatchQueue.main.async { self.cachedAudioTracks[id] = track }
+		}
+	}
+
 	private func setupAudioTapForCurrentItem() {
 		guard let player = queuePlayer, let item = player.currentItem else {
 			teardownAudioTap()
@@ -839,12 +866,23 @@ public final class YhwavAudioModule: Module {
 		teardownAudioTap()
 		itemWithAudioTap = item
 		AudioDSPState.shared.resetFilterState()
+
+		// Fast path: use the pre-loaded audio track to attach the tap immediately (no async gap).
+		if let id = item.associatedTrackId(), let cachedTrack = cachedAudioTracks[id] {
+			attachAudioTap(to: item, track: cachedTrack)
+			return
+		}
+
+		// Slow path: asset track not yet loaded — load async and attach when ready.
 		let asset = item.asset
 		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
 			guard let self = self else { return }
 			var error: NSError?
 			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
 			guard let track = asset.tracks(withMediaType: .audio).first else { return }
+			if let id = item.associatedTrackId() {
+				DispatchQueue.main.async { self.cachedAudioTracks[id] = track }
+			}
 			DispatchQueue.main.async {
 				self.attachAudioTap(to: item, track: track)
 			}
