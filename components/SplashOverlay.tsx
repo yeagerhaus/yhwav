@@ -1,6 +1,6 @@
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
@@ -96,7 +96,6 @@ export function SplashOverlay() {
 
 	return (
 		<Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-			<Image source={require('@/assets/images/splash-icon.png')} style={styles.icon} resizeMode='contain' />
 			<VisualizerBars color={brandColor} />
 		</Animated.View>
 	);
