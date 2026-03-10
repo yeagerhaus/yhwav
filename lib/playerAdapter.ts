@@ -16,6 +16,7 @@ export const Event = {
 	RemoteNext: 'remote-next',
 	RemotePrevious: 'remote-previous',
 	RemoteSeek: 'remote-seek',
+	SleepTimerFired: 'sleep-timer-fired',
 } as const;
 
 export const State = {
@@ -72,6 +73,11 @@ const TrackPlayer = {
 		if (p?.updateOptions) await p.updateOptions(options);
 	},
 
+	async playQueue(tracks: TrackLike[], startIndex: number, startPosition: number | null) {
+		const p = getPlayer();
+		if (p?.playQueue) await p.playQueue(tracks, startIndex, startPosition);
+	},
+
 	async add(tracks: TrackLike | TrackLike[], index?: number) {
 		const p = getPlayer();
 		if (!p) return;
@@ -101,6 +107,11 @@ const TrackPlayer = {
 	async move(fromIndex: number, toIndex: number) {
 		const p = getPlayer();
 		if (p?.move) await p.move(fromIndex, toIndex);
+	},
+
+	async reorderToQueue(trackIds: string[]) {
+		const p = getPlayer();
+		if (p?.reorderToQueue) await p.reorderToQueue(trackIds);
 	},
 
 	async skip(index: number) {
@@ -136,6 +147,17 @@ const TrackPlayer = {
 	async setRepeatMode(mode: number) {
 		const p = getPlayer();
 		if (p?.setRepeatMode) await p.setRepeatMode(mode);
+	},
+
+	async setSleepTimer(seconds: number) {
+		const p = getPlayer();
+		if (p?.setSleepTimer) await p.setSleepTimer(seconds);
+	},
+
+	getSleepTimerRemainingSeconds(): number {
+		const p = getPlayer();
+		if (!p?.getSleepTimerRemainingSeconds) return -1;
+		return p.getSleepTimerRemainingSeconds();
 	},
 
 	async setEqualizerBands(bands: Array<{ frequency: number; gain: number }>) {
@@ -194,6 +216,7 @@ const NATIVE_EVENT_TO_EVENT: Record<string, string> = {
 	RemoteNext: Event.RemoteNext,
 	RemotePrevious: Event.RemotePrevious,
 	RemoteSeek: Event.RemoteSeek,
+	SleepTimerFired: Event.SleepTimerFired,
 };
 
 export function usePlaybackState(): { state: string } {
@@ -202,12 +225,14 @@ export function usePlaybackState(): { state: string } {
 	React.useEffect(() => {
 		const mod = YhwavAudioModule;
 		if (!isAvailable() || mod == null) return;
-		const update = () => {
-			const s = mod.getPlaybackState();
-			setPlaybackState((prev) => (prev.state !== s.state ? { state: s.state } : prev));
-		};
-		update();
-		const sub = mod.addListener('PlaybackProgressUpdated', update);
+		// Initial state
+		const s = mod.getPlaybackState();
+		setPlaybackState({ state: s.state });
+		const sub = mod.addListener('PlaybackProgressUpdated', (payload: unknown) => {
+			const p = payload as Record<string, unknown>;
+			const state = typeof p?.state === 'string' ? p.state : mod.getPlaybackState().state;
+			setPlaybackState((prev) => (prev.state !== state ? { state } : prev));
+		});
 		return () => sub.remove();
 	}, []);
 
@@ -215,7 +240,17 @@ export function usePlaybackState(): { state: string } {
 }
 
 type EventType = (typeof Event)[keyof typeof Event];
-type EventCallback = (event: { type: string; position?: number; duration?: number; index?: number }) => void;
+type EventCallback = (event: {
+	type: string;
+	position?: number;
+	duration?: number;
+	index?: number;
+	trackId?: string;
+	buffered?: number;
+	state?: string;
+	message?: string;
+	code?: number;
+}) => void;
 
 export function useTrackPlayerEvents(events: EventType[], callback: EventCallback) {
 	const callbackRef = React.useRef(callback);
@@ -236,6 +271,11 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 					position: toNum(p?.position),
 					duration: toNum(p?.duration),
 					index: typeof idx === 'number' ? idx : undefined,
+					trackId: typeof p?.trackId === 'string' ? p.trackId : undefined,
+					buffered: toNum(p?.buffered),
+					state: typeof p?.state === 'string' ? p.state : undefined,
+					message: typeof p?.message === 'string' ? p.message : undefined,
+					code: toNum(p?.code),
 				});
 			});
 			subscriptions.push(sub);

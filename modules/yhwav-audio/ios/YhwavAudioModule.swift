@@ -369,7 +369,7 @@ final class AudioDSPState {
 public final class YhwavAudioModule: Module {
 	fileprivate var queuePlayer: AVQueuePlayer?
 	private var trackMetadata: [String: TrackRecord] = [:]
-	private var trackOrder: [String] = []
+	fileprivate var trackOrder: [String] = []
 	private var progressTimer: Timer?
 	private var progressUpdateInterval: TimeInterval = 0.5
 	private var repeatMode: Int = 2 // 0=Off, 1=Track, 2=Queue
@@ -380,6 +380,9 @@ public final class YhwavAudioModule: Module {
 	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
 	private var suppressTrackChangeEvents = false
+	/// True once gapless loop items have been appended — prevents the skip fast path from
+	/// mis-counting items().count == trackOrder.count at the loop boundary.
+	private var hasLoopedItems = false
 	/// Pre-loaded audio tracks keyed by track ID — lets the DSP tap attach instantly on natural advances.
 	private var cachedAudioTracks: [String: AVAssetTrack] = [:]
 
@@ -388,6 +391,9 @@ public final class YhwavAudioModule: Module {
 
 	// Audio processing tap: item we attached the tap to, so we can clear when switching
 	private weak var itemWithAudioTap: AVPlayerItem?
+	private var sleepTimerWorkItem: DispatchWorkItem?
+	private var sleepTimerFireDate: Date?
+	private var itemFailedObserver: NSObjectProtocol?
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -404,7 +410,8 @@ public final class YhwavAudioModule: Module {
 			"RemoteNext",
 			"RemotePrevious",
 			"RemoteSeek",
-			"AudioLevelsUpdated"
+			"AudioLevelsUpdated",
+			"SleepTimerFired"
 		)
 
 		OnCreate {
@@ -477,8 +484,46 @@ public final class YhwavAudioModule: Module {
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
 				self.cachedAudioTracks.removeAll()
+				self.hasLoopedItems = false
 				self.lastEmittedState = "stopped"
 				AudioDSPState.shared.resetFilterState()
+			}
+		}
+
+
+		AsyncFunction("playQueue") { (tracks: [TrackRecord], startIndex: Int, startPosition: Double?) in
+			guard self.isInitialized else { return }
+			DispatchQueue.main.sync {
+				guard let player = self.queuePlayer else { return }
+				// 1. Full reset
+				self.suppressTrackChangeEvents = true
+				self.stopProgressTimer(); self.teardownAudioTap()
+				player.removeAllItems()
+				self.trackMetadata.removeAll(); self.trackOrder.removeAll()
+				self.cachedAudioTracks.removeAll(); self.hasLoopedItems = false
+				self.lastEmittedState = "stopped"; AudioDSPState.shared.resetFilterState()
+				// 2. Insert all tracks
+				for track in tracks {
+					let item = self.createPlayerItem(url: track.url)
+					item.setAssociatedTrack(track)
+					self.trackMetadata[track.id] = track
+					self.trackOrder.append(track.id)
+					player.insert(item, after: player.items().last)
+					self.preloadAudioTrack(id: track.id, asset: item.asset)
+				}
+				// 3. Advance to startIndex
+				let idx = max(0, min(startIndex, tracks.count - 1))
+				for _ in 0..<idx { player.advanceToNextItem() }
+				// 4. Seek if position provided
+				if let pos = startPosition, pos > 0 {
+					player.seek(to: CMTime(seconds: pos, preferredTimescale: 600),
+					            toleranceBefore: .zero, toleranceAfter: .zero)
+				}
+				// 5. Play
+				player.rate = self.rate
+				self.suppressTrackChangeEvents = false
+				self.emitActiveTrackChanged(index: idx)
+				self.startProgressTimerIfNeeded()
 			}
 		}
 
@@ -539,23 +584,29 @@ public final class YhwavAudioModule: Module {
 			}
 		}
 
+
+		AsyncFunction("reorderToQueue") { (trackIds: [String]) in
+			guard let player = self.queuePlayer else { return }
+			DispatchQueue.main.sync {
+				let validIds = trackIds.filter { self.trackMetadata[$0] != nil }
+				guard !validIds.isEmpty else { return }
+				let currentIdx = self.currentActiveTrackIndex()
+				let currentId = currentIdx >= 0 ? self.trackOrder[currentIdx] : nil
+				self.trackOrder = validIds
+				let wasPlaying = player.timeControlStatus == .playing
+				self.suppressTrackChangeEvents = true
+				let newIdx = currentId.flatMap { validIds.firstIndex(of: $0) } ?? 0
+				self.rebuildQueueFromOrder(makeCurrentIndex: newIdx)
+				if wasPlaying { player.rate = self.rate }
+				self.suppressTrackChangeEvents = false
+			}
+		}
+
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
 			let wasPlaying = player.timeControlStatus == .playing
 			DispatchQueue.main.sync {
-				self.suppressTrackChangeEvents = true
-				let currentIdx = self.currentActiveTrackIndex()
-				if player.items().count == self.trackOrder.count && currentIdx >= 0 && index >= currentIdx {
-					// Fast path: items already loaded in order, just advance (preserves buffered data)
-					let steps = index - currentIdx
-					for _ in 0..<steps { player.advanceToNextItem() }
-				} else {
-					self.rebuildQueueFromOrder(makeCurrentIndex: index)
-				}
-				if wasPlaying { player.rate = self.rate }
-				self.suppressTrackChangeEvents = false
-				self.emitActiveTrackChanged(index: index)
-				self.startProgressTimerIfNeeded()
+				self.performSkip(to: index, wasPlaying: wasPlaying)
 			}
 		}
 
@@ -575,9 +626,10 @@ public final class YhwavAudioModule: Module {
 
 		AsyncFunction("seekTo") { (position: Double) in
 			let cm = CMTime(seconds: position, preferredTimescale: 600)
-			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
-			self.queuePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
-			DispatchQueue.main.async { self.emitProgressUpdate() }
+			self.queuePlayer?.seek(to: cm, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+				guard finished else { return }
+				DispatchQueue.main.async { self?.emitProgressUpdate() }
+			}
 		}
 
 		AsyncFunction("setVolume") { (value: Float) in
@@ -594,6 +646,28 @@ public final class YhwavAudioModule: Module {
 
 		AsyncFunction("setRepeatMode") { (mode: Int) in
 			self.repeatMode = mode
+		}
+
+
+		AsyncFunction("setSleepTimer") { (seconds: Double) in
+			DispatchQueue.main.async {
+				self.sleepTimerWorkItem?.cancel()
+				self.sleepTimerWorkItem = nil; self.sleepTimerFireDate = nil
+				guard seconds > 0 else { return }
+				self.sleepTimerFireDate = Date().addingTimeInterval(seconds)
+				let item = DispatchWorkItem { [weak self] in
+					self?.queuePlayer?.pause(); self?.stopProgressTimer()
+					self?.sleepTimerFireDate = nil; self?.sleepTimerWorkItem = nil
+					self?.sendEvent("SleepTimerFired", [:])
+				}
+				self.sleepTimerWorkItem = item
+				DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+			}
+		}
+
+		Function("getSleepTimerRemainingSeconds") { () -> Double in
+			guard let fireDate = self.sleepTimerFireDate else { return -1 }
+			return max(0, fireDate.timeIntervalSinceNow)
 		}
 
 		// MARK: - DSP control APIs
@@ -695,10 +769,26 @@ public final class YhwavAudioModule: Module {
 		) { [weak self] notification in
 			self?.playerItemDidReachEnd(notification)
 		}
+
+		itemFailedObserver = NotificationCenter.default.addObserver(
+			forName: .AVPlayerItemFailedToPlayToEndTime,
+			object: nil,
+			queue: .main
+		) { [weak self] note in
+			let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+			self?.sendEvent("PlaybackError", [
+				"message": err?.localizedDescription ?? "Playback failed",
+				"code": (err as NSError?)?.code ?? -1
+			])
+		}
 	}
 
 	private func playerItemDidReachEnd(_ notification: Notification) {
 		guard let item = notification.object as? AVPlayerItem else { return }
+		if let error = item.error {
+			sendEvent("PlaybackError", ["message": error.localizedDescription, "code": (error as NSError).code])
+			return
+		}
 		AudioDSPState.shared.resetFilterState()
 		if repeatMode == 1 {
 			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
@@ -717,8 +807,12 @@ public final class YhwavAudioModule: Module {
 					let loopItem = createPlayerItem(url: meta.url)
 					loopItem.setAssociatedTrack(meta)
 					queuePlayer?.insert(loopItem, after: queuePlayer?.items().last)
+					// Clear stale cache entry so the DSP tap gets a track ref from this
+					// item's own asset, not the previous iteration's asset instance.
+					cachedAudioTracks.removeValue(forKey: id)
 					preloadAudioTrack(id: id, asset: loopItem.asset)
 				}
+				hasLoopedItems = true
 				return
 			}
 		}
@@ -742,8 +836,8 @@ public final class YhwavAudioModule: Module {
 	}
 
 	private func emitActiveTrackChanged(index: Int) {
-		sendEvent("PlaybackActiveTrackChanged", ["index": index])
 		let trackId = index >= 0 && index < trackOrder.count ? trackOrder[index] : nil
+		sendEvent("PlaybackActiveTrackChanged", ["index": index, "trackId": trackId ?? ""])
 		let track = trackId.flatMap { trackMetadata[$0] }
 		let pos = queuePlayer.map { CMTimeGetSeconds($0.currentTime()) }
 		let dur = queuePlayer?.currentItem.map { $0.duration.seconds }
@@ -774,18 +868,34 @@ public final class YhwavAudioModule: Module {
 		emitProgressUpdate()
 	}
 
-	private func emitProgressUpdate() {
+	fileprivate func emitProgressUpdate() {
 		let (state, position, duration) = currentPlaybackState()
 		if state != lastEmittedState {
 			lastEmittedState = state
 		}
 		let idx = currentActiveTrackIndex()
-		sendEvent("PlaybackProgressUpdated", [
+		// Compute buffered end from loaded time ranges
+		var buffered: Double? = nil
+		if let item = queuePlayer?.currentItem {
+			let currentTime = CMTimeGetSeconds(item.currentTime())
+			for range in item.loadedTimeRanges {
+				let start = CMTimeGetSeconds(range.timeRangeValue.start)
+				let end = start + CMTimeGetSeconds(range.timeRangeValue.duration)
+				if start <= currentTime && currentTime <= end {
+					buffered = end
+					break
+				}
+			}
+		}
+		var payload: [String: Any] = [
 			"position": position,
 			"duration": duration,
 			"track": idx,
-			"index": idx
-		])
+			"index": idx,
+			"state": state,
+		]
+		if let b = buffered { payload["buffered"] = b }
+		sendEvent("PlaybackProgressUpdated", payload)
 		let trackId = idx >= 0 && idx < trackOrder.count ? trackOrder[idx] : nil
 		let track = trackId.flatMap { trackMetadata[$0] }
 		nowPlayingManager.updateNowPlaying(track: track, position: position, duration: duration, isPlaying: state == "playing")
@@ -819,6 +929,7 @@ public final class YhwavAudioModule: Module {
 
 	private func rebuildQueueFromOrder(makeCurrentIndex: Int? = nil) {
 		guard let player = queuePlayer else { return }
+		hasLoopedItems = false
 		player.removeAllItems()
 		for id in trackOrder {
 			guard let track = trackMetadata[id] else { continue }
@@ -834,12 +945,27 @@ public final class YhwavAudioModule: Module {
 		}
 	}
 
-	private func currentActiveTrackIndex() -> Int {
+	fileprivate func currentActiveTrackIndex() -> Int {
 		guard let player = queuePlayer,
 		      let current = player.currentItem,
 		      let id = current.associatedTrackId(),
 		      let idx = trackOrder.firstIndex(of: id) else { return -1 }
 		return idx
+	}
+
+	fileprivate func performSkip(to index: Int, wasPlaying: Bool) {
+		guard let player = queuePlayer, index >= 0, index < trackOrder.count else { return }
+		suppressTrackChangeEvents = true
+		let currentIdx = currentActiveTrackIndex()
+		if !hasLoopedItems && player.items().count == trackOrder.count && currentIdx >= 0 && index >= currentIdx {
+			for _ in 0..<(index - currentIdx) { player.advanceToNextItem() }
+		} else {
+			rebuildQueueFromOrder(makeCurrentIndex: index)
+		}
+		if wasPlaying { player.rate = rate }
+		suppressTrackChangeEvents = false
+		emitActiveTrackChanged(index: index)
+		startProgressTimerIfNeeded()
 	}
 
 	// MARK: - Audio processing tap (DSP + level metering)
@@ -941,6 +1067,10 @@ public final class YhwavAudioModule: Module {
 		if let obs = itemDidEndObserver {
 			NotificationCenter.default.removeObserver(obs)
 		}
+		if let obs = itemFailedObserver {
+			NotificationCenter.default.removeObserver(obs)
+		}
+		sleepTimerWorkItem?.cancel()
 	}
 }
 
@@ -1012,6 +1142,12 @@ private final class NowPlayingManager {
 	private var capabilities: Set<String> = ["Play", "Pause", "SkipToNext", "SkipToPrevious", "SeekTo"]
 	private var cachedArtworkUrl: String?
 	private var cachedArtwork: MPMediaItemArtwork?
+	private lazy var artworkSession: URLSession = {
+		let cfg = URLSessionConfiguration.default
+		cfg.timeoutIntervalForRequest = 8
+		cfg.timeoutIntervalForResource = 8
+		return URLSession(configuration: cfg)
+	}()
 
 	init(module: YhwavAudioModule) {
 		self.module = module
@@ -1039,12 +1175,33 @@ private final class NowPlayingManager {
 		}
 		center.nextTrackCommand.isEnabled = capabilities.contains("SkipToNext")
 		center.nextTrackCommand.addTarget { [weak self] _ in
+			guard let module = self?.module else { return .commandFailed }
+			DispatchQueue.main.async {
+				let cur = module.currentActiveTrackIndex()
+				guard cur >= 0, !module.trackOrder.isEmpty else { return }
+				module.performSkip(to: (cur + 1) % module.trackOrder.count,
+				                   wasPlaying: module.queuePlayer?.timeControlStatus == .playing)
+			}
 			self?.module?.sendEvent("RemoteNext", [:])
-			// JS handler will call skipToNext
 			return .success
 		}
 		center.previousTrackCommand.isEnabled = capabilities.contains("SkipToPrevious")
 		center.previousTrackCommand.addTarget { [weak self] _ in
+			guard let module = self?.module else { return .commandFailed }
+			DispatchQueue.main.async {
+				let pos = module.queuePlayer.map { CMTimeGetSeconds($0.currentTime()) } ?? 0
+				if pos >= 3 {
+					let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
+					module.queuePlayer?.seek(to: .zero, toleranceBefore: tol, toleranceAfter: tol) { [weak module] _ in
+						DispatchQueue.main.async { module?.emitProgressUpdate() }
+					}
+				} else {
+					let cur = module.currentActiveTrackIndex()
+					guard cur >= 0, !module.trackOrder.isEmpty else { return }
+					let prev = cur == 0 ? module.trackOrder.count - 1 : cur - 1
+					module.performSkip(to: prev, wasPlaying: module.queuePlayer?.timeControlStatus == .playing)
+				}
+			}
 			self?.module?.sendEvent("RemotePrevious", [:])
 			return .success
 		}
@@ -1052,7 +1209,11 @@ private final class NowPlayingManager {
 		center.changePlaybackPositionCommand.addTarget { [weak self] event in
 			guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
 			self?.module?.sendEvent("RemoteSeek", ["position": e.positionTime])
-			self?.module?.queuePlayer?.seek(to: CMTime(seconds: e.positionTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+			self?.module?.queuePlayer?.seek(to: CMTime(seconds: e.positionTime, preferredTimescale: 600),
+			                                toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+				guard finished else { return }
+				DispatchQueue.main.async { self?.module?.emitProgressUpdate() }
+			}
 			return .success
 		}
 	}
@@ -1070,10 +1231,11 @@ private final class NowPlayingManager {
 					cachedArtworkUrl = urlString
 					cachedArtwork = nil
 					if let url = URL(string: urlString) {
-						URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+						artworkSession.dataTask(with: url) { [weak self] data, _, _ in
 							guard let data = data, let image = UIImage(data: data) else { return }
 							let art = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
 							DispatchQueue.main.async {
+								guard self?.cachedArtworkUrl == urlString else { return }
 								self?.cachedArtwork = art
 								var i = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 								i[MPMediaItemPropertyArtwork] = art
