@@ -4,8 +4,9 @@ import React, { useCallback } from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Div } from '@/components/Div';
+import { Div, type GradientConfig } from '@/components/Div';
 import { Text } from '@/components/Text';
+import { useUltraBlurColors } from '@/hooks';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
@@ -77,11 +78,36 @@ const MiniPlayerContent = React.memo(() => {
 	const isPodcast = currentSong?.source === 'podcast';
 	const artwork = React.useMemo(() => currentSong?.artworkUrl || currentSong?.artwork, [currentSong?.artworkUrl, currentSong?.artwork]);
 	const title = React.useMemo(() => currentSong?.title, [currentSong?.title]);
+	const { colors: ultraBlur, hasColors } = useUltraBlurColors();
+	const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
+	const fallbackColor = isPodcast ? colors.background : artworkBgColor || '#000000';
+
+	const gradients: GradientConfig[] = [
+		{
+			colors: hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor],
+			start: { x: 0, y: 0 },
+			end: { x: 1, y: 1 },
+			style: { ...styles.miniPlayerContent, paddingHorizontal: 0 },
+		},
+		{
+			colors: hasColors ? [`${ultraBlur.topRight}CC`, `${ultraBlur.bottomLeft}CC`] : ['transparent', 'transparent'],
+			start: { x: 1, y: 0 },
+			end: { x: 0, y: 1 },
+			style: styles.miniPlayerContent,
+		},
+	];
 
 	if (!currentSong) return null;
 
 	return (
-		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
+		<Div
+			style={[
+				styles.miniPlayerContent,
+				{ paddingHorizontal: 0, backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' },
+			]}
+			gradients={gradients}
+			transparent
+		>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<Div transparent style={styles.textContainer}>
 				<Text style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
@@ -133,14 +159,6 @@ const styles = StyleSheet.create({
 		right: 0,
 		height: 56,
 		zIndex: 1000,
-		shadowColor: '#000',
-		shadowOffset: {
-			width: 0,
-			height: 2,
-		},
-		shadowOpacity: 0.15,
-		shadowRadius: 8,
-		elevation: 5,
 	},
 	content: {
 		flexDirection: 'row',
