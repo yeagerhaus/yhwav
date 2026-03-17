@@ -38,6 +38,8 @@ const SongItem = React.memo(
 			return item.id === String(currentSong?.id);
 		}, [item.id, currentSong?.id]);
 
+		const showAsPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+
 		const playSong = useCallback(
 			async (song: Song) => {
 				await playSound(song, queue, playlistRatingKey ? { playlistRatingKey } : undefined);
@@ -120,8 +122,8 @@ const SongItem = React.memo(
 			return (
 				<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 					<Div style={{ width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }} transparent>
-						{isCurrentSong && playbackState.state === State.Playing ? (
-							<MusicVisualizer isPlaying={playbackState.state === State.Playing} />
+						{isCurrentSong && showAsPlaying ? (
+							<MusicVisualizer isPlaying={showAsPlaying} />
 						) : (
 							<Text type='body' numberOfLines={1} style={styles.songTitle}>
 								{item.playlistIndex !== undefined ? item.playlistIndex + 1 : item.trackNumber}
@@ -175,7 +177,7 @@ const SongItem = React.memo(
 			<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 				<Div transparent style={styles.artworkContainer}>
 					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
-					{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
+					{isCurrentSong && <MusicVisualizer isPlaying={showAsPlaying} />}
 				</Div>
 				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 					<Div transparent style={styles.songInfo}>

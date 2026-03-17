@@ -35,6 +35,8 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 		return song.id === String(currentSong?.id);
 	}, [song.id, currentSong?.id]);
 
+	const showAsPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+
 	const matchedArtist = artists.find((a) => a.name === song.artist);
 	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
 
@@ -99,7 +101,7 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 		<Pressable onPress={playSong} style={styles.songItem}>
 			<Div transparent style={styles.artworkContainer}>
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
-				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
+				{isCurrentSong && <MusicVisualizer isPlaying={showAsPlaying} />}
 			</Div>
 			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 				<Div transparent style={styles.songInfo}>
