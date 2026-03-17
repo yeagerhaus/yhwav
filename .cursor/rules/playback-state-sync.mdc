@@ -1,0 +1,42 @@
+---
+description: Playback state sync between native player and JS store; when to set isPlaying, queue order, restore behavior
+globs: "**/useAudioStore.ts"
+alwaysApply: false
+---
+
+# Playback state and native/JS sync
+
+Apply when editing playback state or event handling (useAudioStore, useTrackPlayerSync, or components that show playing/buffering).
+
+## isPlaying vs Buffering
+
+Native can report `Buffering` after `skip()` while loading the new track. Treat Buffering as "still playing" for UI:
+
+- Only set `isPlaying` to false when state is **Paused**, **Stopped**, **Ended**, or **Error**—not when Buffering or Loading.
+- Otherwise the play/pause icon and visualizer flicker (sync effect in `useTrackPlayerSync`).
+
+## Queue update order
+
+When changing queue in JS (e.g. after `TrackPlayer.add()` in the new-queue path):
+
+- Update Zustand `queue` (and `originalQueue`) **before** calling `TrackPlayer.skip()`.
+- Native can emit `PlaybackActiveTrackChanged` during/after `skip()`; the event handler uses `state.queue[event.index]`, so the queue must already reflect the new list to avoid wrong track or index bugs.
+- In `playSound`, set queue in the new-queue path immediately after `add()`, before `skip()`.
+
+## Restore
+
+After restoring queue and current track from storage:
+
+- **Always** call `TrackPlayer.pause()` unconditionally, then set `isPlaying: false`.
+- Do not only pause when `trackIndex !== -1`; otherwise the app can auto-play the first item on reload.
+- See `restorePlaybackState()` in useAudioStore.
+
+## Same-queue skip
+
+When the user taps a track in the same queue, consider only calling `TrackPlayer.play()` if native state is not already `Playing` after `skip()`, to avoid an extra play() that can cause an audible cut/restart.
+
+## Key references
+
+- Sync effect: `useTrackPlayerSync()` useEffect on `playbackState?.state`.
+- Queue set in `playSound`: new-queue path, after `TrackPlayer.add()`, before `skip()`.
+- Restore pause: `restorePlaybackState()` — call `TrackPlayer.pause()` after skip/seek, unconditionally.
