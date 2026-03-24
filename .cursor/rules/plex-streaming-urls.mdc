@@ -1,0 +1,29 @@
+---
+description: Plex stream URLs and quality; where token and maxAudioBitrate are applied for playback
+globs: "**/useAudioStore.ts"
+alwaysApply: false
+---
+
+# Plex streaming and track URL construction
+
+Apply when editing URL construction for playback, streaming quality, or Plex API/client.
+
+## Song.uri
+
+- Set in `utils/plex-client.ts` (`formatTrack`): direct stream URL with `X-Plex-Token`.
+- No bitrate param at Plex client level.
+
+## Quality
+
+- `hooks/usePlaybackSettingsStore.ts` defines `streamingQuality` and `STREAMING_QUALITY_BITRATES`.
+- Applied **only** in `songToTrack(song)` in `hooks/useAudioStore.ts`: if URL is not local and not podcast and contains `X-Plex-Token`, append `&maxAudioBitrate=${bitrate}` to get the `url` passed to the native player.
+
+## Single place
+
+- All playback URLs for the player go through `songToTrack()`.
+- Do not add quality or token logic in the native module or adapter; keep it in `songToTrack`.
+
+## Prewarm
+
+- The next-track prewarm in useAudioStore uses `nextSong.uri` (no `maxAudioBitrate`).
+- Prewarm URL may differ from the quality-limited playback URL; acceptable for cache warming.

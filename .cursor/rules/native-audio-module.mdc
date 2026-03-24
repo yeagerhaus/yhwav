@@ -1,0 +1,42 @@
+---
+description: Native audio module (YhwavAudioModule) API and event contract; iOS only; AVQueuePlayer
+globs: "**/playerAdapter.ts"
+alwaysApply: false
+---
+
+# Native audio module contract (iOS)
+
+Apply when editing native audio code, the JS adapter (lib/playerAdapter.ts), or any code that assumes how the player or events work.
+
+## Platform
+
+- Playback is implemented only on **iOS** (`modules/yhwav-audio`).
+- The adapter checks `isAvailable()` and uses the module only on iOS; no Android implementation in this module.
+
+## Player
+
+- `AVQueuePlayer` in `YhwavAudioModule.swift`.
+- Queue is tracked via `trackOrder` (ids) and `trackMetadata`; `skip(index)` rebuilds/repositions the queue.
+
+## Events
+
+Native sends: `PlaybackProgressUpdated`, `PlaybackQueueEnded`, `PlaybackActiveTrackChanged`, `RemotePlay`/`RemotePause`/`RemoteNext`/`RemotePrevious`/`RemoteSeek`, `AudioLevelsUpdated`.
+
+- **PlaybackError** is declared but never emitted in the current native code; do not rely on it.
+
+## Buffering
+
+- There is no separate "Buffering" event.
+- Buffering is reported as `state === "buffering"` when `timeControlStatus == .waitingToPlayAtSpecifiedRate` inside `getPlaybackState()`.
+- JS gets this via `usePlaybackState()` (subscribes to progress and calls `getPlaybackState()`).
+
+## Gapless
+
+- Gapless behavior comes from AVQueuePlayer (next item already in queue).
+- No explicit preload in the active native module.
+- JS prewarm (Range fetch on next track URL when &lt; 45s left) is in useAudioStore only.
+
+## Bridge
+
+- All `TrackPlayer.*` methods in `lib/playerAdapter.ts` map directly to the native module.
+- `useTrackPlayerEvents` maps native event names to internal `Event.*` and passes through `index`, `position`, `duration` where applicable.

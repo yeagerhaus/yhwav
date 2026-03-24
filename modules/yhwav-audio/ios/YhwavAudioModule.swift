@@ -533,8 +533,17 @@ public final class YhwavAudioModule: Module {
 		AsyncFunction("skip") { (index: Int) in
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
 			DispatchQueue.main.sync {
+				let currentIdx = self.currentActiveTrackIndex()
 				self.suppressTrackChangeEvents = true
-				self.rebuildQueueFromOrder(makeCurrentIndex: index)
+
+				if currentIdx >= 0 && index - currentIdx == 1 {
+					// One step forward: advance without rebuild — no audio cut, preserves preload
+					player.advanceToNextItem()
+				} else {
+					// Backward, multi-step, or unknown current: full rebuild
+					self.rebuildQueueFromOrder(makeCurrentIndex: index)
+				}
+
 				player.rate = self.rate
 				self.suppressTrackChangeEvents = false
 				self.emitActiveTrackChanged(index: index)

@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -7,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 import { useUltraBlurColors } from '@/hooks/useUltraBlurColors';
+import type { GradientConfig } from '../Div';
 import { Div } from '../Div';
 import { ExtraControls } from '../Player/ExtraControls';
 import { PlaybackControls } from '../Player/PlaybackControls';
@@ -39,6 +39,21 @@ export const ExpandedPlayer = React.memo(
 			return ScrollComponentToUse;
 		}, [ScrollComponentToUse]);
 
+		const gradients: GradientConfig[] = [
+			{
+				colors: hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor],
+				start: { x: 0, y: 0 },
+				end: { x: 1, y: 1 },
+				style: styles.rootContainer,
+			},
+			{
+				colors: hasColors ? [`${ultraBlur.topRight}CC`, `${ultraBlur.bottomLeft}CC`] : ['transparent', 'transparent'],
+				start: { x: 1, y: 0 },
+				end: { x: 0, y: 1 },
+				style: styles.rootContainer,
+			},
+		];
+
 		const playerUI = (
 			<Div transparent style={styles.container}>
 				<SongInfo />
@@ -53,40 +68,24 @@ export const ExpandedPlayer = React.memo(
 		);
 
 		return (
-			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent>
-				{/* Layer 1: top-left → bottom-right diagonal */}
-				<LinearGradient
-					colors={hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor]}
-					style={styles.rootContainer}
-					start={{ x: 0, y: 0 }}
-					end={{ x: 1, y: 1 }}
-				>
-					{/* Layer 2: top-right → bottom-left diagonal, semi-transparent overlay */}
-					<LinearGradient
-						colors={hasColors ? [`${ultraBlur.topRight}CC`, `${ultraBlur.bottomLeft}CC`] : ['transparent', 'transparent']}
-						style={styles.rootContainer}
-						start={{ x: 1, y: 0 }}
-						end={{ x: 0, y: 1 }}
-					>
-						<Div style={styles.innerContainer} transparent>
-							<Div transparent style={styles.dragHandleContainer}>
-								<Div transparent style={styles.dragHandle} />
-							</Div>
+			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent showGradients gradients={gradients}>
+				<Div style={styles.innerContainer} transparent>
+					<Div transparent style={styles.dragHandleContainer}>
+						<Div transparent style={styles.dragHandle} />
+					</Div>
 
-							{queueOpen ? (
-								<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
-									<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
-								</Animated.View>
-							) : (
-								<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
-									<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
-										{playerUI}
-									</MemoizedScrollComponent>
-								</Animated.View>
-							)}
-						</Div>
-					</LinearGradient>
-				</LinearGradient>
+					{queueOpen ? (
+						<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
+							<QueueList headerComponent={playerUI} onToggleQueue={onToggleQueue} />
+						</Animated.View>
+					) : (
+						<Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)} style={styles.flex1}>
+							<MemoizedScrollComponent style={styles.scrollView} showsVerticalScrollIndicator={false}>
+								{playerUI}
+							</MemoizedScrollComponent>
+						</Animated.View>
+					)}
+				</Div>
 			</Div>
 		);
 	},
