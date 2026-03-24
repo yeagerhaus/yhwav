@@ -1,16 +1,19 @@
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
 import { DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import type { Album } from '@/types/album';
+import { fetchArtistRadioPlaylist, fetchPlaylistTracks } from '@/utils/plex';
 
 type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations' | 'Live Albums';
 
@@ -76,6 +79,9 @@ export default function ArtistDetailScreen() {
 	const colors = useColors();
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
+	const isOffline = useOfflineModeStore((s) => s.offlineMode);
+	const playSound = useAudioStore((s) => s.playSound);
+	const [radioLoading, setRadioLoading] = useState(false);
 	const { albums, tracks, artists: offlineArtists } = useOfflineFilteredLibrary();
 
 	const downloads = useMusicDownloadsStore((s) => s.downloads);
@@ -116,6 +122,29 @@ export default function ArtistDetailScreen() {
 			downloadTracks(artistTracks);
 		}
 	}, [isFullyDownloaded, artistTracks, downloadTracks, removeDownloads]);
+
+	const handleArtistRadio = useCallback(async () => {
+		if (!artist) return;
+		setRadioLoading(true);
+		try {
+			const playlist = await fetchArtistRadioPlaylist(artist.key);
+			if (!playlist?.key) {
+				Alert.alert('Artist radio', 'No artist radio is available for this artist.');
+				return;
+			}
+			const radioTracks = await fetchPlaylistTracks(playlist.key);
+			if (radioTracks.length === 0) {
+				Alert.alert('Artist radio', 'No tracks in this station.');
+				return;
+			}
+			await playSound(radioTracks[0], radioTracks, { playlistRatingKey: playlist.ratingKey });
+		} catch (e) {
+			const message = e instanceof Error ? e.message : 'Could not start artist radio.';
+			Alert.alert('Artist radio', message);
+		} finally {
+			setRadioLoading(false);
+		}
+	}, [artist, playSound]);
 
 	const downloadLabel = isActive
 		? `Downloading${queueTotal > 0 ? ` ${queueCompleted}/${queueTotal}` : '…'}`
@@ -224,6 +253,18 @@ export default function ArtistDetailScreen() {
 						</Text>
 					</Div>
 				) : null}
+				{!isOffline && (
+					<Pressable onPress={handleArtistRadio} disabled={radioLoading} style={styles.downloadButton}>
+						{radioLoading ? (
+							<ActivityIndicator size='small' color={colors.brand} />
+						) : (
+							<SymbolView name='dot.radiowaves.left.and.right' size={20} tintColor={colors.brand} />
+						)}
+						<Text type='bodySM' style={{ color: colors.brand }}>
+							Artist radio
+						</Text>
+					</Pressable>
+				)}
 				{artistTracks.length > 0 && (
 					<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
 						{isActive ? (
