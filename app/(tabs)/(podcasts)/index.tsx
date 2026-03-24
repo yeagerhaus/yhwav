@@ -1,10 +1,9 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors } from '@/constants';
+import { useColors } from '@/hooks/useColors';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -19,6 +18,7 @@ type FormattedShow = {
 };
 
 export default function PodcastsScreen() {
+	const colors = useColors();
 	const { feeds, episodesByFeedId, isLoading, hydrated, addFeed, fetchAllFeeds, lastFetchedAt } = usePodcastStore();
 	const [refreshing, setRefreshing] = useState(false);
 	const isOffline = useOfflineModeStore((s) => s.offlineMode);
@@ -91,15 +91,15 @@ export default function PodcastsScreen() {
 				<Text type='h1'>Podcasts</Text>
 				<Div transparent style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
 					<Pressable onPress={handleAddByUrl} hitSlop={8}>
-						<SymbolView name='dot.radiowaves.up.forward' size={22} tintColor={Colors.brandPrimary} />
+						<SymbolView name='dot.radiowaves.up.forward' size={22} tintColor={colors.brand} />
 					</Pressable>
 					<Pressable onPress={handleAddFeed} hitSlop={8}>
-						<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
+						<SymbolView name='plus.circle' size={28} tintColor={colors.brand} />
 					</Pressable>
 				</Div>
 			</Div>
 		),
-		[handleAddFeed, handleAddByUrl],
+		[handleAddFeed, handleAddByUrl, colors.brand],
 	);
 
 	if (!hydrated && isLoading && feeds.length === 0) {
@@ -120,7 +120,7 @@ export default function PodcastsScreen() {
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}
+				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
 				removeClippedSubviews={true}
 				maxToRenderPerBatch={10}
 				windowSize={10}

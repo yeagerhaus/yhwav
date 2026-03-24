@@ -1,15 +1,15 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Image, Pressable, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 import { State, usePlaybackState } from '@/lib/playerAdapter';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
@@ -21,7 +21,7 @@ interface SearchSongItemProps {
 }
 
 export default function SearchSongItem({ song, query, onPress }: SearchSongItemProps) {
-	const colorScheme = useColorScheme();
+	const colors = useColors();
 	const playbackState = usePlaybackState();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const playSound = useAudioStore((state) => state.playSound);
@@ -34,6 +34,8 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const isCurrentSong = useMemo(() => {
 		return song.id === String(currentSong?.id);
 	}, [song.id, currentSong?.id]);
+
+	const showAsPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
 	const matchedArtist = artists.find((a) => a.name === song.artist);
 	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
@@ -82,10 +84,11 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 	const highlightText = (text: string, query: string) => {
 		if (!query) return text;
 
-		const parts = text.split(new RegExp(`(${query})`, 'gi'));
+		const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
 		return parts.map((part, index) =>
 			part.toLowerCase() === query.toLowerCase() ? (
-				<Text key={index} style={styles.highlighted}>
+				<Text key={index} style={[styles.highlighted, { backgroundColor: colors.brand, color: '#ffffff' }]}>
 					{part}
 				</Text>
 			) : (
@@ -98,26 +101,20 @@ export default function SearchSongItem({ song, query, onPress }: SearchSongItemP
 		<Pressable onPress={playSong} style={styles.songItem}>
 			<Div transparent style={styles.artworkContainer}>
 				<Image source={{ uri: song.artworkUrl || song.artwork }} style={styles.songArtwork} />
-				{isCurrentSong && <MusicVisualizer isPlaying={playbackState.state === State.Playing} />}
+				{isCurrentSong && <MusicVisualizer isPlaying={showAsPlaying} />}
 			</Div>
-			<Div
-				transparent
-				style={[
-					styles.songInfoContainer,
-					{ borderBottomColor: colorScheme === 'light' ? Colors.listDividerLight : Colors.listDividerDark },
-				]}
-			>
+			<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>
 				<Div transparent style={styles.songInfo}>
-					<Text type='defaultSemiBold' numberOfLines={1} style={styles.songTitle}>
+					<Text type='body' numberOfLines={1} style={styles.songTitle}>
 						{highlightText(song.title, query)}
 					</Text>
 					<Div transparent style={styles.artistRow}>
-						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={Colors.brandPrimary} />}
-						<Text type='subtitle' numberOfLines={1} style={styles.songArtist}>
+						{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
+						<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 							{highlightText(song.artist, query)}
 						</Text>
 					</Div>
-					<Text type='subtitle' numberOfLines={1} style={styles.songAlbum}>
+					<Text type='bodySM' numberOfLines={1} style={styles.songAlbum}>
 						{highlightText(song.album, query)}
 					</Text>
 				</Div>
@@ -150,13 +147,11 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 4,
 		flexDirection: 'row',
+		alignItems: 'center',
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		paddingBottom: 14,
-		paddingRight: 14,
 	},
 	songInfo: {
 		flex: 1,
-		gap: 2,
 		backgroundColor: 'transparent',
 	},
 	artistRow: {
@@ -183,8 +178,6 @@ const styles = StyleSheet.create({
 		padding: 8,
 	},
 	highlighted: {
-		backgroundColor: Colors.brandPrimary,
-		color: 'white',
 		fontWeight: '600',
 	},
 });

@@ -4,22 +4,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { plexAuthService } from '@/utils/plex-auth';
 
 function SettingsRow({ label, icon, onPress }: { label: string; icon: SFSymbol; onPress: () => void }) {
+	const colors = useColors();
 	return (
-		<TouchableOpacity style={styles.settingsRow} onPress={onPress}>
-			<SymbolView name={icon} type='hierarchical' tintColor={Colors.brandPrimary} size={22} />
+		<TouchableOpacity style={[styles.settingsRow, { borderBottomColor: colors.surfaceTertiary }]} onPress={onPress}>
+			<SymbolView name={icon} type='hierarchical' tintColor={colors.brand} size={22} />
 			<Text type='body' style={styles.settingsRowLabel}>
 				{label}
 			</Text>
-			<SymbolView name='chevron.right' type='hierarchical' tintColor={Colors.textMuted} size={14} />
+			<SymbolView name='chevron.right' type='hierarchical' tintColor={colors.textMuted} size={14} />
 		</TouchableOpacity>
 	);
 }
 
 export default function SettingsScreen() {
+	const colors = useColors();
 	const router = useRouter();
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
 	const [refreshing, setRefreshing] = useState(false);
@@ -58,7 +60,7 @@ export default function SettingsScreen() {
 	return (
 		<Main
 			style={{ paddingHorizontal: 16 }}
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brandPrimary} />}
+			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
 		>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
@@ -79,7 +81,7 @@ export default function SettingsScreen() {
 						{authState.avatarUrl ? (
 							<Image source={{ uri: authState.avatarUrl }} style={styles.avatar} />
 						) : (
-							<Div transparent style={[styles.avatar, styles.avatarFallback]}>
+							<Div transparent style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.brand }]}>
 								<Text type='h3' colorVariant='primaryInvert'>
 									{authState.username?.charAt(0)?.toUpperCase() ?? '?'}
 								</Text>
@@ -92,7 +94,6 @@ export default function SettingsScreen() {
 							<Text type='h3'>{authState.username}</Text>
 						</Div>
 					</Div>
-					{/* <SymbolView name='rectangle.portrait.and.arrow.right.fill' type='hierarchical' tintColor={Colors.textMuted} size={32} /> */}
 					<TouchableOpacity onPress={handleLogout}>
 						<Text type='link' colorVariant='brand'>
 							Logout
@@ -106,13 +107,9 @@ export default function SettingsScreen() {
 				<SettingsRow label='Appearance' icon='paintbrush' onPress={() => router.push('/(tabs)/(settings)/appearance')} />
 				<SettingsRow label='Playback' icon='waveform' onPress={() => router.push('/(tabs)/(settings)/playback')} />
 				<SettingsRow label='Storage & Data' icon='externaldrive' onPress={() => router.push('/(tabs)/(settings)/storage')} />
-				{__DEV__ && (
-					<SettingsRow
-						label='Developer'
-						icon='wrench.and.screwdriver'
-						onPress={() => router.push('/(tabs)/(settings)/developer')}
-					/>
-				)}
+				{/* {__DEV__ && ( */}
+				<SettingsRow label='Developer' icon='wrench.and.screwdriver' onPress={() => router.push('/(tabs)/(settings)/developer')} />
+				{/* )} */}
 			</Div>
 		</Main>
 	);
@@ -125,7 +122,6 @@ const styles = StyleSheet.create({
 		borderRadius: 22,
 	},
 	avatarFallback: {
-		backgroundColor: Colors.brandPrimary,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
@@ -135,7 +131,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 14,
 		paddingHorizontal: 4,
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: Colors.surfaceDark,
 	},
 	settingsRowLabel: {
 		flex: 1,

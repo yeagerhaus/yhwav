@@ -1,17 +1,23 @@
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback } from 'react';
 import { Image, Platform, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Div } from '@/components/Div';
+import { Div, type GradientConfig } from '@/components/Div';
 import { Text } from '@/components/Text';
-import { Colors } from '@/constants';
+import { useUltraBlurColors } from '@/hooks';
+import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { useColors } from '@/hooks/useColors';
 
 const PRESS_DOWN = { duration: 80 } as const;
 const PRESS_UP = { duration: 150 } as const;
 
-export function MiniPlayer({ onPress }: { onPress: () => void }) {
+export function MiniPlayer() {
+	const { useBlurInsteadOfGlass } = useAppearanceStore();
+	const router = useRouter();
+	const currentSong = useAudioStore((state) => state.currentSong);
 	const insets = useSafeAreaInsets();
 	const pressScale = useSharedValue(1);
 
@@ -21,6 +27,10 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 		flex: 1,
 		transform: [{ scale: pressScale.value }],
 	}));
+
+	const handlePress = useCallback(() => {
+		if (currentSong) router.push(`/music/${currentSong.id}`);
+	}, [router, currentSong]);
 
 	const handlePressIn = useCallback(() => {
 		pressScale.value = withTiming(0.97, PRESS_DOWN);
@@ -32,13 +42,21 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 
 	return (
 		<Pressable
-			onPress={onPress}
+			onPress={handlePress}
 			onPressIn={handlePressIn}
 			onPressOut={handlePressOut}
 			style={[styles.container, { bottom: bottomPosition }]}
 		>
 			<Animated.View style={animatedStyle}>
-				<Div useGlass style={styles.content}>
+				<Div
+					useGlass
+					style={{
+						...styles.content,
+						marginHorizontal: useBlurInsteadOfGlass ? 0 : 22,
+						borderRadius: useBlurInsteadOfGlass ? 0 : 100,
+						marginBottom: useBlurInsteadOfGlass ? -10 : 0,
+					}}
+				>
 					<MiniPlayerContent />
 				</Div>
 			</Animated.View>
@@ -49,6 +67,7 @@ export function MiniPlayer({ onPress }: { onPress: () => void }) {
 // Extract the content into a separate component for reusability
 const MiniPlayerContent = React.memo(() => {
 	const colorScheme = useColorScheme();
+	const colors = useColors();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const isPlaying = useAudioStore((state) => state.isPlaying);
 	const togglePlayPause = useAudioStore((state) => state.togglePlayPause);
@@ -59,11 +78,36 @@ const MiniPlayerContent = React.memo(() => {
 	const isPodcast = currentSong?.source === 'podcast';
 	const artwork = React.useMemo(() => currentSong?.artworkUrl || currentSong?.artwork, [currentSong?.artworkUrl, currentSong?.artwork]);
 	const title = React.useMemo(() => currentSong?.title, [currentSong?.title]);
+	const { colors: ultraBlur, hasColors } = useUltraBlurColors();
+	const artworkBgColor = useAudioStore((state) => state.artworkBgColor);
+	const fallbackColor = isPodcast ? colors.background : artworkBgColor || '#000000';
+
+	const gradients: GradientConfig[] = [
+		{
+			colors: hasColors ? [ultraBlur.topLeft, ultraBlur.bottomRight] : [fallbackColor, fallbackColor],
+			start: { x: 0, y: 0 },
+			end: { x: 1, y: 1 },
+			style: { ...styles.miniPlayerContent, paddingHorizontal: 0 },
+		},
+		{
+			colors: hasColors ? [`${ultraBlur.topRight}CC`, `${ultraBlur.bottomLeft}CC`] : ['transparent', 'transparent'],
+			start: { x: 1, y: 0 },
+			end: { x: 0, y: 1 },
+			style: styles.miniPlayerContent,
+		},
+	];
 
 	if (!currentSong) return null;
 
 	return (
-		<Div style={[styles.miniPlayerContent, { backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' }]}>
+		<Div
+			style={[
+				styles.miniPlayerContent,
+				{ paddingHorizontal: 0, backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' },
+			]}
+			gradients={gradients}
+			transparent
+		>
 			<Image source={{ uri: artwork }} style={styles.artwork} />
 			<Div transparent style={styles.textContainer}>
 				<Text style={styles.title} numberOfLines={1} ellipsizeMode='tail'>
@@ -74,18 +118,18 @@ const MiniPlayerContent = React.memo(() => {
 				{isPodcast ? (
 					<>
 						<Pressable style={styles.controlButton} onPress={skipBackward15}>
-							<SymbolView name='gobackward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+							<SymbolView name='gobackward.15' type='hierarchical' size={22} tintColor={colors.brand} />
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={togglePlayPause}>
 							<SymbolView
 								name={isPlaying ? 'pause.fill' : 'play.fill'}
 								type='hierarchical'
 								size={20}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 							/>
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={skipForward15}>
-							<SymbolView name='goforward.15' type='hierarchical' size={22} tintColor={Colors.brandPrimary} />
+							<SymbolView name='goforward.15' type='hierarchical' size={22} tintColor={colors.brand} />
 						</Pressable>
 					</>
 				) : (
@@ -95,11 +139,11 @@ const MiniPlayerContent = React.memo(() => {
 								name={isPlaying ? 'pause.fill' : 'play.fill'}
 								type='hierarchical'
 								size={20}
-								tintColor={Colors.brandPrimary}
+								tintColor={colors.brand}
 							/>
 						</Pressable>
 						<Pressable style={styles.controlButton} onPress={skipToNext}>
-							<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={Colors.brandPrimary} />
+							<SymbolView name='forward.fill' type='hierarchical' size={24} tintColor={colors.brand} />
 						</Pressable>
 					</>
 				)}
@@ -115,21 +159,10 @@ const styles = StyleSheet.create({
 		right: 0,
 		height: 56,
 		zIndex: 1000,
-		shadowColor: '#000',
-		shadowOffset: {
-			width: 0,
-			height: 2,
-		},
-		shadowOpacity: 0.15,
-		shadowRadius: 8,
-		elevation: 5,
 	},
 	content: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		// height: 40,
-		marginHorizontal: 20,
-		borderRadius: 100,
 		overflow: 'hidden',
 		zIndex: 1000,
 		flex: 1,
@@ -141,9 +174,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		height: '100%',
 		paddingHorizontal: 10,
-		// backgroundColor: '#ffffffa4',
 	},
-	androidContainer: {},
 	title: {
 		fontWeight: '500',
 	},

@@ -3,8 +3,10 @@ import { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors, DefaultStyles } from '@/constants/styles';
-import { EQ_PRESETS, formatFrequency, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
+import type { StreamingQuality } from '@/hooks/usePlaybackSettingsStore';
+import { EQ_PRESETS, formatFrequency, STREAMING_QUALITY_BITRATES, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 const EQ_TRACK_LENGTH = 150;
@@ -21,6 +23,7 @@ function SwitchRow({
 	value: boolean;
 	onValueChange: (v: boolean) => void;
 }) {
+	const colors = useColors();
 	return (
 		<Div transparent style={styles.switchRow}>
 			<Div transparent style={{ flex: 1, marginRight: 12 }}>
@@ -34,8 +37,8 @@ function SwitchRow({
 			<Switch
 				value={value}
 				onValueChange={onValueChange}
-				trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-				thumbColor={value ? Colors.brandPrimary : Colors.textMuted}
+				trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+				thumbColor={value ? colors.brand : colors.textMuted}
 			/>
 		</Div>
 	);
@@ -54,6 +57,7 @@ function EQBandSlider({
 	onSlidingStart?: () => void;
 	onSlidingComplete?: (v: number) => void;
 }) {
+	const colors = useColors();
 	return (
 		<View style={styles.bandColumn}>
 			<Text type='bodyXS' colorVariant='muted' style={styles.bandGainLabel}>
@@ -69,9 +73,9 @@ function EQBandSlider({
 					onValueChange={onValueChange}
 					onSlidingStart={onSlidingStart}
 					onSlidingComplete={onSlidingComplete}
-					minimumTrackTintColor={Colors.brandPrimary}
-					maximumTrackTintColor={Colors.surfaceDark}
-					thumbTintColor={Colors.brandPrimary}
+					minimumTrackTintColor={colors.brand}
+					maximumTrackTintColor={colors.surfaceTertiary}
+					thumbTintColor={colors.brand}
 				/>
 			</View>
 			<Text type='bodyXS' colorVariant='muted' style={styles.bandFreqLabel}>
@@ -82,9 +86,18 @@ function EQBandSlider({
 }
 
 function PresetChip({ name, selected, onPress }: { name: string; selected: boolean; onPress: () => void }) {
+	const colors = useColors();
 	return (
-		<TouchableOpacity style={[styles.presetChip, selected && styles.presetChipSelected]} onPress={onPress}>
-			<Text type='linkSM' style={{ color: selected ? Colors.white : Colors.textMuted }}>
+		<TouchableOpacity
+			style={[
+				styles.presetChip,
+				selected
+					? { backgroundColor: colors.brand, borderColor: colors.brand }
+					: { backgroundColor: colors.surfaceTertiary, borderColor: colors.borderSubtle },
+			]}
+			onPress={onPress}
+		>
+			<Text type='linkSM' style={{ color: selected ? '#ffffff' : colors.textMuted }}>
 				{name}
 			</Text>
 		</TouchableOpacity>
@@ -92,6 +105,8 @@ function PresetChip({ name, selected, onPress }: { name: string; selected: boole
 }
 
 export default function PlaybackScreen() {
+	const colors = useColors();
+	const themed = useThemedStyles();
 	const {
 		equalizerEnabled,
 		equalizerBands,
@@ -99,6 +114,7 @@ export default function PlaybackScreen() {
 		outputGainDb,
 		normalizationEnabled,
 		monoAudioEnabled,
+		streamingQuality,
 		setEqualizerEnabled,
 		setBandGain,
 		setPreset,
@@ -106,6 +122,7 @@ export default function PlaybackScreen() {
 		setOutputGain,
 		setNormalizationEnabled,
 		setMonoAudioEnabled,
+		setStreamingQuality,
 	} = usePlaybackSettingsStore();
 
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -134,6 +151,27 @@ export default function PlaybackScreen() {
 					<Text type='h1' style={{ marginBottom: 16 }}>
 						Playback
 					</Text>
+				</Div>
+
+				{/* Streaming Quality Section */}
+				<Div transparent style={DefaultStyles.section}>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Streaming Quality
+					</Text>
+					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>
+						Controls Plex server transcoding for remote streams. Original plays the file as-is; lower settings reduce data use
+						and buffering.
+					</Text>
+					<Div transparent style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+						{(Object.keys(STREAMING_QUALITY_BITRATES) as StreamingQuality[]).map((q) => (
+							<PresetChip
+								key={q}
+								name={q.charAt(0).toUpperCase() + q.slice(1)}
+								selected={streamingQuality === q}
+								onPress={() => setStreamingQuality(q)}
+							/>
+						))}
+					</Div>
 				</Div>
 
 				{/* Equalizer Section */}
@@ -186,7 +224,7 @@ export default function PlaybackScreen() {
 								))}
 							</View>
 
-							<TouchableOpacity style={[DefaultStyles.cancelButton, { marginTop: 12 }]} onPress={resetEQ}>
+							<TouchableOpacity style={[themed.cancelButton, { marginTop: 12 }]} onPress={resetEQ}>
 								<Text type='h3'>Reset to Flat</Text>
 							</TouchableOpacity>
 						</Div>
@@ -210,9 +248,9 @@ export default function PlaybackScreen() {
 								step={0.5}
 								value={outputGainDb}
 								onValueChange={handleGainChange}
-								minimumTrackTintColor={Colors.brandPrimary}
-								maximumTrackTintColor={Colors.surfaceDark}
-								thumbTintColor={Colors.brandPrimary}
+								minimumTrackTintColor={colors.brand}
+								maximumTrackTintColor={colors.surfaceTertiary}
+								thumbTintColor={colors.brand}
 							/>
 						</Div>
 						<Text type='bodyXS' colorVariant='muted'>
@@ -242,7 +280,7 @@ export default function PlaybackScreen() {
 						onValueChange={setNormalizationEnabled}
 					/>
 
-					<View style={styles.divider} />
+					<View style={[styles.divider, { backgroundColor: colors.surfaceTertiary }]} />
 
 					<SwitchRow
 						label='Mono Audio'
@@ -306,13 +344,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 14,
 		paddingVertical: 7,
 		borderRadius: 100,
-		backgroundColor: Colors.surfaceDark,
 		borderWidth: 1,
-		borderColor: Colors.surfaceDarkBorder,
-	},
-	presetChipSelected: {
-		backgroundColor: Colors.brandPrimary,
-		borderColor: Colors.brandPrimary,
 	},
 	gainRow: {
 		flexDirection: 'row',
@@ -320,7 +352,6 @@ const styles = StyleSheet.create({
 	},
 	divider: {
 		height: StyleSheet.hairlineWidth,
-		backgroundColor: Colors.surfaceDark,
 		marginVertical: 4,
 	},
 });

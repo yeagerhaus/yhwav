@@ -1,7 +1,11 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div } from '../Div';
 import { HeaderBackButton } from './HeaderBackButton';
 
+export const INTERNAL_HEADER_OFFSET = 44;
+
 export function InternalHeader() {
+	const insets = useSafeAreaInsets();
 	return (
 		<Div
 			transparent
@@ -17,7 +21,7 @@ export function InternalHeader() {
 				transparent
 				style={{
 					width: '100%',
-					height: 100,
+					height: insets.top + INTERNAL_HEADER_OFFSET,
 					display: 'flex',
 					justifyContent: 'flex-end',
 					backgroundColor: 'transparent',

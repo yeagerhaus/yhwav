@@ -1,14 +1,14 @@
 import type { Song } from './song';
 
-export interface PodcastFeed {
+export type PodcastFeed = {
 	id: string;
 	url: string;
 	title?: string;
 	imageUrl?: string;
 	addedAt: number;
-}
+};
 
-export interface PodcastEpisode {
+export type PodcastEpisode = {
 	id: string;
 	feedId: string;
 	title: string;
@@ -18,10 +18,10 @@ export interface PodcastEpisode {
 	enclosureUrl: string;
 	durationSeconds?: number;
 	imageUrl?: string;
-}
+};
 
 /** Persisted metadata for a downloaded episode (shown in feed when offline). */
-export interface PodcastDownload {
+export type PodcastDownload = {
 	episodeId: string;
 	/** Same as episodeId, for list/key compatibility with PodcastEpisode */
 	id: string;
@@ -35,7 +35,7 @@ export interface PodcastDownload {
 	downloadedAt: number;
 	/** Resume position in seconds; persisted with download so playback always has it. */
 	resumeAt?: number;
-}
+};
 
 function isPodcastDownload(ep: PodcastEpisode | PodcastDownload): ep is PodcastDownload {
 	return 'downloadedAt' in ep && 'localUri' in ep;

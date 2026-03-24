@@ -1,7 +1,7 @@
 import { Text, type TextProps } from 'react-native';
 
-import { DefaultStyles, DefaultTypography } from '@/constants/styles';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { DefaultTypography } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 
 export type ColorVariant = 'primary' | 'primaryInvert' | 'secondary' | 'muted' | 'brand' | 'danger' | 'link';
 
@@ -12,20 +12,21 @@ export type ThemedTextProps = TextProps & {
 	colorVariant?: ColorVariant;
 };
 
-const COLOR_VARIANT_STYLE: Record<ColorVariant, keyof typeof DefaultStyles> = {
-	primary: 'textPrimary',
-	primaryInvert: 'textPrimaryInvert',
-	secondary: 'textSecondary',
-	muted: 'textMuted',
-	brand: 'textBrand',
-	danger: 'textDanger',
-	link: 'link',
-};
-
 export function ThemedText({ style, lightColor, darkColor, type = 'body', colorVariant, ...rest }: ThemedTextProps) {
-	const themeColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
-	const colorStyle = colorVariant ? DefaultStyles[COLOR_VARIANT_STYLE[colorVariant]] : { color: themeColor };
+	const colors = useColors();
+
+	const variantMap: Record<ColorVariant, string> = {
+		primary: colors.text,
+		primaryInvert: colors.textInvert,
+		secondary: colors.textSecondary,
+		muted: colors.textMuted,
+		brand: colors.brand,
+		danger: colors.danger,
+		link: colors.link,
+	};
+
+	const resolvedColor = colorVariant ? variantMap[colorVariant] : colors.text;
 	const typographyStyle = DefaultTypography[type] ?? DefaultTypography.body;
 
-	return <Text style={[colorStyle, typographyStyle, style]} {...rest} />;
+	return <Text style={[{ color: resolvedColor }, typographyStyle, style]} {...rest} />;
 }

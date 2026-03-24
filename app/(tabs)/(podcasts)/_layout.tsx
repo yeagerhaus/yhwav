@@ -1,14 +1,12 @@
 import { Stack } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { InternalHeader } from '@/components/navigation/InternalHeader';
-import { Colors } from '@/constants';
+import { InternalHeader } from '@/components/Navigation/InternalHeader';
+import { useColors } from '@/hooks/useColors';
 
 export default function PodcastsLayout() {
-	const colorScheme = useColorScheme();
-	const bg = colorScheme === 'dark' ? Colors.dark.background : Colors.light.background;
+	const colors = useColors();
 
 	return (
-		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: bg } }}>
+		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
 			<Stack.Screen name='index' />
 			<Stack.Screen
 				name='search'

@@ -20,7 +20,7 @@ bun prep    # install deps + pods
 bun start   # metro + dev client
 ```
 
-Auth is PIN-based — no env vars needed. Sign in via Settings > Sign in with Plex, then enter the PIN at plex.tv/activate.
+Auth is PIN-based. Sign in via Settings > Sign in with Plex, then enter the PIN at plex.tv/activate.
 
 ## Scripts
 

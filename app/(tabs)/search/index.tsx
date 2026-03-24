@@ -10,7 +10,7 @@ export default function SearchIndex() {
 		return (
 			<ScrollView contentInsetAdjustmentBehavior='automatic'>
 				<Div transparent style={styles.emptyState}>
-					<Text type='subtitle' style={styles.emptyText}>
+					<Text type='bodySM' style={styles.emptyText}>
 						Search your library
 					</Text>
 				</Div>
@@ -24,7 +24,7 @@ export default function SearchIndex() {
 		return (
 			<ScrollView contentInsetAdjustmentBehavior='automatic'>
 				<Div transparent style={styles.emptyState}>
-					<Text type='subtitle' style={styles.emptyText}>
+					<Text type='bodySM' style={styles.emptyText}>
 						No results for "{query}"
 					</Text>
 				</Div>
@@ -37,7 +37,7 @@ export default function SearchIndex() {
 			<Div transparent style={styles.container}>
 				{searchResults.playlists.length > 0 && (
 					<Div transparent style={styles.section}>
-						<Text type='defaultSemiBold' style={styles.sectionTitle}>
+						<Text type='h3' style={styles.sectionTitle}>
 							Playlists
 						</Text>
 						{searchResults.playlists.map((result) => {
@@ -49,7 +49,7 @@ export default function SearchIndex() {
 
 				{searchResults.artists.length > 0 && (
 					<Div transparent style={styles.section}>
-						<Text type='defaultSemiBold' style={styles.sectionTitle}>
+						<Text type='h3' style={styles.sectionTitle}>
 							Artists
 						</Text>
 						{searchResults.artists.map((result) => {
@@ -61,7 +61,7 @@ export default function SearchIndex() {
 
 				{searchResults.albums.length > 0 && (
 					<Div transparent style={styles.section}>
-						<Text type='defaultSemiBold' style={styles.sectionTitle}>
+						<Text type='h3' style={styles.sectionTitle}>
 							Albums
 						</Text>
 						{searchResults.albums.map((result) => {
@@ -73,7 +73,7 @@ export default function SearchIndex() {
 
 				{searchResults.songs.length > 0 && (
 					<Div transparent style={styles.section}>
-						<Text type='defaultSemiBold' style={styles.sectionTitle}>
+						<Text type='h3' style={styles.sectionTitle}>
 							Songs
 						</Text>
 						{searchResults.songs.map((result) => {

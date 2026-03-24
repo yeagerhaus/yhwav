@@ -1,0 +1,26 @@
+---
+description: Where playback is started (playSound, restore); same-queue vs new-queue vs single-song
+globs: "**/useAudioStore.ts"
+alwaysApply: false
+---
+
+# Playback entry points and flow
+
+Apply when adding or changing play/skip/restore flows.
+
+## playSound(song, newQueue?, options?)
+
+- **Same-queue path:** When not podcast and `newQueue` matches current queue (length + first and last id). Then `skip(trackIndex)` then `play()` (optionally only if native not already Playing).
+- **New-queue path:** `reset()` then `add(queueToUse)` then update JS queue then `skip(trackIndex)` then `play()`. Podcast uses single-episode queue or full new-queue.
+- **Single-song:** When no `newQueue`; `reset()` then `add(songToTrack(song))` then `play()`.
+- Podcast always uses new-queue (or single-episode queue).
+
+## Restore
+
+- `restorePlaybackState()` runs from `initializePlayer()` and from `_layout` after first library fetch if `!currentSong`.
+- Restores queue and current song from AsyncStorage, adds to player, skips to track, seeks if position &gt; 0, then **must** pause and set `isPlaying: false`.
+
+## Initialization
+
+- `initializePlayer()` restores repeat/shuffle/volume/rate/sleep from storage, then calls `restorePlaybackState()`.
+- Do not assume the player is playing after init; it is paused after restore.

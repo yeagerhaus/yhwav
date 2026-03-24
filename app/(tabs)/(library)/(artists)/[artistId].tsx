@@ -5,26 +5,38 @@ import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
-import { Colors, DefaultSharedComponents } from '@/constants/styles';
+import { DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
+import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Album } from '@/types/album';
 
-type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations';
+type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations' | 'Live Albums';
 
-const CATEGORY_ORDER: AlbumCategory[] = ['Albums', 'EPs', 'Singles', 'Compilations'];
+const CATEGORY_ORDER: AlbumCategory[] = ['Albums', 'EPs', 'Singles', 'Compilations', 'Live Albums'];
 
-function classifyAlbum(album: Album): AlbumCategory {
-	if (album.subformat === 'Compilation') return 'Compilations';
-	switch (album.format) {
-		case 'EP':
-			return 'EPs';
-		case 'Single':
-			return 'Singles';
-		default:
-			return 'Albums';
-	}
+function classifyAlbum(album: Album, trackCount?: number): AlbumCategory {
+	const t = album.title.toLowerCase();
+
+	// Live patterns win first
+	if (/\blive\b|\blive at\b|\bin concert\b|\bconcert\b|\bunplugged\b/.test(t)) return 'Live Albums';
+
+	// Compilation patterns
+	if (/greatest hits|best of\b|the best|collection|anthology|compilation|essential|very best|retrospective|hits &|hits and/.test(t))
+		return 'Compilations';
+
+	// EP patterns
+	if (/\bep\b|\be\.p\.\b|extended play/.test(t)) return 'EPs';
+
+	// Single patterns
+	if (/\bsingle\b/.test(t)) return 'Singles';
+
+	// Track count heuristics (when available)
+	if (trackCount === 1) return 'Singles';
+	if (trackCount !== undefined && trackCount >= 2 && trackCount <= 6) return 'EPs';
+
+	return 'Albums';
 }
 
 function sortAlbums(albums: Album[]): Album[] {
@@ -61,6 +73,7 @@ interface AlbumSection {
 }
 
 export default function ArtistDetailScreen() {
+	const colors = useColors();
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
 	const { albums, tracks, artists: offlineArtists } = useOfflineFilteredLibrary();
@@ -151,7 +164,8 @@ export default function ArtistDetailScreen() {
 
 		const grouped = new Map<AlbumCategory, Album[]>();
 		for (const album of allAlbums) {
-			const category = classifyAlbum(album);
+			const albumTrackCount = (album.leafCount ?? artistTracks.filter((t) => t.album === album.title).length) || undefined;
+			const category = classifyAlbum(album, albumTrackCount);
 			const list = grouped.get(category);
 			if (list) {
 				list.push(album);
@@ -198,12 +212,14 @@ export default function ArtistDetailScreen() {
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}
 					</Text>
-					{artist.genres.length > 0 && <Text style={styles.genres}>{artist.genres.join(', ')}</Text>}
-					{artist.country && <Text style={styles.country}>{artist.country}</Text>}
+					{artist.genres.length > 0 && (
+						<Text style={[styles.genres, { color: colors.textMuted }]}>{artist.genres.join(', ')}</Text>
+					)}
+					{artist.country && <Text style={[styles.country, { color: colors.textMuted }]}>{artist.country}</Text>}
 				</Div>
 				{artist.summary ? (
 					<Div transparent style={styles.bioContainer}>
-						<Text style={styles.bio} numberOfLines={4}>
+						<Text style={[styles.bio, { color: colors.iconMuted }]} numberOfLines={4}>
 							{artist.summary}
 						</Text>
 					</Div>
@@ -211,35 +227,32 @@ export default function ArtistDetailScreen() {
 				{artistTracks.length > 0 && (
 					<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
 						{isActive ? (
-							<ActivityIndicator size='small' color={Colors.brandPrimary} />
+							<ActivityIndicator size='small' color={colors.brand} />
 						) : (
-							<SymbolView
-								name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'}
-								size={20}
-								tintColor={Colors.brandPrimary}
-							/>
+							<SymbolView name={isFullyDownloaded ? 'trash' : 'arrow.down.circle'} size={20} tintColor={colors.brand} />
 						)}
-						<Text type='bodySM' style={{ color: Colors.brandPrimary }}>
+						<Text type='bodySM' style={{ color: colors.brand }}>
 							{downloadLabel}
 						</Text>
 					</Pressable>
 				)}
-				{sections.map((section) => (
-					<Div key={section.category} transparent>
-						<Text style={styles.sectionHeader}>{section.category}</Text>
-						<FlatList
-							scrollEnabled={false}
-							data={section.albums}
-							keyExtractor={(item) => item.id}
-							numColumns={2}
-							contentContainerStyle={{ paddingBottom: 16 }}
-							columnWrapperStyle={{ justifyContent: 'space-between' }}
-							renderItem={({ item }) => <DynamicItem item={item} type='album' />}
-						/>
-					</Div>
-				))}
-				<Div transparent style={{ height: 64 }} />
 			</Div>
+			{sections.map((section) => (
+				<Div key={section.category} transparent style={{ marginBottom: 8 }}>
+					<Text type='h2' style={styles.sectionHeader}>
+						{section.category}
+					</Text>
+					<FlatList
+						horizontal
+						data={section.albums}
+						keyExtractor={(item) => item.id}
+						showsHorizontalScrollIndicator={false}
+						contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
+						renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
+					/>
+				</Div>
+			))}
+			<Div transparent style={{ height: 64 }} />
 		</Main>
 	);
 }
@@ -248,11 +261,11 @@ const styles = StyleSheet.create({
 	container: { flex: 1, padding: 16, marginTop: 100 },
 	header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
 	banner: { width: '100%', height: 200, borderRadius: DefaultSharedComponents.borderRadiusSM, marginBottom: 16 },
-	genres: { fontSize: 14, color: Colors.textMuted, marginBottom: 4 },
-	country: { fontSize: 14, color: Colors.textMuted, marginBottom: 16 },
+	genres: { fontSize: 14, marginBottom: 4 },
+	country: { fontSize: 14, marginBottom: 16 },
 	bioContainer: { marginBottom: 16 },
-	bio: { fontSize: 14, color: Colors.gray400, lineHeight: 20 },
-	sectionHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, marginTop: 8 },
+	bio: { fontSize: 14, lineHeight: 20 },
+	sectionHeader: { paddingHorizontal: 16, marginBottom: 12, marginTop: 16 },
 	downloadButton: {
 		flexDirection: 'row',
 		alignItems: 'center',

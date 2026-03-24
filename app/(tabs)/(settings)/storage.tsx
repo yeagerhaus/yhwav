@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
+import type { Song } from '@/types/song';
 import { clearCacheAndReload } from '@/utils/cache';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function StorageScreen() {
+	const colors = useColors();
+	const themed = useThemedStyles();
 	const [isLoading, setIsLoading] = useState(false);
 	const offlineMode = useOfflineModeStore((state) => state.offlineMode);
 	const setOfflineMode = useOfflineModeStore((state) => state.setOfflineMode);
@@ -18,7 +22,15 @@ export default function StorageScreen() {
 	const removeAllMusicDownloads = useMusicDownloadsStore((s) => s.removeAllDownloads);
 	const removeAllPodcastDownloads = usePodcastDownloadsStore((s) => s.removeAllDownloads);
 
+	const queue = useMusicDownloadsStore((s) => s.queue);
+	const downloading = useMusicDownloadsStore((s) => s.downloading);
+	const queueTotal = useMusicDownloadsStore((s) => s.queueTotal);
+	const queueCompleted = useMusicDownloadsStore((s) => s.queueCompleted);
+	const cancelQueue = useMusicDownloadsStore((s) => s.cancelQueue);
+
 	const totalDownloads = musicDownloadCount + podcastDownloadCount;
+	const queueActive = queueTotal > 0;
+	const progressFraction = queueTotal > 0 ? queueCompleted / queueTotal : 0;
 
 	const handleClearCache = async () => {
 		Alert.alert(
@@ -78,6 +90,9 @@ export default function StorageScreen() {
 		);
 	};
 
+	const downloadingCount = downloading.size;
+	const remaining = queue.length + downloadingCount;
+
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
@@ -99,20 +114,94 @@ export default function StorageScreen() {
 						<Switch
 							value={offlineMode}
 							onValueChange={setOfflineMode}
-							trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-							thumbColor={offlineMode ? Colors.brandPrimary : Colors.textMuted}
+							trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+							thumbColor={offlineMode ? colors.brand : colors.textMuted}
 						/>
 					</Div>
 				</Div>
 
+				<Div style={[DefaultStyles.section, styles.section]} transparent>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Download Queue
+					</Text>
+					{queueActive ? (
+						<>
+							<Text type='bodySM' colorVariant='secondary' style={{ marginBottom: 8 }}>
+								{queueCompleted} of {queueTotal} completed · {remaining} remaining
+							</Text>
+							<View style={[styles.progressTrack, { backgroundColor: colors.surfaceTertiary }]}>
+								<View
+									style={[
+										styles.progressFill,
+										{
+											backgroundColor: colors.brand,
+											width: `${Math.round(progressFraction * 100)}%`,
+										},
+									]}
+								/>
+							</View>
+
+							{downloadingCount > 0 && (
+								<Div transparent style={{ marginTop: 12 }}>
+									<View style={styles.activeRow}>
+										<ActivityIndicator size='small' color={colors.brand} style={{ marginRight: 8 }} />
+										<Text type='label'>Downloading now</Text>
+									</View>
+								</Div>
+							)}
+
+							{queue.length > 0 && (
+								<Div transparent style={{ marginTop: 12 }}>
+									<Text type='label' style={{ marginBottom: 4 }}>
+										Up next ({queue.length})
+									</Text>
+									<FlatList
+										data={queue}
+										keyExtractor={(item) => item.id}
+										renderItem={({ item }) => <QueueItem song={item} />}
+										scrollEnabled={false}
+									/>
+								</Div>
+							)}
+
+							<TouchableOpacity
+								style={[themed.cancelButton, styles.actionButton, { borderColor: colors.danger, marginTop: 12 }]}
+								onPress={() =>
+									Alert.alert(
+										'Cancel Downloads',
+										`Cancel ${remaining} remaining download${remaining === 1 ? '' : 's'}?`,
+										[
+											{ text: 'No', style: 'cancel' },
+											{ text: 'Cancel Downloads', style: 'destructive', onPress: cancelQueue },
+										],
+									)
+								}
+							>
+								<Text type='h3' style={{ color: colors.danger }}>
+									Cancel Queue
+								</Text>
+							</TouchableOpacity>
+						</>
+					) : (
+						<Text type='bodySM' colorVariant='secondary'>
+							No active downloads
+						</Text>
+					)}
+				</Div>
+
 				<TouchableOpacity
-					style={[DefaultStyles.cancelButton, styles.actionButton, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleClearCache}
 					disabled={isLoading}
 				>
 					{isLoading ? (
 						<Div style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 20 }}>
-							<ActivityIndicator size='large' color={Colors.brandPrimary} />
+							<ActivityIndicator size='large' color={colors.brand} />
 						</Div>
 					) : (
 						<Text type='h3'>Clear Cache & Reload Library</Text>
@@ -120,7 +209,12 @@ export default function StorageScreen() {
 				</TouchableOpacity>
 
 				<TouchableOpacity
-					style={[DefaultStyles.cancelButton, styles.actionButton, isLoading && DefaultStyles.buttonDisabled]}
+					style={[
+						themed.cancelButton,
+						styles.actionButton,
+						{ borderColor: colors.borderSubtle },
+						isLoading && DefaultStyles.buttonDisabled,
+					]}
 					onPress={handleRemoveAllDownloads}
 					disabled={isLoading}
 				>
@@ -136,6 +230,23 @@ export default function StorageScreen() {
 	);
 }
 
+function QueueItem({ song, isActive }: { song: Song; isActive?: boolean }) {
+	const colors = useColors();
+	return (
+		<View style={[styles.queueItem, { borderBottomColor: colors.borderSubtle }]}>
+			{isActive && <ActivityIndicator size='small' color={colors.brand} style={{ marginRight: 10 }} />}
+			<View style={{ flex: 1 }}>
+				<Text type='bodySM' numberOfLines={1}>
+					{song.title}
+				</Text>
+				<Text type='bodyXS' colorVariant='secondary' numberOfLines={1}>
+					{song.artist} — {song.album}
+				</Text>
+			</View>
+		</View>
+	);
+}
+
 const styles = StyleSheet.create({
 	section: {
 		marginTop: 8,
@@ -148,6 +259,24 @@ const styles = StyleSheet.create({
 	},
 	actionButton: {
 		borderWidth: 1,
-		borderColor: Colors.surfaceDarkBorder,
+	},
+	progressTrack: {
+		height: 6,
+		borderRadius: 3,
+		overflow: 'hidden',
+	},
+	progressFill: {
+		height: '100%',
+		borderRadius: 3,
+	},
+	activeRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	queueItem: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 8,
+		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
 });

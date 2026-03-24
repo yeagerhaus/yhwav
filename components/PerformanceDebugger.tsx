@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { DefaultStyles } from '@/constants/styles';
+import { useThemedStyles } from '@/hooks/useColors';
 import { performanceMonitor } from '@/utils/performance';
 import { Div } from './Div';
 import { Text } from './Text';
@@ -39,11 +40,12 @@ function getMemoryUsage(): { used: string; total: string; limit?: string } | nul
 }
 
 export function PerformanceDebugger() {
+	const themed = useThemedStyles();
 	const [metrics, setMetrics] = useState(performanceMonitor.getMetrics());
 	const [memory, setMemory] = useState<ReturnType<typeof getMemoryUsage>>(getMemoryUsage());
 
 	useEffect(() => {
-		if (!__DEV__) return;
+		// if (!__DEV__) return;
 
 		const interval = setInterval(() => {
 			setMetrics(performanceMonitor.getMetrics());
@@ -53,7 +55,7 @@ export function PerformanceDebugger() {
 		return () => clearInterval(interval);
 	}, []);
 
-	if (!__DEV__) return null;
+	// if (!__DEV__) return null;
 
 	const slowest = performanceMonitor.getSlowestOperations(5);
 	const avgPlaySound = performanceMonitor.getAverageDuration('playSound');
@@ -118,14 +120,14 @@ export function PerformanceDebugger() {
 				)}
 			</Div>
 
-			<Pressable style={[DefaultStyles.primaryButton, styles.actionButton]} onPress={() => performanceMonitor.logReport()}>
+			<Pressable style={[themed.primaryButton, styles.actionButton]} onPress={() => performanceMonitor.logReport()}>
 				<Text type='body' colorVariant='primaryInvert' style={DefaultStyles.center}>
 					Log Full Report
 				</Text>
 			</Pressable>
 
 			<Pressable
-				style={[DefaultStyles.primaryButton, styles.actionButton]}
+				style={[themed.primaryButton, styles.actionButton]}
 				onPress={() => {
 					performanceMonitor.clear();
 					setMetrics([]);
@@ -137,7 +139,7 @@ export function PerformanceDebugger() {
 			</Pressable>
 
 			<Pressable
-				style={[DefaultStyles.primaryButton, styles.actionButton]}
+				style={[themed.primaryButton, styles.actionButton]}
 				onPress={() => {
 					console.log(performanceMonitor.generateSummary());
 					console.log('\n📋 Full JSON Export:\n', performanceMonitor.exportMetrics());

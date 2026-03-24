@@ -1,20 +1,27 @@
+import Constants from 'expo-constants';
 import { StyleSheet, Switch } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { PerformanceDebugger } from '@/components/PerformanceDebugger';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 export default function DeveloperScreen() {
+	const colors = useColors();
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);
+	const version = Constants.expoConfig?.version ?? '—';
 
 	return (
 		<Main style={{ paddingHorizontal: 16 }}>
 			<Div transparent>
 				<Text type='h1' style={{ marginBottom: 16 }}>
 					Developer
+				</Text>
+				<Text type='body' style={styles.version}>
+					App version: {version}
 				</Text>
 			</Div>
 
@@ -24,8 +31,8 @@ export default function DeveloperScreen() {
 					<Switch
 						value={showPerformanceDebugger}
 						onValueChange={setShowPerformanceDebugger}
-						trackColor={{ false: Colors.surfaceDark, true: hexWithOpacity(Colors.brandPrimary, 0.5) }}
-						thumbColor={showPerformanceDebugger ? Colors.brandPrimary : Colors.textMuted}
+						trackColor={{ false: colors.surfaceTertiary, true: hexWithOpacity(colors.brand, 0.5) }}
+						thumbColor={showPerformanceDebugger ? colors.brand : colors.textMuted}
 					/>
 				</Div>
 			</Div>
@@ -44,5 +51,8 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingVertical: 8,
+	},
+	version: {
+		marginBottom: 8,
 	},
 });

@@ -3,13 +3,14 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { Colors } from '@/constants/styles';
+import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import { createPlaylist } from '@/utils/plex';
 
 export default function PlaylistsScreen() {
+	const colors = useColors();
 	const { playlists: rawPlaylists, isLoading } = usePlaylists();
 	const { playlists } = useOfflineFilteredLibrary();
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
@@ -62,11 +63,11 @@ export default function PlaylistsScreen() {
 			>
 				<Text type='h1'>Playlists</Text>
 				<Pressable onPress={handleCreatePlaylist} hitSlop={8}>
-					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
+					<SymbolView name='plus.circle' size={28} tintColor={colors.brand} />
 				</Pressable>
 			</Div>
 		),
-		[handleCreatePlaylist],
+		[handleCreatePlaylist, colors.brand],
 	);
 
 	if (isLoading) {

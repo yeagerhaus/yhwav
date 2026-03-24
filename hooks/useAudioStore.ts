@@ -213,9 +213,21 @@ function songToTrack(song: Song) {
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}
+
+	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
+	let finalUrl = url ?? song.uri ?? '';
+	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
+		const { usePlaybackSettingsStore, STREAMING_QUALITY_BITRATES } = require('@/hooks/usePlaybackSettingsStore');
+		const quality = usePlaybackSettingsStore.getState().streamingQuality;
+		const bitrate = STREAMING_QUALITY_BITRATES[quality];
+		if (bitrate !== null) {
+			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+		}
+	}
+
 	return {
 		id: song.id.toString(),
-		url: url ?? song.uri ?? '',
+		url: finalUrl,
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
@@ -495,9 +507,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			if (trackIndex !== -1) {
 				await TrackPlayer.skip(trackIndex);
 				if (position > 0) await TrackPlayer.seekTo(position);
-				// Restore paused: do not auto-play on app reload; wait for user to tap play.
-				await TrackPlayer.pause();
 			}
+			// Always pause regardless of trackIndex — prevents auto-play on reload
+			await TrackPlayer.pause();
 
 			const color = await extractArtworkColor(currentSong);
 			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
@@ -588,13 +600,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await TrackPlayer.reset();
 						await TrackPlayer.add(queueToUse.map(songToTrack));
 
+						// Set queue BEFORE skip so PlaybackActiveTrackChanged sees correct state
+						saveQueueState(queueToUse, song.source === 'podcast' ? [song] : newQueue, song);
+						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
+
 						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
 						if (trackIndex !== -1 && (queueToUse.length > 1 || trackIndex > 0)) {
 							await TrackPlayer.skip(trackIndex);
 						}
-
-						saveQueueState(queueToUse, song.source === 'podcast' ? [song] : newQueue, song);
-						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -1062,15 +1075,18 @@ export function useTrackPlayerSync() {
 				const newCurrentSong = state.queue[trackIndex];
 				if (!newCurrentSong || newCurrentSong.id === state.currentSong?.id) return;
 
-				const previousSong = state.currentSong;
 				const isNaturalAdvance = lastProgressTimestamp > 0 && Date.now() - lastUserSkipAt > SKIP_DEBOUNCE_MS;
-				if (isNaturalAdvance) {
-					const gapMs = Date.now() - lastProgressTimestamp;
-					if (__DEV__) {
-						console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
-					}
-					if (previousSong) scrobbleSong(previousSong);
+				// Only update currentSong for natural advances. For user-initiated skips, playSound already
+				// set currentSong optimistically. Stale events (e.g. a natural-advance KVO that queued on
+				// the main thread just before the skip ran) would otherwise corrupt the display.
+				if (!isNaturalAdvance) return;
+
+				const previousSong = state.currentSong;
+				const gapMs = Date.now() - lastProgressTimestamp;
+				if (__DEV__) {
+					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
 				}
+				if (previousSong) scrobbleSong(previousSong);
 
 				// Reset pre-warm tracker for the new track
 				prewarmedUrl = null;

@@ -2,8 +2,9 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Colors, DefaultStyles } from '@/constants/styles';
+import { DefaultStyles } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
+import { useColors, useThemedStyles } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { addToPlaylist, createPlaylist } from '@/utils/plex';
 import { Div } from './Div';
@@ -12,6 +13,8 @@ import { Text } from './Text';
 const ANIM_DURATION = 250;
 
 export function AddToPlaylistModal() {
+	const colors = useColors();
+	const themed = useThemedStyles();
 	const { visible, label, ratingKeys, close } = useAddToPlaylist();
 	const playlists = useLibraryStore((s) => s.playlists);
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
@@ -86,10 +89,10 @@ export function AddToPlaylistModal() {
 	}, [ratingKeys, animatedClose, playlists, setPlaylists]);
 
 	return (
-		<Animated.View style={[DefaultStyles.overlay, styles.backdropExtras, backdropStyle]}>
+		<Animated.View style={[themed.overlay, styles.backdropExtras, backdropStyle]}>
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
-			<Animated.View style={[DefaultStyles.sheet, sheetStyle]}>
-				<Div style={styles.handle} />
+			<Animated.View style={[themed.sheet, sheetStyle]}>
+				<Div style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
 				<Text type='h3' colorVariant='primaryInvert' style={styles.title}>
 					Add to Playlist
 				</Text>
@@ -100,7 +103,7 @@ export function AddToPlaylistModal() {
 				) : null}
 
 				<Pressable style={styles.newPlaylistRow} onPress={handleNewPlaylist}>
-					<SymbolView name='plus.circle' size={28} tintColor={Colors.brandPrimary} />
+					<SymbolView name='plus.circle' size={28} tintColor={colors.brand} />
 					<Text type='body' colorVariant='brand' style={styles.newPlaylistText}>
 						New Playlist...
 					</Text>
@@ -114,7 +117,7 @@ export function AddToPlaylistModal() {
 							style={[DefaultStyles.row, DefaultStyles.listRowBorder, styles.rowBorder]}
 							onPress={() => handleSelect(item.ratingKey)}
 						>
-							<SymbolView name='music.note.list' size={22} tintColor={Colors.gray400} />
+							<SymbolView name='music.note.list' size={22} tintColor={colors.iconMuted} />
 							<Text type='body' colorVariant='primaryInvert' style={styles.playlistName} numberOfLines={1}>
 								{item.title}
 							</Text>
@@ -143,7 +146,6 @@ const styles = StyleSheet.create({
 		width: 36,
 		height: 5,
 		borderRadius: 3,
-		backgroundColor: Colors.gray600,
 		alignSelf: 'center',
 		marginTop: 8,
 		marginBottom: 12,
