@@ -68,7 +68,7 @@ export const ExpandedPlayer = React.memo(
 		);
 
 		return (
-			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent gradients={gradients}>
+			<Div style={[styles.rootContainer, { paddingTop: insets.top, zIndex: 1 }]} transparent showGradients gradients={gradients}>
 				<Div style={styles.innerContainer} transparent>
 					<Div transparent style={styles.dragHandleContainer}>
 						<Div transparent style={styles.dragHandle} />

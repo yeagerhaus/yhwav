@@ -23,6 +23,7 @@ export interface DivProps extends ViewProps {
 	gap?: number;
 	style?: StyleProp<ViewStyle>;
 	useGlass?: boolean;
+	showGradients?: boolean;
 	transparent?: boolean;
 	blurIntensity?: number;
 	blurTint?: BlurViewProps['tint'];
@@ -58,6 +59,7 @@ export function Div({
 	display,
 	children,
 	useGlass,
+	showGradients,
 	transparent,
 	blurIntensity = 50,
 	blurTint,
@@ -69,7 +71,7 @@ export function Div({
 	const { useBlurInsteadOfGlass } = useAppearanceStore();
 	const systemTint: BlurViewProps['tint'] = colorScheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight';
 
-	const showGradient = gradients?.length && !!useBlurInsteadOfGlass;
+	const showGradient = gradients?.length && (!!useBlurInsteadOfGlass || showGradients);
 	const inner = showGradient ? wrapWithGradients(children, gradients!) : children;
 
 	if (useGlass) {
