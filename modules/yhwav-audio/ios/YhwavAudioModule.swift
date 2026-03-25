@@ -388,6 +388,16 @@ public final class YhwavAudioModule: Module {
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
+	// MARK: - Search index
+	private struct SearchEntry {
+		let id: String
+		let titleLower: String
+		let artistLower: String
+		let albumLower: String
+	}
+	private var searchIndex: [SearchEntry] = []
+	private let searchQueue = DispatchQueue(label: "com.yhwav.search", qos: .userInitiated)
+
 	public func definition() -> ModuleDefinition {
 		Name("YhwavAudio")
 
@@ -642,6 +652,51 @@ public final class YhwavAudioModule: Module {
 				result = self.trackOrder.compactMap { id in self.trackMetadata[id] }
 			}
 			return result
+		}
+
+		// MARK: - Search
+
+		AsyncFunction("buildSearchIndex") { (tracks: [[String: Any]]) in
+			let entries: [SearchEntry] = tracks.compactMap { dict in
+				guard let id = dict["id"] as? String else { return nil }
+				let title = (dict["title"] as? String ?? "").lowercased()
+				let artist = (dict["artist"] as? String ?? "").lowercased()
+				let album = (dict["album"] as? String ?? "").lowercased()
+				return SearchEntry(id: id, titleLower: title, artistLower: artist, albumLower: album)
+			}
+			self.searchQueue.sync {
+				self.searchIndex = entries
+			}
+		}
+
+		AsyncFunction("searchTracks") { (query: String, limit: Int) -> [[String: Any]] in
+			let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+			guard !q.isEmpty else { return [] }
+
+			var hits: [(id: String, score: Int)] = []
+
+			self.searchQueue.sync {
+				for entry in self.searchIndex {
+					let titleHit = entry.titleLower.contains(q)
+					let artistHit = entry.artistLower.contains(q)
+					let albumHit = entry.albumLower.contains(q)
+					guard titleHit || artistHit || albumHit else { continue }
+
+					var score = 0
+					if entry.titleLower.hasPrefix(q) { score += 100 }
+					else if titleHit { score += 50 }
+					if entry.artistLower.hasPrefix(q) { score += 80 }
+					else if artistHit { score += 40 }
+					if entry.albumLower.hasPrefix(q) { score += 60 }
+					else if albumHit { score += 30 }
+
+					hits.append((id: entry.id, score: score))
+					if hits.count >= limit * 2 { break }
+				}
+			}
+
+			hits.sort { $0.score > $1.score }
+			return Array(hits.prefix(limit)).map { ["id": $0.id, "score": $0.score] }
 		}
 	}
 
