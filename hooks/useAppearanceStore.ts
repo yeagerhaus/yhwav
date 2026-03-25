@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 
 const STORAGE_KEY = 'APPEARANCE_SETTINGS';
 
@@ -12,12 +12,12 @@ interface StoredAppearance {
 	useBlurInsteadOfGlass?: boolean;
 }
 
-async function persistAppearance(partial: StoredAppearance) {
+function persistAppearance(partial: StoredAppearance) {
 	try {
-		const raw = await AsyncStorage.getItem(STORAGE_KEY);
+		const raw = storage.getString(STORAGE_KEY);
 		const current: StoredAppearance = raw ? JSON.parse(raw) : {};
 		const next = { ...current, ...partial };
-		await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+		storage.set(STORAGE_KEY, JSON.stringify(next));
 	} catch {}
 }
 
@@ -31,7 +31,7 @@ interface AppearanceState {
 	setShowMusicTab: (show: boolean) => void;
 	setBrandColor: (color: string | null) => void;
 	setUseBlurInsteadOfGlass: (use: boolean) => void;
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 }
 
 export const DEFAULT_BRAND_COLOR = DEFAULT_BRAND;
@@ -63,9 +63,9 @@ export const useAppearanceStore = create<AppearanceState>((set, _get) => ({
 		persistAppearance({ useBlurInsteadOfGlass: use });
 	},
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const raw = storage.getString(STORAGE_KEY);
 			if (raw) {
 				const parsed: StoredAppearance = JSON.parse(raw);
 				set({

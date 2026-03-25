@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InteractionManager } from 'react-native';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
+import { storage } from '@/lib/storage';
 import type { Album, Artist, Playlist, Song } from '@/types';
 
 let useLibraryStore: any;
@@ -8,7 +8,13 @@ try {
 	useLibraryStore = require('@/hooks/useLibraryStore').useLibraryStore;
 } catch {}
 
-const STORAGE_LIBRARY_KEY = 'LIBRARY_STATE';
+const CACHE_TRACKS = 'CACHE_TRACKS';
+const CACHE_ALBUMS = 'CACHE_ALBUMS';
+const CACHE_ARTISTS = 'CACHE_ARTISTS';
+const CACHE_PLAYLISTS = 'CACHE_PLAYLISTS';
+const CACHE_RECENTLY_PLAYED = 'CACHE_RECENTLY_PLAYED';
+const CACHE_LAST_FETCHED = 'CACHE_LAST_FETCHED';
+const LEGACY_LIBRARY_KEY = 'LIBRARY_STATE';
 
 interface LibraryCachePayload {
 	tracks: Song[];
@@ -26,45 +32,72 @@ function getStore() {
 	return useLibraryStore;
 }
 
-export async function saveLibraryToCache() {
+export function saveLibraryToCache() {
 	try {
 		const state = getStore().getState();
-		const payload: LibraryCachePayload = {
-			tracks: state.tracks,
-			albums: state.albums,
-			artists: state.artists,
-			playlists: state.playlists,
-			recentlyPlayed: state.recentlyPlayed,
-			lastFetchedAt: Date.now(),
-		};
-		await AsyncStorage.setItem(STORAGE_LIBRARY_KEY, JSON.stringify(payload));
+		storage.set(CACHE_TRACKS, JSON.stringify(state.tracks));
+		storage.set(CACHE_ALBUMS, JSON.stringify(state.albums));
+		storage.set(CACHE_ARTISTS, JSON.stringify(state.artists));
+		storage.set(CACHE_PLAYLISTS, JSON.stringify(state.playlists));
+		storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(state.recentlyPlayed));
+		storage.set(CACHE_LAST_FETCHED, String(Date.now()));
 	} catch (err) {
 		console.error('Failed to save library state:', err);
 	}
 }
 
-export async function loadLibraryFromCache(): Promise<LibraryCachePayload | null> {
+export function loadLibraryFromCache(): LibraryCachePayload | null {
 	try {
-		const raw = await AsyncStorage.getItem(STORAGE_LIBRARY_KEY);
-		if (!raw) return null;
+		const tracksRaw = storage.getString(CACHE_TRACKS);
 
-		const parsed = JSON.parse(raw);
-
-		// New format: object with tracks, albums, etc.
-		if (parsed?.tracks && Array.isArray(parsed.tracks)) {
-			return {
-				tracks: parsed.tracks,
-				albums: Array.isArray(parsed.albums) ? parsed.albums : [],
-				artists: Array.isArray(parsed.artists) ? parsed.artists : [],
-				playlists: Array.isArray(parsed.playlists) ? parsed.playlists : [],
-				recentlyPlayed: Array.isArray(parsed.recentlyPlayed) ? parsed.recentlyPlayed : [],
-				lastFetchedAt: parsed.lastFetchedAt,
-			};
+		if (tracksRaw) {
+			const tracks = JSON.parse(tracksRaw);
+			if (Array.isArray(tracks)) {
+				const albumsRaw = storage.getString(CACHE_ALBUMS);
+				const artistsRaw = storage.getString(CACHE_ARTISTS);
+				const playlistsRaw = storage.getString(CACHE_PLAYLISTS);
+				const recentlyPlayedRaw = storage.getString(CACHE_RECENTLY_PLAYED);
+				const lastFetchedRaw = storage.getString(CACHE_LAST_FETCHED);
+				return {
+					tracks,
+					albums: albumsRaw ? JSON.parse(albumsRaw) : [],
+					artists: artistsRaw ? JSON.parse(artistsRaw) : [],
+					playlists: playlistsRaw ? JSON.parse(playlistsRaw) : [],
+					recentlyPlayed: recentlyPlayedRaw ? JSON.parse(recentlyPlayedRaw) : [],
+					lastFetchedAt: lastFetchedRaw ? Number(lastFetchedRaw) : undefined,
+				};
+			}
 		}
 
-		// Legacy format: plain array of tracks
-		if (Array.isArray(parsed)) {
-			return { tracks: parsed, albums: [], artists: [], playlists: [], recentlyPlayed: [] };
+		// Migrate from legacy single-key format (AsyncStorage or old MMKV)
+		const legacyRaw = storage.getString(LEGACY_LIBRARY_KEY);
+		if (legacyRaw) {
+			const parsed = JSON.parse(legacyRaw);
+			storage.remove(LEGACY_LIBRARY_KEY);
+
+			if (parsed?.tracks && Array.isArray(parsed.tracks)) {
+				const payload: LibraryCachePayload = {
+					tracks: parsed.tracks,
+					albums: Array.isArray(parsed.albums) ? parsed.albums : [],
+					artists: Array.isArray(parsed.artists) ? parsed.artists : [],
+					playlists: Array.isArray(parsed.playlists) ? parsed.playlists : [],
+					recentlyPlayed: Array.isArray(parsed.recentlyPlayed) ? parsed.recentlyPlayed : [],
+					lastFetchedAt: parsed.lastFetchedAt,
+				};
+				// Re-save in split format
+				storage.set(CACHE_TRACKS, JSON.stringify(payload.tracks));
+				storage.set(CACHE_ALBUMS, JSON.stringify(payload.albums));
+				storage.set(CACHE_ARTISTS, JSON.stringify(payload.artists));
+				storage.set(CACHE_PLAYLISTS, JSON.stringify(payload.playlists));
+				storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(payload.recentlyPlayed));
+				return payload;
+			}
+
+			if (Array.isArray(parsed)) {
+				const payload: LibraryCachePayload = { tracks: parsed, albums: [], artists: [], playlists: [], recentlyPlayed: [] };
+				storage.set(CACHE_TRACKS, JSON.stringify(parsed));
+				return payload;
+			}
 		}
 
 		return null;
@@ -74,8 +107,8 @@ export async function loadLibraryFromCache(): Promise<LibraryCachePayload | null
 	}
 }
 
-export async function rehydrateLibraryStore(): Promise<boolean> {
-	const cached = await loadLibraryFromCache();
+export function rehydrateLibraryStore(): boolean {
+	const cached = loadLibraryFromCache();
 
 	if (!cached || cached.tracks.length === 0) {
 		return false;
@@ -122,9 +155,14 @@ export async function rehydrateLibraryStore(): Promise<boolean> {
 	return true;
 }
 
-export async function clearLibraryCache() {
+export function clearLibraryCache() {
 	try {
-		await AsyncStorage.removeItem(STORAGE_LIBRARY_KEY);
+		storage.remove(CACHE_TRACKS);
+		storage.remove(CACHE_ALBUMS);
+		storage.remove(CACHE_ARTISTS);
+		storage.remove(CACHE_PLAYLISTS);
+		storage.remove(CACHE_RECENTLY_PLAYED);
+		storage.remove(CACHE_LAST_FETCHED);
 	} catch (err) {
 		console.error('Failed to clear library cache:', err);
 	}
@@ -159,7 +197,7 @@ export async function clearCacheAndReload(): Promise<number> {
 		if (recentlyPlayed.length > 0) state.setRecentlyPlayed(recentlyPlayed);
 
 		InteractionManager.runAfterInteractions(() => {
-			saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+			saveLibraryToCache();
 		});
 
 		return tracks.length;

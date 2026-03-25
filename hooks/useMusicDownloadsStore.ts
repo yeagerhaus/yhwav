@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
@@ -65,7 +65,7 @@ interface MusicDownloadsState {
 	queueCompleted: number;
 	hydrated: boolean;
 
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 	downloadTrack: (song: Song) => void;
 	downloadTracks: (songs: Song[]) => void;
 	removeDownload: (songId: string) => Promise<void>;
@@ -89,20 +89,20 @@ interface MusicDownloadsState {
 
 let processing = false;
 
-async function persistDownloads(downloads: Record<string, MusicDownload>) {
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(Object.values(downloads)));
+function persistDownloads(downloads: Record<string, MusicDownload>) {
+	storage.set(STORAGE_KEY, JSON.stringify(Object.values(downloads)));
 }
 
-async function persistPlaylists(playlists: Record<string, DownloadedPlaylist>) {
-	await AsyncStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(Object.values(playlists)));
+function persistPlaylists(playlists: Record<string, DownloadedPlaylist>) {
+	storage.set(PLAYLISTS_STORAGE_KEY, JSON.stringify(Object.values(playlists)));
 }
 
-async function persistArtists(artists: Record<string, Artist>) {
-	await AsyncStorage.setItem(ARTISTS_STORAGE_KEY, JSON.stringify(Object.values(artists)));
+function persistArtists(artists: Record<string, Artist>) {
+	storage.set(ARTISTS_STORAGE_KEY, JSON.stringify(Object.values(artists)));
 }
 
-async function persistAlbums(albums: Record<string, Album>) {
-	await AsyncStorage.setItem(ALBUMS_STORAGE_KEY, JSON.stringify(Object.values(albums)));
+function persistAlbums(albums: Record<string, Album>) {
+	storage.set(ALBUMS_STORAGE_KEY, JSON.stringify(Object.values(albums)));
 }
 
 async function processQueue(
@@ -154,7 +154,7 @@ async function processQueue(
 					d.delete(song.id);
 					return { downloads: next, downloading: d, queueCompleted: s.queueCompleted + 1 };
 				});
-				await persistDownloads(next);
+				persistDownloads(next);
 			} catch (err) {
 				console.warn(`Music download failed for ${song.title}:`, err);
 				set((s) => {
@@ -181,14 +181,12 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 	queueCompleted: 0,
 	hydrated: false,
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const [rawDownloads, rawPlaylists, rawArtists, rawAlbums] = await Promise.all([
-				AsyncStorage.getItem(STORAGE_KEY),
-				AsyncStorage.getItem(PLAYLISTS_STORAGE_KEY),
-				AsyncStorage.getItem(ARTISTS_STORAGE_KEY),
-				AsyncStorage.getItem(ALBUMS_STORAGE_KEY),
-			]);
+			const rawDownloads = storage.getString(STORAGE_KEY);
+			const rawPlaylists = storage.getString(PLAYLISTS_STORAGE_KEY);
+			const rawArtists = storage.getString(ARTISTS_STORAGE_KEY);
+			const rawAlbums = storage.getString(ALBUMS_STORAGE_KEY);
 
 			const downloads: Record<string, MusicDownload> = {};
 			if (rawDownloads) {
@@ -256,7 +254,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		const next = { ...downloads };
 		delete next[songId];
 		set({ downloads: next });
-		await persistDownloads(next);
+		persistDownloads(next);
 	},
 
 	removeDownloads: async (songIds: string[]) => {
@@ -272,7 +270,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			}
 		}
 		set({ downloads: next });
-		await persistDownloads(next);
+		persistDownloads(next);
 	},
 
 	cancelQueue: () => {
@@ -304,14 +302,14 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		};
 		const next = { ...get().downloadedPlaylists, [playlist.key]: entry };
 		set({ downloadedPlaylists: next });
-		await persistPlaylists(next);
+		persistPlaylists(next);
 	},
 
 	removePlaylistForOffline: async (playlistKey: string) => {
 		const next = { ...get().downloadedPlaylists };
 		delete next[playlistKey];
 		set({ downloadedPlaylists: next });
-		await persistPlaylists(next);
+		persistPlaylists(next);
 	},
 
 	getOfflinePlaylist: (playlistKey: string) => get().downloadedPlaylists[playlistKey],
@@ -319,13 +317,13 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 	saveArtistForOffline: async (artist: Artist) => {
 		const next = { ...get().downloadedArtists, [artist.key]: artist };
 		set({ downloadedArtists: next });
-		await persistArtists(next);
+		persistArtists(next);
 	},
 
 	saveAlbumForOffline: async (album: Album) => {
 		const next = { ...get().downloadedAlbums, [album.id]: album };
 		set({ downloadedAlbums: next });
-		await persistAlbums(next);
+		persistAlbums(next);
 	},
 
 	snapshotMetadataForSongs: async (songs: Song[]) => {
@@ -408,8 +406,8 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 				...(artistsChanged ? { downloadedArtists: nextArtists } : {}),
 				...(albumsChanged ? { downloadedAlbums: nextAlbums } : {}),
 			});
-			if (artistsChanged) await persistArtists(nextArtists);
-			if (albumsChanged) await persistAlbums(nextAlbums);
+			if (artistsChanged) persistArtists(nextArtists);
+			if (albumsChanged) persistAlbums(nextAlbums);
 			console.log(`[snapshot] persisted ${Object.keys(nextArtists).length} artists, ${Object.keys(nextAlbums).length} albums`);
 		}
 	},
@@ -431,9 +429,9 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			queueTotal: 0,
 			queueCompleted: 0,
 		});
-		await persistDownloads({});
-		await persistPlaylists({});
-		await persistArtists({});
-		await persistAlbums({});
+		persistDownloads({});
+		persistPlaylists({});
+		persistArtists({});
+		persistAlbums({});
 	},
 }));

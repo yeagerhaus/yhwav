@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetch } from 'expo/fetch';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import { storage } from '@/lib/storage';
 import { type PlexServer, plexDiscoveryService } from './plex-discovery';
 
 export interface PlexAuthState {
@@ -56,26 +56,24 @@ export class PlexAuthService {
 	/**
 	 * Get or create a unique client identifier for this device (async version)
 	 */
-	private async getOrCreateClientIdentifierAsync(): Promise<string> {
+	private getOrCreateClientIdentifierFromStorage(): string {
 		const storageKey = 'plex_client_identifier';
 		try {
-			const stored = await AsyncStorage.getItem(storageKey);
+			const stored = storage.getString(storageKey);
 			if (stored) {
 				return stored;
 			}
 
-			// Generate a new client identifier
 			const platform = Platform.OS;
 			const _deviceId = Device.modelId || 'unknown';
 			const timestamp = Date.now();
 			const random = Math.random().toString(36).substring(2, 10);
 			const identifier = `yhwav-${platform}-${timestamp}-${random}`;
 
-			await AsyncStorage.setItem(storageKey, identifier);
+			storage.set(storageKey, identifier);
 			return identifier;
 		} catch (error) {
 			console.error('Failed to get/create client identifier:', error);
-			// Fallback identifier
 			return `yhwav-${Platform.OS}-${Date.now()}`;
 		}
 	}
@@ -104,9 +102,8 @@ export class PlexAuthService {
 		try {
 			console.log('🔐 Requesting Plex PIN...');
 
-			const clientId = await this.getOrCreateClientIdentifierAsync();
+			const clientId = this.getOrCreateClientIdentifierFromStorage();
 
-			// Use the v2 API endpoint for PIN-based OAuth
 			const response = await fetch('https://plex.tv/api/v2/pins', {
 				method: 'POST',
 				headers: {
@@ -160,7 +157,7 @@ export class PlexAuthService {
 	 */
 	async pollPinStatus(pinId: number): Promise<PlexPinStatus | null> {
 		try {
-			const clientId = await this.getOrCreateClientIdentifierAsync();
+			const clientId = this.getOrCreateClientIdentifierFromStorage();
 			const response = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
 				method: 'GET',
 				headers: {
@@ -316,7 +313,7 @@ export class PlexAuthService {
 			};
 
 			// Save to storage
-			await this.saveAuthState();
+			this.saveAuthState();
 
 			console.log('✅ Login successful!');
 			console.log(`   User: ${userInfo.username}`);
@@ -401,7 +398,7 @@ export class PlexAuthService {
 
 		// Update selected server
 		this.authState.selectedServer = server;
-		await this.saveAuthState();
+		this.saveAuthState();
 
 		console.log(`✅ Selected server: ${server.name}`);
 		return true;
@@ -426,7 +423,7 @@ export class PlexAuthService {
 					this.authState.selectedServer = refreshed || discoveryResult.recommendedServer;
 				}
 
-				await this.saveAuthState();
+				this.saveAuthState();
 				return true;
 			}
 			return false;
@@ -473,10 +470,9 @@ export class PlexAuthService {
 			servers: [],
 		};
 
-		// Clear storage
-		await AsyncStorage.multiRemove(['plex_auth_state', 'plex_servers_cache']);
+		storage.remove('plex_auth_state');
+		storage.remove('plex_servers_cache');
 
-		// Clear discovery cache
 		await plexDiscoveryService.clearCache();
 
 		console.log('✅ Logged out successfully');
@@ -487,7 +483,7 @@ export class PlexAuthService {
 	 */
 	async loadAuthState(): Promise<boolean> {
 		try {
-			const stored = await AsyncStorage.getItem('plex_auth_state');
+			const stored = storage.getString('plex_auth_state');
 			if (stored) {
 				const data = JSON.parse(stored);
 				this.authState = data;
@@ -500,7 +496,7 @@ export class PlexAuthService {
 						this.authState.username = userInfo.username;
 						this.authState.email = userInfo.email;
 						if (userInfo.avatarUrl) this.authState.avatarUrl = userInfo.avatarUrl;
-						await this.saveAuthState();
+						this.saveAuthState();
 
 						console.log('✅ Loaded authentication state from storage');
 
@@ -530,9 +526,9 @@ export class PlexAuthService {
 	/**
 	 * Save authentication state to storage
 	 */
-	private async saveAuthState(): Promise<void> {
+	private saveAuthState(): void {
 		try {
-			await AsyncStorage.setItem('plex_auth_state', JSON.stringify(this.authState));
+			storage.set('plex_auth_state', JSON.stringify(this.authState));
 		} catch (error) {
 			console.error('Failed to save auth state:', error);
 		}

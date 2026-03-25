@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
@@ -12,6 +11,7 @@ import TrackPlayer, {
 	usePlaybackState,
 	useTrackPlayerEvents,
 } from '@/lib/playerAdapter';
+import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 import { queueScrobble } from '@/utils/scrobble-queue';
@@ -32,19 +32,16 @@ export const STORAGE_SLEEP_TIMER_ENDS_AT_KEY = 'SLEEP_TIMER_ENDS_AT';
 function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song | null) {
 	const queueIds = queue.map((s) => s.id);
 	const originalIds = originalQueue.map((s) => s.id);
-	const ops: Promise<void>[] = [
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(queueIds)),
-		AsyncStorage.setItem(STORAGE_ORIGINAL_QUEUE_KEY, JSON.stringify(originalIds)),
-	];
+	storage.set(STORAGE_QUEUE_KEY, JSON.stringify(queueIds));
+	storage.set(STORAGE_ORIGINAL_QUEUE_KEY, JSON.stringify(originalIds));
 	if (currentSong) {
-		ops.push(AsyncStorage.setItem(STORAGE_SONG_KEY, currentSong.id));
+		storage.set(STORAGE_SONG_KEY, currentSong.id);
 	}
-	Promise.all(ops).catch(() => {});
 }
 
 function saveCurrentSong(song: Song) {
-	AsyncStorage.setItem(STORAGE_SONG_KEY, song.id).catch(() => {});
-	AsyncStorage.setItem(STORAGE_SONG_DATA_KEY, JSON.stringify(song)).catch(() => {});
+	storage.set(STORAGE_SONG_KEY, song.id);
+	storage.set(STORAGE_SONG_DATA_KEY, JSON.stringify(song));
 }
 
 function resolveIdsToSongs(ids: string[]): Song[] {
@@ -164,8 +161,8 @@ const debouncedSavePosition = (position: number) => {
 	if (positionSaveTimeout) {
 		clearTimeout(positionSaveTimeout);
 	}
-	positionSaveTimeout = setTimeout(async () => {
-		await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(position));
+	positionSaveTimeout = setTimeout(() => {
+		storage.set(STORAGE_POSITION_KEY, String(position));
 		positionSaveTimeout = null;
 	}, 2000);
 };
@@ -378,15 +375,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 			// Restore saved settings
 			try {
-				const [savedRepeatStr, savedShuffleStr, savedVolumeStr, savedRateStr, savedSleepTimerEndsAtStr] = await Promise.all([
-					AsyncStorage.getItem(STORAGE_REPEAT_MODE_KEY),
-					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
-					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
-					AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY),
-					AsyncStorage.getItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY),
-				]);
+				const savedRepeatStr = storage.getString(STORAGE_REPEAT_MODE_KEY);
+				const savedShuffleStr = storage.getString(STORAGE_SHUFFLE_KEY);
+				const savedVolumeStr = storage.getString(STORAGE_VOLUME_KEY);
+				const savedRateStr = storage.getString(STORAGE_PLAYBACK_RATE_KEY);
+				const savedSleepTimerEndsAtStr = storage.getString(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 
-				// Restore settings
 				if (savedRepeatStr) {
 					const repeatMode = Number.parseInt(savedRepeatStr, 10);
 					set({ repeatMode });
@@ -414,7 +408,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					if (endsAt > Date.now()) {
 						set({ sleepTimerEndsAt: endsAt });
 					} else {
-						await AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
+						storage.remove(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 					}
 				}
 
@@ -428,20 +422,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		}
 	},
 
-	// Restore queue + current song + position from AsyncStorage.
+	// Restore queue + current song + position from MMKV.
 	// Safe to call multiple times — bails early if a song is already loaded.
 	// Falls back to a single-song queue if the library isn't hydrated yet (shows mini player).
 	restorePlaybackState: async () => {
 		if (get().currentSong !== null) return;
 
 		try {
-			const [savedSongStr, savedSongDataStr, savedQueueStr, savedOriginalQueueStr, savedPosStr] = await Promise.all([
-				AsyncStorage.getItem(STORAGE_SONG_KEY),
-				AsyncStorage.getItem(STORAGE_SONG_DATA_KEY),
-				AsyncStorage.getItem(STORAGE_QUEUE_KEY),
-				AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
-				AsyncStorage.getItem(STORAGE_POSITION_KEY),
-			]);
+			const savedSongStr = storage.getString(STORAGE_SONG_KEY);
+			const savedSongDataStr = storage.getString(STORAGE_SONG_DATA_KEY);
+			const savedQueueStr = storage.getString(STORAGE_QUEUE_KEY);
+			const savedOriginalQueueStr = storage.getString(STORAGE_ORIGINAL_QUEUE_KEY);
+			const savedPosStr = storage.getString(STORAGE_POSITION_KEY);
 
 			if (!savedSongStr && !savedSongDataStr) return;
 
@@ -564,7 +556,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						currentPlaylistRatingKey: options?.playlistRatingKey ?? null,
 					});
 					saveCurrentSong(song);
-					AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+					storage.remove(STORAGE_POSITION_KEY);
 
 					// Fire-and-forget artwork color extraction
 					extractArtworkColor(song)
@@ -627,7 +619,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 							set({ playbackRate: 1 });
 						}
 					} else {
-						const savedRateStr = await AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY);
+						const savedRateStr = storage.getString(STORAGE_PLAYBACK_RATE_KEY);
 						const savedRate = savedRateStr ? Math.max(0.5, Math.min(2.0, Number.parseFloat(savedRateStr))) : 1;
 						if (get().playbackRate !== savedRate) {
 							await TrackPlayer.setRate(savedRate);
@@ -654,7 +646,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						isPlaying: false,
 						artworkBgColor: null,
 					});
-					AsyncStorage.removeItem(STORAGE_SONG_KEY).catch(() => {});
+					storage.remove(STORAGE_SONG_KEY);
 				}
 			},
 			{ songId: song.id, queueLength: newQueue?.length || 0 },
@@ -693,7 +685,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				set({ currentSong: nextSong });
 
 				saveQueueState(state.queue, state.originalQueue, nextSong);
-				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				storage.remove(STORAGE_POSITION_KEY);
 
 				extractArtworkColor(nextSong)
 					.then((color) => set({ artworkBgColor: color }))
@@ -728,7 +720,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				set({ currentSong: prevSong });
 
 				saveQueueState(state.queue, state.originalQueue, prevSong);
-				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				storage.remove(STORAGE_POSITION_KEY);
 
 				extractArtworkColor(prevSong)
 					.then((color) => set({ artworkBgColor: color }))
@@ -744,7 +736,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		try {
 			await TrackPlayer.seekTo(position);
 			set({ position });
-			await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(position));
+			storage.set(STORAGE_POSITION_KEY, String(position));
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
@@ -858,7 +850,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		newQueue.splice(toIndex, 0, movedSong);
 
 		set({ queue: newQueue });
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id))).catch(() => {});
+		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
 
 		// Reorder in TrackPlayer
 		TrackPlayer.move(fromIndex, toIndex).catch((err) => console.warn('Failed to reorder track:', err));
@@ -879,7 +871,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 		await TrackPlayer.setRepeatMode(nextMode);
 		set({ repeatMode: nextMode });
-		await AsyncStorage.setItem(STORAGE_REPEAT_MODE_KEY, String(nextMode));
+		storage.set(STORAGE_REPEAT_MODE_KEY, String(nextMode));
 	},
 
 	// Toggle shuffle — swaps upcoming tracks without interrupting current playback
@@ -922,8 +914,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			console.warn('Failed to update TrackPlayer queue for shuffle:', err);
 		}
 
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id))).catch(() => {});
-		AsyncStorage.setItem(STORAGE_SHUFFLE_KEY, String(newShuffleState)).catch(() => {});
+		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
+		storage.set(STORAGE_SHUFFLE_KEY, String(newShuffleState));
 	},
 
 	// Set volume
@@ -932,7 +924,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			const clampedVolume = Math.max(0, Math.min(1, volume));
 			await TrackPlayer.setVolume(clampedVolume);
 			set({ volume: clampedVolume });
-			await AsyncStorage.setItem(STORAGE_VOLUME_KEY, String(clampedVolume));
+			storage.set(STORAGE_VOLUME_KEY, String(clampedVolume));
 		} catch (error) {
 			console.error('Error setting volume:', error);
 		}
@@ -944,7 +936,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			const clampedRate = Math.max(0.5, Math.min(2.0, rate));
 			await TrackPlayer.setRate(clampedRate);
 			set({ playbackRate: clampedRate });
-			await AsyncStorage.setItem(STORAGE_PLAYBACK_RATE_KEY, String(clampedRate));
+			storage.set(STORAGE_PLAYBACK_RATE_KEY, String(clampedRate));
 		} catch (error) {
 			console.error('Error setting playback rate:', error);
 		}
@@ -953,12 +945,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	setSleepTimer: (minutes: number | null) => {
 		if (minutes == null) {
 			set({ sleepTimerEndsAt: null });
-			AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY).catch(() => {});
+			storage.remove(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 			return;
 		}
 		const endsAt = Date.now() + minutes * 60 * 1000;
 		set({ sleepTimerEndsAt: endsAt });
-		AsyncStorage.setItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt)).catch(() => {});
+		storage.set(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt));
 	},
 
 	getSleepTimerRemainingSeconds: () => {

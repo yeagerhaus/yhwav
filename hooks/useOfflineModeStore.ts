@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 
 const STORAGE_KEY = 'OFFLINE_MODE';
 
@@ -7,7 +7,7 @@ interface OfflineModeState {
 	offlineMode: boolean;
 	hydrated: boolean;
 	setOfflineMode: (value: boolean) => void;
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 }
 
 export const useOfflineModeStore = create<OfflineModeState>((set) => ({
@@ -16,16 +16,15 @@ export const useOfflineModeStore = create<OfflineModeState>((set) => ({
 
 	setOfflineMode: (value: boolean) => {
 		set({ offlineMode: value });
-		AsyncStorage.setItem(STORAGE_KEY, value ? '1' : '0').catch(() => {});
+		storage.set(STORAGE_KEY, value ? '1' : '0');
 		if (!value) {
-			// Lazy import to avoid require cycle: scrobble-queue -> plex -> plex-client -> useOfflineModeStore
 			import('@/utils/scrobble-queue').then(({ flushPendingScrobbles }) => flushPendingScrobbles().catch(() => {}));
 		}
 	},
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const raw = storage.getString(STORAGE_KEY);
 			const offline = raw === '1';
 			set({ offlineMode: offline, hydrated: true });
 		} catch {

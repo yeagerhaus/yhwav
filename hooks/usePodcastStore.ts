@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
+import { storage } from '@/lib/storage';
 import type { PodcastEpisode, PodcastFeed } from '@/types';
 import { fetchAndParseFeed } from '@/utils/podcast-rss';
 
@@ -28,7 +28,7 @@ interface PodcastState {
 	removeFeed: (id: string) => void;
 	fetchFeed: (urlOrId: string) => Promise<void>;
 	fetchAllFeeds: () => Promise<void>;
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 	clearError: () => void;
 }
 
@@ -36,7 +36,7 @@ function generateFeedId(): string {
 	return `feed-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function persistFeeds(feeds: PodcastFeed[]) {
+function persistFeeds(feeds: PodcastFeed[]) {
 	const toPersist: PersistedFeed[] = feeds.map((f) => ({
 		id: f.id,
 		url: f.url,
@@ -44,18 +44,18 @@ async function persistFeeds(feeds: PodcastFeed[]) {
 		imageUrl: f.imageUrl,
 		addedAt: f.addedAt,
 	}));
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toPersist));
+	storage.set(STORAGE_KEY, JSON.stringify(toPersist));
 }
 
-async function persistEpisodes(episodesByFeedId: Record<string, PodcastEpisode[]>) {
+function persistEpisodes(episodesByFeedId: Record<string, PodcastEpisode[]>) {
 	try {
-		await AsyncStorage.setItem(EPISODES_CACHE_KEY, JSON.stringify(episodesByFeedId));
+		storage.set(EPISODES_CACHE_KEY, JSON.stringify(episodesByFeedId));
 	} catch {}
 }
 
-async function loadCachedEpisodes(): Promise<Record<string, PodcastEpisode[]>> {
+function loadCachedEpisodes(): Record<string, PodcastEpisode[]> {
 	try {
-		const raw = await AsyncStorage.getItem(EPISODES_CACHE_KEY);
+		const raw = storage.getString(EPISODES_CACHE_KEY);
 		if (!raw) return {};
 		const parsed = JSON.parse(raw);
 		return typeof parsed === 'object' && parsed !== null ? parsed : {};
@@ -75,9 +75,10 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 
 	clearError: () => set({ error: null }),
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const [raw, cachedEpisodes] = await Promise.all([AsyncStorage.getItem(STORAGE_KEY), loadCachedEpisodes()]);
+			const raw = storage.getString(STORAGE_KEY);
+			const cachedEpisodes = loadCachedEpisodes();
 			if (!raw) {
 				set({ hydrated: true, episodesByFeedId: cachedEpisodes });
 				return;
@@ -130,7 +131,8 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				addingUrl: null,
 				error: null,
 			});
-			await Promise.all([persistFeeds(newFeeds), persistEpisodes(newEpisodes)]);
+			persistFeeds(newFeeds);
+			persistEpisodes(newEpisodes);
 		} catch (err: any) {
 			set({
 				addingUrl: null,
@@ -146,7 +148,8 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 		const newEpisodes = { ...episodesByFeedId };
 		delete newEpisodes[id];
 		set({ feeds: newFeeds, episodesByFeedId: newEpisodes });
-		Promise.all([persistFeeds(newFeeds), persistEpisodes(newEpisodes)]).catch(() => {});
+		persistFeeds(newFeeds);
+		persistEpisodes(newEpisodes);
 	},
 
 	fetchFeed: async (urlOrId: string) => {
@@ -172,12 +175,12 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 					addedAt: Date.now(),
 				};
 				newFeeds = [...feeds, newFeed];
-				await persistFeeds(newFeeds);
+				persistFeeds(newFeeds);
 				set({ feeds: newFeeds });
 			} else {
 				const updated = feeds.map((f) => (f.id === id ? { ...f, title: parsed.title, imageUrl: parsed.imageUrl } : f));
 				set({ feeds: updated });
-				await persistFeeds(updated);
+				persistFeeds(updated);
 			}
 			const newEpisodes = { ...episodesByFeedId, [id]: parsed.episodes };
 			set({
@@ -185,7 +188,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				isLoading: false,
 				error: null,
 			});
-			persistEpisodes(newEpisodes).catch(() => {});
+			persistEpisodes(newEpisodes);
 		} catch (err: any) {
 			set({
 				isLoading: false,
@@ -219,6 +222,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 			error: hadError ? 'Some feeds failed to refresh' : null,
 			lastFetchedAt: Date.now(),
 		});
-		await Promise.all([persistFeeds(updatedFeeds), persistEpisodes(episodesByFeedId)]);
+		persistFeeds(updatedFeeds);
+		persistEpisodes(episodesByFeedId);
 	},
 }));

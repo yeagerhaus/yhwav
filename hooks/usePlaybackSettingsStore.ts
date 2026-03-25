@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import TrackPlayer from '@/lib/playerAdapter';
+import { storage } from '@/lib/storage';
 
 const STORAGE_EQ_ENABLED = 'PLAYBACK_EQ_ENABLED';
 const STORAGE_EQ_BANDS = 'PLAYBACK_EQ_BANDS';
@@ -62,7 +62,7 @@ interface PlaybackSettingsState {
 	monoAudioEnabled: boolean;
 	streamingQuality: StreamingQuality;
 
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 	setEqualizerEnabled: (enabled: boolean) => void;
 	setBandGain: (index: number, gain: number) => void;
 	setAllBands: (gains: number[]) => void;
@@ -88,17 +88,15 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	monoAudioEnabled: false,
 	streamingQuality: 'original',
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const [eqEnabledRaw, bandsRaw, presetRaw, gainRaw, normRaw, monoRaw, streamingQualityRaw] = await Promise.all([
-				AsyncStorage.getItem(STORAGE_EQ_ENABLED),
-				AsyncStorage.getItem(STORAGE_EQ_BANDS),
-				AsyncStorage.getItem(STORAGE_EQ_PRESET),
-				AsyncStorage.getItem(STORAGE_OUTPUT_GAIN),
-				AsyncStorage.getItem(STORAGE_NORMALIZATION),
-				AsyncStorage.getItem(STORAGE_MONO_AUDIO),
-				AsyncStorage.getItem(STORAGE_STREAMING_QUALITY),
-			]);
+			const eqEnabledRaw = storage.getString(STORAGE_EQ_ENABLED);
+			const bandsRaw = storage.getString(STORAGE_EQ_BANDS);
+			const presetRaw = storage.getString(STORAGE_EQ_PRESET);
+			const gainRaw = storage.getString(STORAGE_OUTPUT_GAIN);
+			const normRaw = storage.getString(STORAGE_NORMALIZATION);
+			const monoRaw = storage.getString(STORAGE_MONO_AUDIO);
+			const streamingQualityRaw = storage.getString(STORAGE_STREAMING_QUALITY);
 
 			const eqEnabled = eqEnabledRaw === '1';
 			const bands = bandsRaw ? JSON.parse(bandsRaw) : DEFAULT_BANDS;
@@ -132,7 +130,7 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	setEqualizerEnabled: (enabled: boolean) => {
 		set({ equalizerEnabled: enabled });
 		TrackPlayer.setEqualizerEnabled(enabled).catch(() => {});
-		AsyncStorage.setItem(STORAGE_EQ_ENABLED, enabled ? '1' : '0').catch(() => {});
+		storage.set(STORAGE_EQ_ENABLED, enabled ? '1' : '0');
 	},
 
 	setBandGain: (index: number, gain: number) => {
@@ -141,8 +139,8 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		bands[index] = { ...bands[index], gain: Math.max(-12, Math.min(12, gain)) };
 		set({ equalizerBands: bands, selectedPreset: null });
 		applyBandsToNative(bands);
-		AsyncStorage.setItem(STORAGE_EQ_BANDS, JSON.stringify(bands)).catch(() => {});
-		AsyncStorage.removeItem(STORAGE_EQ_PRESET).catch(() => {});
+		storage.set(STORAGE_EQ_BANDS, JSON.stringify(bands));
+		storage.remove(STORAGE_EQ_PRESET);
 	},
 
 	setAllBands: (gains: number[]) => {
@@ -152,7 +150,7 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		}));
 		set({ equalizerBands: bands });
 		applyBandsToNative(bands);
-		AsyncStorage.setItem(STORAGE_EQ_BANDS, JSON.stringify(bands)).catch(() => {});
+		storage.set(STORAGE_EQ_BANDS, JSON.stringify(bands));
 	},
 
 	setPreset: (name: string) => {
@@ -161,38 +159,38 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		const bands = DEFAULT_BANDS.map((b, i) => ({ ...b, gain: gains[i] ?? 0 }));
 		set({ equalizerBands: bands, selectedPreset: name });
 		applyBandsToNative(bands);
-		AsyncStorage.setItem(STORAGE_EQ_BANDS, JSON.stringify(bands)).catch(() => {});
-		AsyncStorage.setItem(STORAGE_EQ_PRESET, name).catch(() => {});
+		storage.set(STORAGE_EQ_BANDS, JSON.stringify(bands));
+		storage.set(STORAGE_EQ_PRESET, name);
 	},
 
 	resetEQ: () => {
 		set({ equalizerBands: DEFAULT_BANDS, selectedPreset: 'Flat' });
 		applyBandsToNative(DEFAULT_BANDS);
-		AsyncStorage.setItem(STORAGE_EQ_BANDS, JSON.stringify(DEFAULT_BANDS)).catch(() => {});
-		AsyncStorage.setItem(STORAGE_EQ_PRESET, 'Flat').catch(() => {});
+		storage.set(STORAGE_EQ_BANDS, JSON.stringify(DEFAULT_BANDS));
+		storage.set(STORAGE_EQ_PRESET, 'Flat');
 	},
 
 	setOutputGain: (db: number) => {
 		const clamped = Math.max(-10, Math.min(10, Math.round(db * 10) / 10));
 		set({ outputGainDb: clamped });
 		TrackPlayer.setOutputGain(clamped).catch(() => {});
-		AsyncStorage.setItem(STORAGE_OUTPUT_GAIN, String(clamped)).catch(() => {});
+		storage.set(STORAGE_OUTPUT_GAIN, String(clamped));
 	},
 
 	setNormalizationEnabled: (enabled: boolean) => {
 		set({ normalizationEnabled: enabled });
 		TrackPlayer.setNormalizationEnabled(enabled).catch(() => {});
-		AsyncStorage.setItem(STORAGE_NORMALIZATION, enabled ? '1' : '0').catch(() => {});
+		storage.set(STORAGE_NORMALIZATION, enabled ? '1' : '0');
 	},
 
 	setMonoAudioEnabled: (enabled: boolean) => {
 		set({ monoAudioEnabled: enabled });
 		TrackPlayer.setMonoAudioEnabled(enabled).catch(() => {});
-		AsyncStorage.setItem(STORAGE_MONO_AUDIO, enabled ? '1' : '0').catch(() => {});
+		storage.set(STORAGE_MONO_AUDIO, enabled ? '1' : '0');
 	},
 
 	setStreamingQuality: (q: StreamingQuality) => {
 		set({ streamingQuality: q });
-		AsyncStorage.setItem(STORAGE_STREAMING_QUALITY, q).catch(() => {});
+		storage.set(STORAGE_STREAMING_QUALITY, q);
 	},
 }));

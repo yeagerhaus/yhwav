@@ -18,7 +18,7 @@ export const useTracks = () => {
 			hasFetched.current = true;
 			// Defer cache save so the UI renders before JSON.stringify blocks
 			InteractionManager.runAfterInteractions(() => {
-				saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+				saveLibraryToCache();
 			});
 		} catch (error) {
 			console.error('Failed to load tracks:', error);

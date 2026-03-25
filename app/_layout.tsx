@@ -131,9 +131,14 @@ export default function RootLayout() {
 
 	useEffect(() => {
 		registerBackgroundFetch().catch((err) => console.warn('Background fetch registration failed:', err));
-		hasSeenNotificationPrompt().then((seen) => {
-			if (!seen) router.push('/notification-prompt');
-		});
+		if (!hasSeenNotificationPrompt()) {
+			const handle = requestAnimationFrame(() => router.push('/notification-prompt'));
+			const sub = addNotificationResponseListener(router);
+			return () => {
+				cancelAnimationFrame(handle);
+				sub.remove();
+			};
+		}
 		const sub = addNotificationResponseListener(router);
 		return () => sub.remove();
 	}, [router]);
@@ -158,10 +163,9 @@ export default function RootLayout() {
 		hydratePodcastProgress();
 		hydratePodcastDownloads();
 		hydrateMusicDownloads();
-		hydratePodcast().then(() => {
-			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
-			if (feeds.length > 0) fetchAllFeeds();
-		});
+		hydratePodcast();
+		const { feeds, fetchAllFeeds } = usePodcastStore.getState();
+		if (feeds.length > 0) fetchAllFeeds();
 	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads, hydrateMusicDownloads]);
 
 	useEffect(() => {
@@ -179,7 +183,7 @@ export default function RootLayout() {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
 					}
 
-					hydrated = await rehydrateLibraryStore();
+					hydrated = rehydrateLibraryStore();
 					if (hydrated) {
 						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 						setHasInitialized(true);
@@ -211,7 +215,7 @@ export default function RootLayout() {
 										.catch(() => {});
 								}
 								InteractionManager.runAfterInteractions(() => {
-									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+									saveLibraryToCache();
 								});
 							})
 							.catch((error) => {
@@ -257,7 +261,7 @@ export default function RootLayout() {
 					if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
 					console.log(`🔄 Periodic refresh complete: ${tracks.length} tracks`);
 					InteractionManager.runAfterInteractions(() => {
-						saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
+						saveLibraryToCache();
 					});
 				})
 				.catch((err) => console.warn('⚠️ Periodic refresh failed:', err));

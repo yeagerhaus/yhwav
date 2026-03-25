@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 
 const STORAGE_KEY = 'PODCAST_EPISODE_PROGRESS';
 
@@ -15,7 +15,7 @@ interface PodcastProgressState {
 	progressByEpisodeId: Record<string, EpisodeProgress>;
 	hydrated: boolean;
 
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 	getProgress: (episodeId: string) => EpisodeProgress | undefined;
 	/** Save progress for an episode (only called for episodes we've played). */
 	saveProgress: (episodeId: string, position: number, duration: number, completed?: boolean) => void;
@@ -25,23 +25,22 @@ interface PodcastProgressState {
 	markEpisodesAsPlayed: (episodes: Array<{ id: string; durationSeconds?: number }>) => void;
 }
 
-async function persistProgress(progressByEpisodeId: Record<string, EpisodeProgress>) {
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(progressByEpisodeId));
+function persistProgress(progressByEpisodeId: Record<string, EpisodeProgress>) {
+	storage.set(STORAGE_KEY, JSON.stringify(progressByEpisodeId));
 }
 
 export const usePodcastProgressStore = create<PodcastProgressState>((set, get) => ({
 	progressByEpisodeId: {},
 	hydrated: false,
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const raw = storage.getString(STORAGE_KEY);
 			if (!raw) {
 				set({ hydrated: true });
 				return;
 			}
 			const parsed = JSON.parse(raw) as Record<string, EpisodeProgress>;
-			// Normalize: ensure updatedAt and completed exist for old entries
 			const normalized: Record<string, EpisodeProgress> = {};
 			for (const [id, p] of Object.entries(parsed)) {
 				if (p && typeof p.position === 'number') {
@@ -75,7 +74,7 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 		};
 		const nextMap = { ...progressByEpisodeId, [episodeId]: next };
 		set({ progressByEpisodeId: nextMap });
-		persistProgress(nextMap).catch(() => {});
+		persistProgress(nextMap);
 	},
 
 	markAsPlayed: (episodeId: string, duration?: number) => {
@@ -90,7 +89,7 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 		};
 		const nextMap = { ...progressByEpisodeId, [episodeId]: next };
 		set({ progressByEpisodeId: nextMap });
-		persistProgress(nextMap).catch(() => {});
+		persistProgress(nextMap);
 	},
 	markEpisodesAsPlayed: (episodes: Array<{ id: string; durationSeconds?: number }>) => {
 		const { progressByEpisodeId } = get();
@@ -107,6 +106,6 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 			};
 		}
 		set({ progressByEpisodeId: nextMap });
-		persistProgress(nextMap).catch(() => {});
+		persistProgress(nextMap);
 	},
 }));
