@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useCallback } from 'react';
-import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Text } from '../Text';

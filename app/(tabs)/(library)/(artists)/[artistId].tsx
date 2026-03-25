@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
 import { Text } from '@/components/Text';
@@ -236,7 +237,7 @@ export default function ArtistDetailScreen() {
 	return (
 		<Main>
 			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
-				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
+				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} contentFit='cover' />}
 				<Div transparent>
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}

@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Div, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';

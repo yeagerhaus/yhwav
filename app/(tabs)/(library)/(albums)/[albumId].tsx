@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useAlbums } from '@/hooks/useAlbums';
@@ -95,7 +96,7 @@ export default function AlbumDetailScreen() {
 						<Image
 							source={{ uri: artwork }}
 							style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
-							resizeMode='contain'
+							contentFit='contain'
 						/>
 					</Div>
 				)}

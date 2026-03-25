@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet } from 'react-native';
 import { Text } from '../Text';
 
 const screenWidth = Dimensions.get('window').width;

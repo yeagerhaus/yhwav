@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, RefreshControl, StyleSheet, TouchableOpacity } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { useColors } from '@/hooks/useColors';

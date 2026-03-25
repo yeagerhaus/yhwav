@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
@@ -172,7 +173,7 @@ const SongItem = React.memo(
 		return (
 			<Pressable onPress={() => playSong(item)} style={styles.songItem}>
 				<Div transparent style={styles.artworkContainer}>
-					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} resizeMode='cover' />
+					<Image source={{ uri: item.artworkUrl }} style={styles.songArtwork} contentFit='cover' recyclingKey={item.id} />
 					{isCurrentSong && <MusicVisualizer isPlaying={showAsPlaying} />}
 				</Div>
 				<Div transparent style={[styles.songInfoContainer, { borderBottomColor: colors.listDivider }]}>

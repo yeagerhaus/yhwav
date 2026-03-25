@@ -1,9 +1,10 @@
+import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { Alert, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Alert, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Main } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
@@ -217,7 +218,7 @@ export default function EpisodeDetailScreen() {
 		<Main style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
 			{artwork ? (
 				<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
-					<Image source={{ uri: artwork }} style={styles.artwork} resizeMode='contain' />
+					<Image source={{ uri: artwork }} style={styles.artwork} contentFit='contain' />
 				</Div>
 			) : (
 				<Div style={[styles.artwork, { backgroundColor: '#444', justifyContent: 'center', alignItems: 'center' }]}>

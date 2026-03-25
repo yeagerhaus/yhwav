@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
@@ -115,7 +116,7 @@ export default function PodcastFeedScreen() {
 	const listHeaderComponent = useMemo(
 		() => (
 			<Div style={feedStyles.header} transparent>
-				{showImageUrl ? <Image source={{ uri: showImageUrl }} style={feedStyles.artwork} resizeMode='contain' /> : null}
+				{showImageUrl ? <Image source={{ uri: showImageUrl }} style={feedStyles.artwork} contentFit='contain' /> : null}
 				<Div style={feedStyles.titleContainer} transparent>
 					<Div transparent style={feedStyles.titleRow}>
 						<Div transparent style={{ flex: 1 }}>

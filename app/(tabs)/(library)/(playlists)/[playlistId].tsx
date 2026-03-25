@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { DefaultSharedComponents } from '@/constants/styles';
@@ -238,7 +239,7 @@ export default function DetailScreen() {
 					<Image
 						source={{ uri: artwork }}
 						style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
-						resizeMode='contain'
+						contentFit='contain'
 					/>
 				)}
 				<Div style={{ paddingVertical: 16, width: '100%' }} transparent>
