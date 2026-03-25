@@ -1,4 +1,6 @@
-# yhwav
+# Rite
+
+Your collection. Your ritual. Nothing else.
 
 Plex music player built with Expo and React Native. iOS only.
 
