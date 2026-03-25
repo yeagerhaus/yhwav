@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '@/lib/storage';
 import type { Playlist, Song } from '@/types';
 import { scrobble } from '@/utils/plex';
 
@@ -14,13 +14,13 @@ interface PendingScrobble {
 let pending: PendingScrobble[] = [];
 let flushing = false;
 
-async function persist() {
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
+function persist() {
+	storage.set(STORAGE_KEY, JSON.stringify(pending));
 }
 
-async function hydrate() {
+function hydrate() {
 	try {
-		const raw = await AsyncStorage.getItem(STORAGE_KEY);
+		const raw = storage.getString(STORAGE_KEY);
 		if (raw) pending = JSON.parse(raw);
 	} catch {
 		pending = [];
@@ -54,14 +54,14 @@ export async function flushPendingScrobbles(): Promise<void> {
 	} catch {
 		// Network/offline — stop here, remaining entries stay queued
 	} finally {
-		await persist();
+		persist();
 		flushing = false;
 	}
 }
 
 /**
  * Queue a scrobble for a song. Attempts an immediate flush; if it fails the
- * entry is persisted to AsyncStorage and retried on next flush.
+ * entry is persisted to MMKV and retried on next flush.
  */
 export async function queueScrobble(song: Song): Promise<void> {
 	const { useAudioStore } = require('@/hooks/useAudioStore');
@@ -73,7 +73,7 @@ export async function queueScrobble(song: Song): Promise<void> {
 		timestamp: Date.now(),
 		playlistRatingKey: playlistRatingKey ?? undefined,
 	});
-	await persist();
+	persist();
 
 	const { useLibraryStore } = require('@/hooks/useLibraryStore');
 	const { recentlyPlayed } = useLibraryStore.getState();
@@ -89,7 +89,7 @@ export async function queueScrobble(song: Song): Promise<void> {
  * Hydrate queue from disk and flush anything left over (call on app startup).
  */
 export async function initScrobbleQueue(): Promise<void> {
-	await hydrate();
+	hydrate();
 	if (pending.length > 0 && __DEV__) {
 		console.log(`📋 ${pending.length} pending scrobble(s) to flush`);
 	}

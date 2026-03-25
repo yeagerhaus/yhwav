@@ -388,6 +388,16 @@ public final class YhwavAudioModule: Module {
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
+	// MARK: - Search index
+	private struct SearchEntry {
+		let id: String
+		let titleLower: String
+		let artistLower: String
+		let albumLower: String
+	}
+	private var searchIndex: [SearchEntry] = []
+	private let searchQueue = DispatchQueue(label: "com.yhwav.search", qos: .userInitiated)
+
 	public func definition() -> ModuleDefinition {
 		Name("YhwavAudio")
 
@@ -556,20 +566,27 @@ public final class YhwavAudioModule: Module {
 			DispatchQueue.main.async {
 				self.startProgressTimerIfNeeded()
 				self.emitProgressUpdate()
+				self.syncNowPlaying()
 			}
 		}
 
 		AsyncFunction("pause") {
 			self.queuePlayer?.pause()
 			self.stopProgressTimer()
-			DispatchQueue.main.async { self.emitProgressUpdate() }
+			DispatchQueue.main.async {
+				self.emitProgressUpdate()
+				self.syncNowPlaying()
+			}
 		}
 
 		AsyncFunction("seekTo") { (position: Double) in
 			let cm = CMTime(seconds: position, preferredTimescale: 600)
 			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
 			self.queuePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
-			DispatchQueue.main.async { self.emitProgressUpdate() }
+			DispatchQueue.main.async {
+				self.emitProgressUpdate()
+				self.syncNowPlaying()
+			}
 		}
 
 		AsyncFunction("setVolume") { (value: Float) in
@@ -582,6 +599,7 @@ public final class YhwavAudioModule: Module {
 			if self.queuePlayer?.timeControlStatus == .playing {
 				self.queuePlayer?.rate = self.rate
 			}
+			DispatchQueue.main.async { self.syncNowPlaying() }
 		}
 
 		AsyncFunction("setRepeatMode") { (mode: Int) in
@@ -642,6 +660,60 @@ public final class YhwavAudioModule: Module {
 				result = self.trackOrder.compactMap { id in self.trackMetadata[id] }
 			}
 			return result
+		}
+
+		// MARK: - Search
+
+		AsyncFunction("prewarmURL") { (urlString: String) in
+			guard let url = URL(string: urlString) else { return }
+			var request = URLRequest(url: url)
+			request.setValue("bytes=0-262143", forHTTPHeaderField: "Range")
+			URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
+		}
+
+		// MARK: - Search
+
+		AsyncFunction("buildSearchIndex") { (tracks: [[String: Any]]) in
+			let entries: [SearchEntry] = tracks.compactMap { dict in
+				guard let id = dict["id"] as? String else { return nil }
+				let title = (dict["title"] as? String ?? "").lowercased()
+				let artist = (dict["artist"] as? String ?? "").lowercased()
+				let album = (dict["album"] as? String ?? "").lowercased()
+				return SearchEntry(id: id, titleLower: title, artistLower: artist, albumLower: album)
+			}
+			self.searchQueue.sync {
+				self.searchIndex = entries
+			}
+		}
+
+		AsyncFunction("searchTracks") { (query: String, limit: Int) -> [[String: Any]] in
+			let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+			guard !q.isEmpty else { return [] }
+
+			var hits: [(id: String, score: Int)] = []
+
+			self.searchQueue.sync {
+				for entry in self.searchIndex {
+					let titleHit = entry.titleLower.contains(q)
+					let artistHit = entry.artistLower.contains(q)
+					let albumHit = entry.albumLower.contains(q)
+					guard titleHit || artistHit || albumHit else { continue }
+
+					var score = 0
+					if entry.titleLower.hasPrefix(q) { score += 100 }
+					else if titleHit { score += 50 }
+					if entry.artistLower.hasPrefix(q) { score += 80 }
+					else if artistHit { score += 40 }
+					if entry.albumLower.hasPrefix(q) { score += 60 }
+					else if albumHit { score += 30 }
+
+					hits.append((id: entry.id, score: score))
+					if hits.count >= limit * 2 { break }
+				}
+			}
+
+			hits.sort { $0.score > $1.score }
+			return Array(hits.prefix(limit)).map { ["id": $0.id, "score": $0.score] }
 		}
 	}
 
@@ -726,12 +798,7 @@ public final class YhwavAudioModule: Module {
 
 	private func emitActiveTrackChanged(index: Int) {
 		sendEvent("PlaybackActiveTrackChanged", ["index": index])
-		let trackId = index >= 0 && index < trackOrder.count ? trackOrder[index] : nil
-		let track = trackId.flatMap { trackMetadata[$0] }
-		let pos = queuePlayer.map { CMTimeGetSeconds($0.currentTime()) }
-		let dur = queuePlayer?.currentItem.map { $0.duration.seconds }
-		let playing = queuePlayer?.timeControlStatus == .playing
-		nowPlayingManager.updateNowPlaying(track: track, position: pos, duration: dur, isPlaying: playing)
+		syncNowPlaying()
 	}
 
 	// MARK: - Progress timer
@@ -769,6 +836,11 @@ public final class YhwavAudioModule: Module {
 			"track": idx,
 			"index": idx
 		])
+	}
+
+	private func syncNowPlaying() {
+		let (state, position, duration) = currentPlaybackState()
+		let idx = currentActiveTrackIndex()
 		let trackId = idx >= 0 && idx < trackOrder.count ? trackOrder[idx] : nil
 		let track = trackId.flatMap { trackMetadata[$0] }
 		nowPlayingManager.updateNowPlaying(track: track, position: position, duration: duration, isPlaying: state == "playing")
@@ -803,16 +875,12 @@ public final class YhwavAudioModule: Module {
 	private func rebuildQueueFromOrder(makeCurrentIndex: Int? = nil) {
 		guard let player = queuePlayer else { return }
 		player.removeAllItems()
-		for id in trackOrder {
-			guard let track = trackMetadata[id] else { continue }
+		let startIdx = max(makeCurrentIndex ?? 0, 0)
+		for i in startIdx..<trackOrder.count {
+			guard let track = trackMetadata[trackOrder[i]] else { continue }
 			let item = createPlayerItem(url: track.url)
 			item.setAssociatedTrack(track)
 			player.insert(item, after: player.items().last)
-		}
-		if let idx = makeCurrentIndex, idx >= 0, idx < trackOrder.count {
-			for _ in 0..<idx {
-				player.advanceToNextItem()
-			}
 		}
 	}
 
@@ -1050,7 +1118,7 @@ private final class NowPlayingManager {
 		if let dur = duration, dur > 0 {
 			info[MPMediaItemPropertyPlaybackDuration] = dur
 		}
-		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(module?.rate ?? 1.0) : 0.0
 		let current = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = current.merging(info) { _, new in new }
 	}

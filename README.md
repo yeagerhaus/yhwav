@@ -29,7 +29,6 @@ Auth is PIN-based. Sign in via Settings > Sign in with Plex, then enter the PIN 
 | `bun start` | Metro + dev client |
 | `bun prep` | Install deps + pods |
 | `bun b` | EAS build (iOS dev profile) |
-| `bun kill` | Kill port 8081 |
 | `bun clean` | Nuke node_modules, Pods, .expo |
 | `bun up` | Update deps + Expo version check |
 | `bun check:all` | tsc + biome |

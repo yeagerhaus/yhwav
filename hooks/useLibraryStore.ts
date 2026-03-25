@@ -44,7 +44,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 			}
 		}
 		set({ albums, albumsById });
-		console.log(`✅ Library indexed: ${albums.length} albums`);
+		if (__DEV__) console.log(`Library indexed: ${albums.length} albums`);
 	},
 
 	setArtists: (artists: Artist[]) => {
@@ -55,7 +55,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 			}
 		}
 		set({ artists, artistsById });
-		console.log(`✅ Library indexed: ${artists.length} artists`);
+		if (__DEV__) console.log(`Library indexed: ${artists.length} artists`);
 	},
 
 	setPlaylists: (playlists: Playlist[]) => {
@@ -88,6 +88,6 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
 		set({ tracks: songs, songsById });
 		endTimer({ trackCount: songs.length });
-		console.log(`✅ Library indexed: ${songs.length} tracks`);
+		if (__DEV__) console.log(`Library indexed: ${songs.length} tracks`);
 	},
 }));

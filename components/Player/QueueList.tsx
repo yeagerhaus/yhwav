@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Image, type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import { type LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
@@ -99,7 +100,7 @@ export const QueueList = React.memo(({ headerComponent, onToggleQueue }: QueueLi
 					>
 						<SymbolView name='minus.circle' size={22} tintColor='rgba(255, 255, 255, 0.6)' />
 					</Pressable>
-					<Image source={{ uri: item.artworkUrl || item.artwork }} style={styles.artwork} />
+					<Image source={{ uri: item.artworkUrl || item.artwork }} style={styles.artwork} recyclingKey={item.id} />
 					<Div transparent style={styles.songInfo}>
 						<Text numberOfLines={1} style={styles.title}>
 							{item.title}

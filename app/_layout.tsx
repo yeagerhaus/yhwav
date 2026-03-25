@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useRef } from 'react';
-import { AppState, InteractionManager, LogBox, StyleSheet, useColorScheme } from 'react-native';
+import { AppState, LogBox, StyleSheet, useColorScheme } from 'react-native';
 
 LogBox.ignoreAllLogs();
 
@@ -13,6 +13,7 @@ import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-c
 import { AddToPlaylistModal, Div, MiniPlayer, SplashOverlay } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
@@ -24,20 +25,13 @@ import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
-import { rehydrateLibraryStore, saveLibraryToCache } from '@/utils';
+import { rehydrateLibraryStore } from '@/utils';
 import '@/utils/background-fetch-task';
 import { hasSeenNotificationPrompt } from '@/app/notification-prompt';
 import { registerBackgroundFetch } from '@/utils/background-fetch-task';
+import { refreshLibrary } from '@/utils/library-refresh';
 import { addNotificationResponseListener, setupNotificationHandler } from '@/utils/notifications';
-import {
-	fetchAllAlbums,
-	fetchAllArtists,
-	fetchAllPlaylists,
-	fetchAllTracks,
-	fetchRecentlyPlayed,
-	plexClient,
-	testPlexServer,
-} from '@/utils/plex';
+import { plexClient, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 import { initScrobbleQueue } from '@/utils/scrobble-queue';
 
@@ -121,19 +115,25 @@ const LIBRARY_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
 	const router = useRouter();
-	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed, setHasInitialized } = useLibraryStore();
+	const setHasInitialized = useLibraryStore((s) => s.setHasInitialized);
 	const initializePlayer = useAudioStore((state) => state.initializePlayer);
 	const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
+	const addToPlaylistVisible = useAddToPlaylist((s) => s.visible);
 	const plexAuthReady = useRef(false);
 
 	useEffect(() => {
 		registerBackgroundFetch().catch((err) => console.warn('Background fetch registration failed:', err));
-		hasSeenNotificationPrompt().then((seen) => {
-			if (!seen) router.push('/notification-prompt');
-		});
+		if (!hasSeenNotificationPrompt()) {
+			const handle = requestAnimationFrame(() => router.push('/notification-prompt'));
+			const sub = addNotificationResponseListener(router);
+			return () => {
+				cancelAnimationFrame(handle);
+				sub.remove();
+			};
+		}
 		const sub = addNotificationResponseListener(router);
 		return () => sub.remove();
 	}, [router]);
@@ -158,51 +158,38 @@ export default function RootLayout() {
 		hydratePodcastProgress();
 		hydratePodcastDownloads();
 		hydrateMusicDownloads();
-		hydratePodcast().then(() => {
-			const { feeds, fetchAllFeeds } = usePodcastStore.getState();
-			if (feeds.length > 0) fetchAllFeeds();
-		});
+		hydratePodcast();
+		const { feeds, fetchAllFeeds } = usePodcastStore.getState();
+		if (feeds.length > 0) fetchAllFeeds();
 	}, [hydratePodcast, hydratePodcastProgress, hydratePodcastDownloads, hydrateMusicDownloads]);
 
 	useEffect(() => {
 		const init = async () => {
 			try {
-				// Try to load existing authentication state
 				const authLoaded = await plexAuthService.loadAuthState();
 
-				// Hydrate library BEFORE initializing player so saved queue IDs can resolve
 				let hydrated = false;
 				if (authLoaded && plexAuthService.isAuthenticated()) {
-					console.log('✅ Using existing Plex authentication');
 					const selectedServer = plexAuthService.getSelectedServer();
 					if (selectedServer) {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
 					}
 
-					hydrated = await rehydrateLibraryStore();
+					hydrated = rehydrateLibraryStore();
 					if (hydrated) {
-						console.log('✅ Loaded cached library data - using cache, fresh fetch will happen in background');
 						setHasInitialized(true);
 					}
 				}
 
-				// Initialize audio player AFTER library hydration so saved queue IDs resolve correctly
 				await initializePlayer();
-				console.log('✅ Audio player initialized');
 
 				if (authLoaded && plexAuthService.isAuthenticated()) {
 					plexAuthReady.current = true;
 					initScrobbleQueue().catch(() => {});
 
 					if (!hydrated) {
-						Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
-							.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
-								if (tracks.length > 0) setTracks(tracks);
-								if (albums.length > 0) setAlbums(albums);
-								if (artists.length > 0) setArtists(artists);
-								if (playlists.length > 0) setPlaylists(playlists);
-								if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
-								console.log(`✅ Initial fetch complete: ${tracks.length} tracks`);
+						refreshLibrary({ force: true })
+							.then(() => {
 								setHasInitialized(true);
 								if (!useAudioStore.getState().currentSong) {
 									useAudioStore
@@ -210,20 +197,14 @@ export default function RootLayout() {
 										.restorePlaybackState()
 										.catch(() => {});
 								}
-								InteractionManager.runAfterInteractions(() => {
-									saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-								});
 							})
 							.catch((error) => {
-								console.error('❌ Failed to fetch library:', error);
+								console.error('Failed to fetch library:', error);
 								setHasInitialized(true);
-								testPlexServer().catch(() => {
-									console.warn('⚠️ Cannot connect to Plex server');
-								});
+								testPlexServer().catch(() => {});
 							});
 					}
 				} else {
-					console.log('🔐 No existing authentication found. Please sign in through Settings.');
 					setHasInitialized(true);
 				}
 			} catch (error) {
@@ -246,25 +227,11 @@ export default function RootLayout() {
 	useEffect(() => {
 		const interval = setInterval(() => {
 			if (!plexAuthReady.current) return;
-			if (useOfflineModeStore.getState().offlineMode) return;
-
-			Promise.all([fetchAllTracks(), fetchAllAlbums(), fetchAllArtists(), fetchAllPlaylists(), fetchRecentlyPlayed(15)])
-				.then(([tracks, albums, artists, playlists, recentlyPlayedSongs]) => {
-					if (tracks.length > 0) setTracks(tracks);
-					if (albums.length > 0) setAlbums(albums);
-					if (artists.length > 0) setArtists(artists);
-					if (playlists.length > 0) setPlaylists(playlists);
-					if (recentlyPlayedSongs.length > 0) setRecentlyPlayed(recentlyPlayedSongs);
-					console.log(`🔄 Periodic refresh complete: ${tracks.length} tracks`);
-					InteractionManager.runAfterInteractions(() => {
-						saveLibraryToCache().catch((err) => console.warn('Cache save failed:', err));
-					});
-				})
-				.catch((err) => console.warn('⚠️ Periodic refresh failed:', err));
+			refreshLibrary().catch((err) => console.warn('Periodic refresh failed:', err));
 		}, LIBRARY_REFRESH_INTERVAL);
 
 		return () => clearInterval(interval);
-	}, [setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed]);
+	}, []);
 
 	return (
 		<GestureHandlerRootView style={styles.container}>
@@ -273,7 +240,7 @@ export default function RootLayout() {
 					<RootScaleProvider>
 						<AudioSync />
 						<AnimatedStack />
-						<AddToPlaylistModal />
+						{addToPlaylistVisible && <AddToPlaylistModal />}
 					</RootScaleProvider>
 				</ThemeProvider>
 			</SafeAreaProvider>

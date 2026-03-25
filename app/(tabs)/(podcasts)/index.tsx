@@ -1,8 +1,10 @@
+import { FlashList } from '@shopify/flash-list';
 import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
+import { Alert, Platform, Pressable, RefreshControl, View } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { SkeletonGridItem, SkeletonList } from '@/components/Skeletons';
 import { useColors } from '@/hooks/useColors';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
@@ -102,32 +104,29 @@ export default function PodcastsScreen() {
 		[handleAddFeed, handleAddByUrl, colors.brand],
 	);
 
-	if (!hydrated && isLoading && feeds.length === 0) {
-		return (
-			<Main>
-				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-					<ActivityIndicator />
-				</Div>
-			</Main>
-		);
-	}
+	const listEmptyComponent = useMemo(
+		() =>
+			!hydrated && isLoading ? (
+				<View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+					<SkeletonList count={6}>
+						<SkeletonGridItem />
+					</SkeletonList>
+				</View>
+			) : null,
+		[hydrated, isLoading],
+	);
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={formattedShows}
 				keyExtractor={keyExtractor}
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={10}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
 	);

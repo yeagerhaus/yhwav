@@ -473,7 +473,7 @@ export class PlexClient {
 			type: '10', // 10 = track
 			sort: 'titleSort:asc',
 			includeFields:
-				'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+				'title,ratingKey,thumb,art,duration,index,parentIndex,parentRatingKey,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
 		});
 
 		const data = response.data as any;
@@ -605,6 +605,7 @@ export class PlexClient {
 			title,
 			artist,
 			album,
+			albumId: track.parentRatingKey || '',
 			artworkUrl,
 			artwork: '',
 			streamUrl,

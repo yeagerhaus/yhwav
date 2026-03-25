@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio/src';
 import type { Album, Artist, Playlist, Song } from '@/types';
 import { useOfflineFilteredLibrary } from './useOfflineFilteredLibrary';
 import { useSearchStore } from './useSearchStore';
@@ -17,7 +18,6 @@ export interface SearchResults {
 	totalResults: number;
 }
 
-// Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
 	const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -34,165 +34,158 @@ function useDebounce<T>(value: T, delay: number): T {
 	return debouncedValue;
 }
 
+const EMPTY: SearchResults = { songs: [], albums: [], artists: [], playlists: [], totalResults: 0 };
+
+const useNativeSearch = isAvailable();
+
 export function useSearch() {
 	const query = useSearchStore((s) => s.query);
-	const [searchResults, setSearchResults] = useState<SearchResults>({
-		songs: [],
-		albums: [],
-		artists: [],
-		playlists: [],
-		totalResults: 0,
-	});
+	const [searchResults, setSearchResults] = useState<SearchResults>(EMPTY);
 	const { tracks, albums, artists, playlists } = useOfflineFilteredLibrary();
 
-	// Debounce the query to avoid searching on every keystroke
 	const debouncedQuery = useDebounce(query, 300);
 
-	useEffect(() => {
-		const empty: SearchResults = { songs: [], albums: [], artists: [], playlists: [], totalResults: 0 };
+	const tracksById = useMemo(() => {
+		if (!useNativeSearch) return null;
+		const map = new Map<string, Song>();
+		for (const t of tracks) map.set(t.id, t);
+		return map;
+	}, [tracks]);
 
+	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio'), [playlists]);
+
+	const indexEpoch = useRef(0);
+	useEffect(() => {
+		if (!useNativeSearch || !YhwavAudioModule) return;
+		indexEpoch.current += 1;
+		const minimal = tracks.map((t) => ({ id: t.id, title: t.title, artist: t.artist, album: t.album }));
+		YhwavAudioModule.buildSearchIndex(minimal);
+	}, [tracks]);
+
+	useEffect(() => {
 		if (!debouncedQuery.trim()) {
-			setSearchResults(empty);
+			setSearchResults(EMPTY);
 			return;
 		}
 
 		const normalizedQuery = debouncedQuery.toLowerCase().trim();
-		const queryLength = normalizedQuery.length;
-
-		// Early exit for very short queries
-		if (queryLength < 1) {
-			setSearchResults(empty);
+		if (normalizedQuery.length < 1) {
+			setSearchResults(EMPTY);
 			return;
 		}
 
-		const results: SearchResults = { ...empty };
+		let cancelled = false;
 
-		// Search songs using pre-computed lowercase fields (zero allocations per iteration)
-		const MAX_SONG_RESULTS = 50;
-
-		for (const song of tracks) {
-			const titleLower = song.titleLower || song.title.toLowerCase();
-			const artistLower = song.artistLower || song.artist.toLowerCase();
-			const albumLower = song.albumLower || song.album.toLowerCase();
-
-			const titleMatch = titleLower.includes(normalizedQuery);
-			const artistMatch = artistLower.includes(normalizedQuery);
-			const albumMatch = albumLower.includes(normalizedQuery);
-
-			if (titleMatch || artistMatch || albumMatch) {
-				let score = 0;
-				if (titleLower.startsWith(normalizedQuery)) score += 100;
-				else if (titleMatch) score += 50;
-				if (artistLower.startsWith(normalizedQuery)) score += 80;
-				else if (artistMatch) score += 40;
-				if (albumLower.startsWith(normalizedQuery)) score += 60;
-				else if (albumMatch) score += 30;
-
-				results.songs.push({
-					type: 'song',
-					item: song,
-					score,
-				});
-
-				if (results.songs.length >= MAX_SONG_RESULTS * 2) {
-					break;
+		const searchAlbumsArtistsPlaylists = () => {
+			const albumResults: SearchResult[] = [];
+			for (const album of albums) {
+				const titleLower = album.title.toLowerCase();
+				const artistLower = album.artist.toLowerCase();
+				const titleMatch = titleLower.includes(normalizedQuery);
+				const artistMatch = artistLower.includes(normalizedQuery);
+				if (titleMatch || artistMatch) {
+					let score = 0;
+					if (titleLower.startsWith(normalizedQuery)) score += 100;
+					else if (titleMatch) score += 50;
+					if (artistLower.startsWith(normalizedQuery)) score += 80;
+					else if (artistMatch) score += 40;
+					albumResults.push({ type: 'album', item: album, score });
+					if (albumResults.length >= 20) break;
 				}
 			}
-		}
 
-		// Search albums
-		const MAX_ALBUM_RESULTS = 10;
-		for (const album of albums) {
-			const titleLower = album.title.toLowerCase();
-			const artistLower = album.artist.toLowerCase();
-
-			const titleMatch = titleLower.includes(normalizedQuery);
-			const artistMatch = artistLower.includes(normalizedQuery);
-
-			if (titleMatch || artistMatch) {
-				let score = 0;
-				if (titleLower.startsWith(normalizedQuery)) score += 100;
-				else if (titleMatch) score += 50;
-				if (artistLower.startsWith(normalizedQuery)) score += 80;
-				else if (artistMatch) score += 40;
-
-				results.albums.push({
-					type: 'album',
-					item: album,
-					score,
-				});
-
-				if (results.albums.length >= MAX_ALBUM_RESULTS * 2) {
-					break;
+			const artistResults: SearchResult[] = [];
+			for (const artist of artists) {
+				const nameLower = artist.name.toLowerCase();
+				const nameMatch = nameLower.includes(normalizedQuery);
+				const genreMatch = artist.genres.some((g) => g.toLowerCase().includes(normalizedQuery));
+				if (nameMatch || genreMatch) {
+					let score = 0;
+					if (nameLower.startsWith(normalizedQuery)) score += 100;
+					else if (nameMatch) score += 50;
+					if (genreMatch) score += 30;
+					artistResults.push({ type: 'artist', item: artist, score });
+					if (artistResults.length >= 20) break;
 				}
 			}
-		}
 
-		// Search artists (including genres)
-		const MAX_ARTIST_RESULTS = 10;
-		for (const artist of artists) {
-			const nameLower = artist.name.toLowerCase();
-			const nameMatch = nameLower.includes(normalizedQuery);
-			const genreMatch = artist.genres.some((g) => g.toLowerCase().includes(normalizedQuery));
-
-			if (nameMatch || genreMatch) {
-				let score = 0;
-				if (nameLower.startsWith(normalizedQuery)) score += 100;
-				else if (nameMatch) score += 50;
-				if (genreMatch) score += 30;
-
-				results.artists.push({
-					type: 'artist',
-					item: artist,
-					score,
-				});
-
-				if (results.artists.length >= MAX_ARTIST_RESULTS * 2) {
-					break;
+			const playlistResults: SearchResult[] = [];
+			for (const playlist of audioPlaylists) {
+				const titleLower = playlist.title.toLowerCase();
+				const titleMatch = titleLower.includes(normalizedQuery);
+				if (titleMatch) {
+					let score = 0;
+					if (titleLower.startsWith(normalizedQuery)) score += 100;
+					else score += 50;
+					playlistResults.push({ type: 'playlist', item: playlist, score });
+					if (playlistResults.length >= 20) break;
 				}
 			}
-		}
 
-		// Search playlists
-		const MAX_PLAYLIST_RESULTS = 10;
-		const audioPlaylists = playlists.filter((p) => p.playlistType === 'audio');
-		for (const playlist of audioPlaylists) {
-			const titleLower = playlist.title.toLowerCase();
-			const titleMatch = titleLower.includes(normalizedQuery);
+			albumResults.sort((a, b) => b.score - a.score);
+			artistResults.sort((a, b) => b.score - a.score);
+			playlistResults.sort((a, b) => b.score - a.score);
 
-			if (titleMatch) {
-				let score = 0;
-				if (titleLower.startsWith(normalizedQuery)) score += 100;
-				else score += 50;
+			return {
+				albums: albumResults.slice(0, 10),
+				artists: artistResults.slice(0, 10),
+				playlists: playlistResults.slice(0, 10),
+			};
+		};
 
-				results.playlists.push({
-					type: 'playlist',
-					item: playlist,
-					score,
-				});
+		if (useNativeSearch && YhwavAudioModule && tracksById) {
+			const rest = searchAlbumsArtistsPlaylists();
+			YhwavAudioModule.searchTracks(normalizedQuery, 20).then((hits) => {
+				if (cancelled) return;
+				const songs: SearchResult[] = [];
+				for (const hit of hits) {
+					const song = tracksById.get(hit.id);
+					if (song) songs.push({ type: 'song', item: song, score: hit.score });
+				}
+				const results: SearchResults = {
+					songs,
+					...rest,
+					totalResults: songs.length + rest.albums.length + rest.artists.length + rest.playlists.length,
+				};
+				setSearchResults(results);
+			});
+		} else {
+			const rest = searchAlbumsArtistsPlaylists();
 
-				if (results.playlists.length >= MAX_PLAYLIST_RESULTS * 2) {
-					break;
+			const songResults: SearchResult[] = [];
+			for (const song of tracks) {
+				const titleLower = song.titleLower || song.title.toLowerCase();
+				const artistLower = song.artistLower || song.artist.toLowerCase();
+				const albumLower = song.albumLower || song.album.toLowerCase();
+				const titleMatch = titleLower.includes(normalizedQuery);
+				const artistMatch = artistLower.includes(normalizedQuery);
+				const albumMatch = albumLower.includes(normalizedQuery);
+				if (titleMatch || artistMatch || albumMatch) {
+					let score = 0;
+					if (titleLower.startsWith(normalizedQuery)) score += 100;
+					else if (titleMatch) score += 50;
+					if (artistLower.startsWith(normalizedQuery)) score += 80;
+					else if (artistMatch) score += 40;
+					if (albumLower.startsWith(normalizedQuery)) score += 60;
+					else if (albumMatch) score += 30;
+					songResults.push({ type: 'song', item: song, score });
+					if (songResults.length >= 100) break;
 				}
 			}
+			songResults.sort((a, b) => b.score - a.score);
+
+			const results: SearchResults = {
+				songs: songResults.slice(0, 20),
+				...rest,
+				totalResults: songResults.slice(0, 20).length + rest.albums.length + rest.artists.length + rest.playlists.length,
+			};
+			setSearchResults(results);
 		}
 
-		// Sort results by score (highest first)
-		results.songs.sort((a, b) => b.score - a.score);
-		results.albums.sort((a, b) => b.score - a.score);
-		results.artists.sort((a, b) => b.score - a.score);
-		results.playlists.sort((a, b) => b.score - a.score);
-
-		// Limit results
-		results.songs = results.songs.slice(0, 20);
-		results.albums = results.albums.slice(0, 10);
-		results.artists = results.artists.slice(0, 10);
-		results.playlists = results.playlists.slice(0, 10);
-
-		results.totalResults = results.songs.length + results.albums.length + results.artists.length + results.playlists.length;
-
-		setSearchResults(results);
-	}, [debouncedQuery, tracks, albums, artists, playlists]);
+		return () => {
+			cancelled = true;
+		};
+	}, [debouncedQuery, tracks, albums, artists, audioPlaylists, tracksById]);
 
 	return {
 		query,

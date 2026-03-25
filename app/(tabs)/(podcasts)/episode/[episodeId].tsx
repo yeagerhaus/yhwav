@@ -1,15 +1,17 @@
+import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { Alert, Image, Pressable, StyleSheet, useColorScheme } from 'react-native';
+import { Alert, Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Main } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -110,9 +112,11 @@ export default function EpisodeDetailScreen() {
 	const playNext = useAudioStore((s) => s.playNext);
 	const addToQueue = useAudioStore((s) => s.addToQueue);
 	const togglePlayPause = useAudioStore((s) => s.togglePlayPause);
-	const livePosition = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.position : null));
-	const liveDuration = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.duration : null));
 	const isPlaying = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.isPlaying : false));
+
+	const isCurrentEpisode = currentSong?.id === episodeId;
+	const livePosition = usePlaybackProgressStore((s) => (isCurrentEpisode ? s.position : null));
+	const liveDuration = usePlaybackProgressStore((s) => (isCurrentEpisode ? s.duration : null));
 
 	const progress = usePodcastProgressStore((s) => s.progressByEpisodeId[episodeId]);
 	const markAsPlayed = usePodcastProgressStore((s) => s.markAsPlayed);
@@ -123,8 +127,6 @@ export default function EpisodeDetailScreen() {
 	const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
 	const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
-
-	const isCurrentEpisode = currentSong?.id === episodeId;
 
 	const showTitle = feed?.title || (episode && isDownloadRecord(episode) ? episode.showTitle : '') || 'Show';
 	const showImageUrl = feed?.imageUrl || episode?.imageUrl;
@@ -216,7 +218,7 @@ export default function EpisodeDetailScreen() {
 		<Main style={[styles.container, { backgroundColor: isDark ? '#000' : '#fff' }]}>
 			{artwork ? (
 				<Div transparent display='flex' justifyContent='center' alignItems='center' style={{ width: '100%', paddingTop: 40 }}>
-					<Image source={{ uri: artwork }} style={styles.artwork} resizeMode='contain' />
+					<Image source={{ uri: artwork }} style={styles.artwork} contentFit='contain' />
 				</Div>
 			) : (
 				<Div style={[styles.artwork, { backgroundColor: '#444', justifyContent: 'center', alignItems: 'center' }]}>

@@ -1,10 +1,14 @@
+import { FlashList } from '@shopify/flash-list';
 import { useCallback, useMemo } from 'react';
-import { FlatList } from 'react-native';
+import { View } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { SkeletonGridItem, SkeletonList } from '@/components/Skeletons';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 
 export default function AlbumsScreen() {
 	const { albums } = useOfflineFilteredLibrary();
+	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
 
 	const sorted = useMemo(
 		() =>
@@ -31,21 +35,34 @@ export default function AlbumsScreen() {
 		[],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			hasInitialized ? (
+				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+					<Text type='body' colorVariant='muted'>
+						No albums found
+					</Text>
+				</Div>
+			) : (
+				<View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+					<SkeletonList count={6}>
+						<SkeletonGridItem />
+					</SkeletonList>
+				</View>
+			),
+		[hasInitialized],
+	);
+
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={sorted}
 				keyExtractor={keyExtractor}
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={10}
-				updateCellsBatchingPeriod={50}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
 	);

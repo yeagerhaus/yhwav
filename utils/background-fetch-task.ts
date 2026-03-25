@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import { storage } from '@/lib/storage';
 import type { PodcastEpisode } from '@/types';
 import { fetchAndParseFeed } from '@/utils/podcast-rss';
 
@@ -9,7 +9,7 @@ export const BACKGROUND_FETCH_TASK = 'background-episode-and-library-check';
 
 const FEEDS_KEY = 'PODCAST_RSS_FEEDS';
 const EPISODES_CACHE_KEY = 'PODCAST_EPISODES_CACHE';
-const LIBRARY_CACHE_KEY = 'LIBRARY_STATE';
+const CACHE_RECENTLY_PLAYED = 'CACHE_RECENTLY_PLAYED';
 const AUTH_KEY = 'plex_auth_state';
 
 interface PersistedFeed {
@@ -21,7 +21,8 @@ interface PersistedFeed {
 }
 
 async function checkForNewEpisodes(): Promise<boolean> {
-	const [feedsRaw, episodesRaw] = await Promise.all([AsyncStorage.getItem(FEEDS_KEY), AsyncStorage.getItem(EPISODES_CACHE_KEY)]);
+	const feedsRaw = storage.getString(FEEDS_KEY);
+	const episodesRaw = storage.getString(EPISODES_CACHE_KEY);
 
 	if (!feedsRaw) return false;
 
@@ -67,13 +68,13 @@ async function checkForNewEpisodes(): Promise<boolean> {
 		}
 	}
 
-	await AsyncStorage.setItem(EPISODES_CACHE_KEY, JSON.stringify(updatedEpisodes));
+	storage.set(EPISODES_CACHE_KEY, JSON.stringify(updatedEpisodes));
 	return foundNew;
 }
 
 async function refreshRecentlyPlayed(): Promise<boolean> {
 	try {
-		const authRaw = await AsyncStorage.getItem(AUTH_KEY);
+		const authRaw = storage.getString(AUTH_KEY);
 		if (!authRaw) return false;
 
 		const authState = JSON.parse(authRaw);
@@ -88,13 +89,7 @@ async function refreshRecentlyPlayed(): Promise<boolean> {
 
 		if (recentlyPlayed.length === 0) return false;
 
-		const cacheRaw = await AsyncStorage.getItem(LIBRARY_CACHE_KEY);
-		const cache = cacheRaw ? JSON.parse(cacheRaw) : {};
-
-		cache.recentlyPlayed = recentlyPlayed;
-		cache.lastFetchedAt = Date.now();
-
-		await AsyncStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(cache));
+		storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(recentlyPlayed));
 		return true;
 	} catch {
 		return false;

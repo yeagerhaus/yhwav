@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useCallback } from 'react';
-import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet } from 'react-native';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import type { Song } from '@/types/song';
 import { Text } from '../Text';
@@ -23,7 +24,7 @@ const LargeSongItem = React.memo(
 
 		return (
 			<Pressable style={[styles.container, { width: s }]} onPress={onPress}>
-				<Image source={{ uri: item.artworkUrl }} style={[styles.artwork, { width: s, height: s }]} />
+				<Image source={{ uri: item.artworkUrl }} style={[styles.artwork, { width: s, height: s }]} transition={200} />
 				<Text style={[styles.title, { maxWidth: s }]} numberOfLines={1}>
 					{item.title}
 				</Text>

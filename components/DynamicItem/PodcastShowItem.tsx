@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback } from 'react';
-import { Dimensions, Image, Pressable, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet } from 'react-native';
 import { Div } from '../Div';
 import { Text } from '../Text';
 
@@ -36,7 +37,9 @@ export default function PodcastShowItem({ item, size }: PodcastShowItemProps) {
 				<Image
 					source={{ uri: item.artwork }}
 					style={[styles.artwork, size != null && { width: s, height: s }]}
-					resizeMode='cover'
+					contentFit='cover'
+					recyclingKey={item.id}
+					transition={200}
 				/>
 			) : (
 				<Div

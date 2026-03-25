@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 import type { PodcastDownload, PodcastEpisode, PodcastFeed } from '@/types/podcast';
 
 const STORAGE_KEY = 'PODCAST_DOWNLOADS';
@@ -27,7 +27,7 @@ interface PodcastDownloadsState {
 	downloading: Set<string>;
 	hydrated: boolean;
 
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 	downloadEpisode: (episode: PodcastEpisode, feed: PodcastFeed) => Promise<void>;
 	removeDownload: (episodeId: string) => Promise<void>;
 	getDownload: (episodeId: string) => PodcastDownload | undefined;
@@ -42,9 +42,9 @@ interface PodcastDownloadsState {
 	removeAllDownloads: () => Promise<void>;
 }
 
-async function persistDownloads(downloads: Record<string, PodcastDownload>) {
+function persistDownloads(downloads: Record<string, PodcastDownload>) {
 	const list = Object.values(downloads);
-	await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+	storage.set(STORAGE_KEY, JSON.stringify(list));
 }
 
 export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get) => ({
@@ -52,9 +52,9 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 	downloading: new Set(),
 	hydrated: false,
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const raw = storage.getString(STORAGE_KEY);
 			if (!raw) {
 				set({ hydrated: true });
 				return;
@@ -110,7 +110,7 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 					return s;
 				})(),
 			});
-			await persistDownloads(next);
+			persistDownloads(next);
 		} catch {
 			set((s) => {
 				const next = new Set(s.downloading);
@@ -135,7 +135,7 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 		const next = { ...downloads };
 		delete next[episodeId];
 		set({ downloads: next });
-		await persistDownloads(next);
+		persistDownloads(next);
 	},
 
 	getDownload: (episodeId: string) => get().downloads[episodeId],
@@ -154,7 +154,7 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 		const resumeAt = Math.max(0, position);
 		const next = { ...downloads, [episodeId]: { ...entry, resumeAt } };
 		set({ downloads: next });
-		await persistDownloads(next);
+		persistDownloads(next);
 	},
 
 	getDownloadedEpisodesForFeed: (feedId: string) => {
@@ -173,6 +173,6 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 			} catch {}
 		}
 		set({ downloads: {}, downloading: new Set() });
-		await persistDownloads({});
+		persistDownloads({});
 	},
 }));
