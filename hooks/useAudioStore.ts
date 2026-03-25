@@ -64,8 +64,6 @@ interface AudioState {
 	queue: Song[];
 	originalQueue: Song[];
 	isPlaying: boolean;
-	position: number;
-	duration: number;
 	repeatMode: number;
 	isShuffled: boolean;
 	volume: number;
@@ -105,8 +103,6 @@ interface AudioState {
 
 	// Internal state management
 	_setIsPlaying: (isPlaying: boolean) => void;
-	_setPosition: (position: number) => void;
-	_setDuration: (duration: number) => void;
 	_setCurrentSong: (song: Song | null) => void;
 	_setIsBuffering: (isBuffering: boolean) => void;
 	_setError: (error: string | null) => void;
@@ -154,18 +150,6 @@ function scrobbleSong(song: Song) {
 	if (song.source === 'podcast') return;
 	queueScrobble(song).catch(() => {});
 }
-
-// Debounced position save (max once per 2 seconds)
-let positionSaveTimeout: ReturnType<typeof setTimeout> | null = null;
-const debouncedSavePosition = (position: number) => {
-	if (positionSaveTimeout) {
-		clearTimeout(positionSaveTimeout);
-	}
-	positionSaveTimeout = setTimeout(() => {
-		storage.set(STORAGE_POSITION_KEY, String(position));
-		positionSaveTimeout = null;
-	}, 2000);
-};
 
 // Extract artwork color with caching
 async function extractArtworkColor(song: Song): Promise<string> {
@@ -311,8 +295,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	queue: [],
 	originalQueue: [],
 	isPlaying: false,
-	position: 0,
-	duration: 0,
 	repeatMode: RepeatMode.Queue,
 	isShuffled: false,
 	volume: 1.0,
@@ -325,11 +307,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
-	_setPosition: (position) => {
-		set({ position });
-		debouncedSavePosition(position);
-	},
-	_setDuration: (duration) => set({ duration }),
 	_setCurrentSong: (song) => set({ currentSong: song }),
 	_setIsBuffering: (isBuffering) => set({ isBuffering }),
 	_setError: (error) => set({ error }),
@@ -504,7 +481,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			await TrackPlayer.pause();
 
 			const color = await extractArtworkColor(currentSong);
-			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
+			set({ currentSong, queue, artworkBgColor: color, isPlaying: false });
+			const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+			usePlaybackProgressStore.setState({ position });
 
 			if (currentSong.source !== 'podcast') {
 				await TrackPlayer.setRate(1);
@@ -545,7 +524,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					// because PlaybackActiveTrackChanged will see the new currentSong and skip the save).
 					const prev = get().currentSong;
 					if (prev?.source === 'podcast' && prev.id !== song.id) {
-						const { position: prevPos, duration: prevDur } = get();
+						const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+						const { position: prevPos, duration: prevDur } = usePlaybackProgressStore.getState();
 						savePodcastProgressImmediate(prev.id, prevPos, prevDur);
 					}
 
@@ -705,7 +685,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				if (!state.currentSong || state.queue.length === 0) return;
 
 				// If position >= 3s, restart current song
-				if (state.position >= 3) {
+				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				if (usePlaybackProgressStore.getState().position >= 3) {
 					await TrackPlayer.seekTo(0);
 					return;
 				}
@@ -735,21 +716,23 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	seekTo: async (position: number) => {
 		try {
 			await TrackPlayer.seekTo(position);
-			set({ position });
-			storage.set(STORAGE_POSITION_KEY, String(position));
+			const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+			usePlaybackProgressStore.getState().setPosition(position);
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
 	},
 
 	skipBackward15: async () => {
-		const { position, seekTo } = get();
-		await seekTo(Math.max(0, position - 15));
+		const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+		const { position } = usePlaybackProgressStore.getState();
+		await get().seekTo(Math.max(0, position - 15));
 	},
 
 	skipForward15: async () => {
-		const { position, duration, seekTo } = get();
-		await seekTo(Math.min(duration, position + 15));
+		const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+		const { position, duration } = usePlaybackProgressStore.getState();
+		await get().seekTo(Math.min(duration, position + 15));
 	},
 
 	// Add to queue
@@ -973,10 +956,10 @@ export function useTrackPlayerSync() {
 			state._setIsPlaying(true);
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
-			// Save podcast progress immediately on pause so resume position is accurate
 			if (state.currentSong?.source === 'podcast') {
-				const s = useAudioStore.getState();
-				savePodcastProgressImmediate(state.currentSong.id, s.position, s.duration);
+				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				const { position, duration } = usePlaybackProgressStore.getState();
+				savePodcastProgressImmediate(state.currentSong.id, position, duration);
 			}
 		}
 
@@ -1007,8 +990,10 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				const position = event.position ?? 0;
 				const duration = event.duration ?? 0;
-				state._setPosition(position);
-				state._setDuration(duration);
+				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				const progressStore = usePlaybackProgressStore.getState();
+				progressStore.setPosition(position);
+				progressStore.setDuration(duration);
 				lastProgressTimestamp = Date.now();
 
 				// Deferred podcast resume: for downloaded/local files, seek before play() is often ignored; seek now if we're still near 0.
@@ -1051,7 +1036,9 @@ export function useTrackPlayerSync() {
 
 			if (event.type === Event.PlaybackQueueEnded) {
 				if (state.currentSong?.source === 'podcast') {
-					const dur = state.duration > 0 ? state.duration : state.position;
+					const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+					const prog = usePlaybackProgressStore.getState();
+					const dur = prog.duration > 0 ? prog.duration : prog.position;
 					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
 				}
 				if (state.currentSong) scrobbleSong(state.currentSong);

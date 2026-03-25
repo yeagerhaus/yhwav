@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { Div } from '../Div';
 import { Text } from '../Text';
 
@@ -17,8 +18,8 @@ const formatTime = (seconds: number, includeHours: boolean) => {
 };
 
 export const TimeDisplay = React.memo(() => {
-	const position = useAudioStore((state) => state.position);
-	const duration = useAudioStore((state) => state.duration);
+	const position = usePlaybackProgressStore((state) => state.position);
+	const duration = usePlaybackProgressStore((state) => state.duration);
 	const currentSong = useAudioStore((state) => state.currentSong);
 
 	const isPodcast = currentSong?.source === 'podcast';

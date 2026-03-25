@@ -12,6 +12,7 @@ import Animated, {
 	withTiming,
 } from 'react-native-reanimated';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { Div } from '../Div';
 
 configureReanimatedLogger({
@@ -22,8 +23,8 @@ configureReanimatedLogger({
 const PROGRESS_UPDATE_INTERVAL_MS = 500;
 
 export function SongProgressBar() {
-	const position = useAudioStore((state) => state.position);
-	const duration = useAudioStore((state) => state.duration);
+	const position = usePlaybackProgressStore((state) => state.position);
+	const duration = usePlaybackProgressStore((state) => state.duration);
 	const isPlaying = useAudioStore((state) => state.isPlaying);
 	const playbackRate = useAudioStore((state) => state.playbackRate);
 	const seekTo = useAudioStore((state) => state.seekTo);

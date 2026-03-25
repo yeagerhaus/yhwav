@@ -10,6 +10,7 @@ import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
@@ -110,9 +111,11 @@ export default function EpisodeDetailScreen() {
 	const playNext = useAudioStore((s) => s.playNext);
 	const addToQueue = useAudioStore((s) => s.addToQueue);
 	const togglePlayPause = useAudioStore((s) => s.togglePlayPause);
-	const livePosition = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.position : null));
-	const liveDuration = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.duration : null));
 	const isPlaying = useAudioStore((s) => (s.currentSong?.id === episodeId ? s.isPlaying : false));
+
+	const isCurrentEpisode = currentSong?.id === episodeId;
+	const livePosition = usePlaybackProgressStore((s) => (isCurrentEpisode ? s.position : null));
+	const liveDuration = usePlaybackProgressStore((s) => (isCurrentEpisode ? s.duration : null));
 
 	const progress = usePodcastProgressStore((s) => s.progressByEpisodeId[episodeId]);
 	const markAsPlayed = usePodcastProgressStore((s) => s.markAsPlayed);
@@ -123,8 +126,6 @@ export default function EpisodeDetailScreen() {
 	const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
 	const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
-
-	const isCurrentEpisode = currentSong?.id === episodeId;
 
 	const showTitle = feed?.title || (episode && isDownloadRecord(episode) ? episode.showTitle : '') || 'Show';
 	const showImageUrl = feed?.imageUrl || episode?.imageUrl;
