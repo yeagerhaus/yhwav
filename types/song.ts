@@ -4,6 +4,7 @@ export type Song = {
 	artist: string;
 	artistKey: string;
 	album: string;
+	albumId?: string;
 	artwork: string;
 	uri: string;
 	streamUrl?: string;

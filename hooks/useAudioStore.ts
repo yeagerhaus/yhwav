@@ -186,10 +186,36 @@ async function extractArtworkColor(song: Song): Promise<string> {
 	}
 }
 
+// Cached lazy-require accessors (avoids repeated require() per call in hot paths)
+let _downloadsStore: typeof import('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore | undefined;
+let _playbackSettingsStore: typeof import('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore | undefined;
+let _playbackSettingsBitrates: any;
+let _progressStore: typeof import('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore | undefined;
+
+function getDownloadsStore() {
+	if (!_downloadsStore) {
+		_downloadsStore = require('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore;
+	}
+	return _downloadsStore!;
+}
+function getPlaybackSettingsStore() {
+	if (!_playbackSettingsStore) {
+		const mod = require('@/hooks/usePlaybackSettingsStore');
+		_playbackSettingsStore = mod.usePlaybackSettingsStore;
+		_playbackSettingsBitrates = mod.STREAMING_QUALITY_BITRATES;
+	}
+	return { store: _playbackSettingsStore!, bitrates: _playbackSettingsBitrates };
+}
+function getProgressStore() {
+	if (!_progressStore) {
+		_progressStore = require('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore;
+	}
+	return _progressStore!;
+}
+
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
-	const { useMusicDownloadsStore } = require('@/hooks/useMusicDownloadsStore');
-	const localUri = song.localUri || useMusicDownloadsStore.getState().getLocalUri(song.id);
+	const localUri = song.localUri || getDownloadsStore().getState().getLocalUri(song.id);
 	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
@@ -198,9 +224,9 @@ function songToTrack(song: Song) {
 	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
 	let finalUrl = url ?? song.uri ?? '';
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
-		const { usePlaybackSettingsStore, STREAMING_QUALITY_BITRATES } = require('@/hooks/usePlaybackSettingsStore');
-		const quality = usePlaybackSettingsStore.getState().streamingQuality;
-		const bitrate = STREAMING_QUALITY_BITRATES[quality];
+		const { store, bitrates } = getPlaybackSettingsStore();
+		const quality = store.getState().streamingQuality;
+		const bitrate = bitrates[quality];
 		if (bitrate !== null) {
 			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
 		}
@@ -482,7 +508,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 			const color = await extractArtworkColor(currentSong);
 			set({ currentSong, queue, artworkBgColor: color, isPlaying: false });
-			const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+			const usePlaybackProgressStore = getProgressStore();
 			usePlaybackProgressStore.setState({ position });
 
 			if (currentSong.source !== 'podcast') {
@@ -524,7 +550,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					// because PlaybackActiveTrackChanged will see the new currentSong and skip the save).
 					const prev = get().currentSong;
 					if (prev?.source === 'podcast' && prev.id !== song.id) {
-						const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+						const usePlaybackProgressStore = getProgressStore();
 						const { position: prevPos, duration: prevDur } = usePlaybackProgressStore.getState();
 						savePodcastProgressImmediate(prev.id, prevPos, prevDur);
 					}
@@ -685,7 +711,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				if (!state.currentSong || state.queue.length === 0) return;
 
 				// If position >= 3s, restart current song
-				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				const usePlaybackProgressStore = getProgressStore();
 				if (usePlaybackProgressStore.getState().position >= 3) {
 					await TrackPlayer.seekTo(0);
 					return;
@@ -716,7 +742,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	seekTo: async (position: number) => {
 		try {
 			await TrackPlayer.seekTo(position);
-			const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+			const usePlaybackProgressStore = getProgressStore();
 			usePlaybackProgressStore.getState().setPosition(position);
 		} catch (error) {
 			console.error('Error seeking:', error);
@@ -724,13 +750,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	},
 
 	skipBackward15: async () => {
-		const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+		const usePlaybackProgressStore = getProgressStore();
 		const { position } = usePlaybackProgressStore.getState();
 		await get().seekTo(Math.max(0, position - 15));
 	},
 
 	skipForward15: async () => {
-		const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+		const usePlaybackProgressStore = getProgressStore();
 		const { position, duration } = usePlaybackProgressStore.getState();
 		await get().seekTo(Math.min(duration, position + 15));
 	},
@@ -957,7 +983,7 @@ export function useTrackPlayerSync() {
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
 			if (state.currentSong?.source === 'podcast') {
-				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				const usePlaybackProgressStore = getProgressStore();
 				const { position, duration } = usePlaybackProgressStore.getState();
 				savePodcastProgressImmediate(state.currentSong.id, position, duration);
 			}
@@ -990,7 +1016,7 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				const position = event.position ?? 0;
 				const duration = event.duration ?? 0;
-				const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+				const usePlaybackProgressStore = getProgressStore();
 				const progressStore = usePlaybackProgressStore.getState();
 				progressStore.setPosition(position);
 				progressStore.setDuration(duration);
@@ -1036,7 +1062,7 @@ export function useTrackPlayerSync() {
 
 			if (event.type === Event.PlaybackQueueEnded) {
 				if (state.currentSong?.source === 'podcast') {
-					const { usePlaybackProgressStore } = require('@/hooks/usePlaybackProgressStore');
+					const usePlaybackProgressStore = getProgressStore();
 					const prog = usePlaybackProgressStore.getState();
 					const dur = prog.duration > 0 ? prog.duration : prog.position;
 					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
