@@ -24,7 +24,7 @@ const LargeSongItem = React.memo(
 
 		return (
 			<Pressable style={[styles.container, { width: s }]} onPress={onPress}>
-				<Image source={{ uri: item.artworkUrl }} style={[styles.artwork, { width: s, height: s }]} />
+				<Image source={{ uri: item.artworkUrl }} style={[styles.artwork, { width: s, height: s }]} transition={200} />
 				<Text style={[styles.title, { maxWidth: s }]} numberOfLines={1}>
 					{item.title}
 				</Text>

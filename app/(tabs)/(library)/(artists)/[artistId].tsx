@@ -2,9 +2,11 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
+import { SkeletonCard } from '@/components/SkeletonCard';
+import { SkeletonBanner } from '@/components/Skeletons';
 import { Text } from '@/components/Text';
 import { DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
@@ -237,7 +239,11 @@ export default function ArtistDetailScreen() {
 	return (
 		<Main>
 			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
-				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} contentFit='cover' />}
+				{artist.art ? (
+					<Image source={{ uri: artist.art }} style={styles.banner} contentFit='cover' transition={300} />
+				) : (
+					<SkeletonBanner />
+				)}
 				<Div transparent>
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}
@@ -279,21 +285,31 @@ export default function ArtistDetailScreen() {
 					</Pressable>
 				)}
 			</Div>
-			{sections.map((section) => (
-				<Div key={section.category} transparent style={{ marginBottom: 8 }}>
-					<Text type='h2' style={styles.sectionHeader}>
-						{section.category}
-					</Text>
-					<FlatList
-						horizontal
-						data={section.albums}
-						keyExtractor={(item) => item.id}
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
-						renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
-					/>
-				</Div>
-			))}
+			{sections.length > 0
+				? sections.map((section) => (
+						<Div key={section.category} transparent style={{ marginBottom: 8 }}>
+							<Text type='h2' style={styles.sectionHeader}>
+								{section.category}
+							</Text>
+							<FlatList
+								horizontal
+								data={section.albums}
+								keyExtractor={(item) => item.id}
+								showsHorizontalScrollIndicator={false}
+								contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
+								renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
+							/>
+						</Div>
+					))
+				: Array.from({ length: 2 }, (_, i) => (
+						<Div key={`sk-section-${i}`} transparent style={{ marginBottom: 8 }}>
+							<View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 12, paddingTop: 16 }}>
+								{Array.from({ length: 3 }, (__, j) => (
+									<SkeletonCard key={`sk-${i}-${j}`} size={140} />
+								))}
+							</View>
+						</Div>
+					))}
 			<Div transparent style={{ height: 64 }} />
 		</Main>
 	);

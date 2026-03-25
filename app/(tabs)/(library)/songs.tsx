@@ -1,15 +1,13 @@
 import { FlashList } from '@shopify/flash-list';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl } from 'react-native';
+import { RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { useColors } from '@/hooks/useColors';
+import { SkeletonList, SkeletonSongRow } from '@/components/Skeletons';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 
 export default function SongsScreen() {
-	const colors = useColors();
 	const { tracks } = useOfflineFilteredLibrary();
-	const isIndexing = false; // Track indexing is now synchronous
 	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
 	const [refreshing, setRefreshing] = useState(false);
 
@@ -94,19 +92,16 @@ export default function SongsScreen() {
 		[],
 	);
 
-	// Show loading state while indexing or sorting
-	if (isIndexing || (tracks.length > 0 && sortedSongs.length === 0)) {
-		return (
-			<Main scrollEnabled={false}>
-				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
-					<ActivityIndicator size='large' color={colors.brand} />
-					<Text type='body' style={{ marginTop: 16, opacity: 0.7 }}>
-						{isIndexing ? 'Indexing library...' : 'Sorting songs...'}
-					</Text>
-				</Div>
-			</Main>
-		);
-	}
+	const listEmptyComponent = useMemo(
+		() => (
+			<Div transparent style={{ paddingTop: 8 }}>
+				<SkeletonList count={12}>
+					<SkeletonSongRow />
+				</SkeletonList>
+			</Div>
+		),
+		[],
+	);
 
 	return (
 		<Main scrollEnabled={false}>
@@ -115,6 +110,7 @@ export default function SongsScreen() {
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
 			/>

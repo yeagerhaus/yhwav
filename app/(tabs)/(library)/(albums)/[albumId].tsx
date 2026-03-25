@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Div, DynamicItem, Text } from '@/components';
+import { SkeletonList, SkeletonTrackRow } from '@/components/Skeletons';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
@@ -152,6 +153,18 @@ export default function AlbumDetailScreen() {
 		],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			album ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={8}>
+						<SkeletonTrackRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[album],
+	);
+
 	return (
 		<View style={{ flex: 1, backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom }}>
 			<FlashList
@@ -159,6 +172,7 @@ export default function AlbumDetailScreen() {
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
 			/>
 		</View>

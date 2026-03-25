@@ -31,7 +31,7 @@ export default function AlbumItem({ item, size }: AlbumItemProps) {
 				})
 			}
 		>
-			<Image source={{ uri: item.artwork }} style={[styles.artwork, size != null && { width: s, height: s }]} />
+			<Image source={{ uri: item.artwork }} style={[styles.artwork, size != null && { width: s, height: s }]} transition={200} />
 			<Text type='h4' style={[styles.name, size != null && { maxWidth: s }]} numberOfLines={1}>
 				{item.album}
 			</Text>

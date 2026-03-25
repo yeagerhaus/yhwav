@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { SkeletonList, SkeletonTrackRow } from '@/components/Skeletons';
 import { DefaultSharedComponents } from '@/constants/styles';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -28,6 +29,7 @@ export default function DetailScreen() {
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
 	const [artwork, setArtwork] = useState<string | null>(null);
 	const [editTitle, setEditTitle] = useState('');
+	const [tracksLoading, setTracksLoading] = useState(true);
 
 	const ratingKey = playlist?.ratingKey ?? '';
 	const editor = usePlaylistEditor(ratingKey, playlistId);
@@ -109,7 +111,7 @@ export default function DetailScreen() {
 			}
 		};
 
-		loadPlaylistData();
+		loadPlaylistData().finally(() => setTracksLoading(false));
 	}, [playlistId, playlists, loadPlaylistTracks, downloadedPlaylists]);
 
 	const handleEdit = useCallback(() => {
@@ -326,6 +328,18 @@ export default function DetailScreen() {
 		],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			tracksLoading ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={8}>
+						<SkeletonTrackRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[tracksLoading],
+	);
+
 	if (editor.isEditing) {
 		return (
 			<Main scrollEnabled={false}>
@@ -348,6 +362,7 @@ export default function DetailScreen() {
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>
 		</Main>

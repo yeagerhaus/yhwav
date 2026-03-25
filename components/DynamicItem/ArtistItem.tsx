@@ -30,7 +30,7 @@ export default function ArtistItem({ item, size: _size }: ArtistItemProps) {
 			}
 		>
 			{item.thumb ? (
-				<Image source={{ uri: item.thumb }} style={styles.image} />
+				<Image source={{ uri: item.thumb }} style={styles.image} transition={200} />
 			) : (
 				<Div style={styles.initialCircle} transparent>
 					<Text style={styles.initialText}>{item.name.charAt(0).toUpperCase()}</Text>

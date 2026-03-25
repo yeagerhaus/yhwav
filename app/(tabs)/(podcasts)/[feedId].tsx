@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
+import { SkeletonEpisodeRow, SkeletonList } from '@/components/Skeletons';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
@@ -23,6 +24,7 @@ export default function PodcastFeedScreen() {
 	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 	const [filterQuery, setFilterQuery] = useState('');
+	const [feedLoading, setFeedLoading] = useState(false);
 
 	const feed = useMemo(() => feeds.find((f) => f.id === feedId), [feeds, feedId]);
 	const fetchedEpisodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
@@ -43,7 +45,12 @@ export default function PodcastFeedScreen() {
 	}, [allEpisodes, filterQuery]);
 
 	useEffect(() => {
-		if (feedId && feed && fetchedEpisodes.length === 0) fetchFeed(feedId).catch(() => {});
+		if (feedId && feed && fetchedEpisodes.length === 0) {
+			setFeedLoading(true);
+			fetchFeed(feedId)
+				.catch(() => {})
+				.finally(() => setFeedLoading(false));
+		}
 	}, [feedId, feed, fetchedEpisodes.length, fetchFeed]);
 
 	const showTitle = feed?.title || feed?.url || 'Show';
@@ -171,6 +178,18 @@ export default function PodcastFeedScreen() {
 		[showImageUrl, showTitle, allEpisodes.length, episodes.length, filterQuery, isDark, feedMenuItems],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			feedLoading ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={6}>
+						<SkeletonEpisodeRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[feedLoading],
+	);
+
 	if (!feed) {
 		return (
 			<Main>
@@ -190,6 +209,7 @@ export default function PodcastFeedScreen() {
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
 				keyboardDismissMode='on-drag'
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>

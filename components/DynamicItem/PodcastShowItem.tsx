@@ -39,6 +39,7 @@ export default function PodcastShowItem({ item, size }: PodcastShowItemProps) {
 					style={[styles.artwork, size != null && { width: s, height: s }]}
 					contentFit='cover'
 					recyclingKey={item.id}
+					transition={200}
 				/>
 			) : (
 				<Div

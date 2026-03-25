@@ -1,16 +1,16 @@
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { useColors } from '@/hooks/useColors';
+import { SkeletonArtistRow, SkeletonList } from '@/components/Skeletons';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import type { Artist } from '@/types';
 
 export default function ArtistsScreen() {
-	const colors = useColors();
 	const _router = useRouter();
 	const { artists } = useOfflineFilteredLibrary();
+	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
 
 	const sorted = useMemo(() => [...artists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })), [artists]);
 
@@ -28,12 +28,21 @@ export default function ArtistsScreen() {
 	);
 
 	const listEmptyComponent = useMemo(
-		() => (
-			<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-				<ActivityIndicator size='large' color={colors.brand} />
-			</Div>
-		),
-		[colors.brand],
+		() =>
+			hasInitialized ? (
+				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+					<Text type='body' colorVariant='muted'>
+						No artists found
+					</Text>
+				</Div>
+			) : (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={10}>
+						<SkeletonArtistRow />
+					</SkeletonList>
+				</Div>
+			),
+		[hasInitialized],
 	);
 
 	return (

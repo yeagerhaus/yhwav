@@ -38,6 +38,7 @@ export default function PlaylistItem({ item, size }: PlaylistItemProps) {
 					style={[styles.artwork, size != null && { width: s, height: s }]}
 					contentFit='cover'
 					recyclingKey={item.id}
+					transition={200}
 				/>
 			) : (
 				<Div
