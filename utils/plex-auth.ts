@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { storage } from '@/lib/storage';
 import { type PlexServer, plexDiscoveryService } from './plex-discovery';
+import { buildPlexIdentityHeaders } from './plex-identity';
 
 export interface PlexAuthState {
 	isAuthenticated: boolean;
@@ -43,7 +44,7 @@ export class PlexAuthService {
 	private clientIdentifier: string | null = null;
 
 	private constructor() {
-		this.clientIdentifier = this.getOrCreateClientIdentifier();
+		this.clientIdentifier = this.getOrCreateClientIdentifierFromStorage();
 	}
 
 	static getInstance(): PlexAuthService {
@@ -79,19 +80,12 @@ export class PlexAuthService {
 	}
 
 	/**
-	 * Get client identifier (synchronous version for immediate use)
+	 * Stable Plex client id for this install (persisted). Use for all Plex API and PMS requests.
 	 */
-	private getOrCreateClientIdentifier(): string {
-		if (this.clientIdentifier) {
-			return this.clientIdentifier;
-		}
-		// For immediate use, generate a deterministic identifier
-		const platform = Platform.OS;
-		const deviceId = Device.modelId || 'unknown';
-		const _timestamp = Date.now();
-		const random = Math.random().toString(36).substring(2, 10);
-		this.clientIdentifier = `rite-${platform}-${deviceId}-${random}`;
-		return this.clientIdentifier;
+	getClientIdentifier(): string {
+		const id = this.getOrCreateClientIdentifierFromStorage();
+		this.clientIdentifier = id;
+		return id;
 	}
 
 	/**
@@ -102,16 +96,10 @@ export class PlexAuthService {
 		try {
 			console.log('🔐 Requesting Plex PIN...');
 
-			const clientId = this.getOrCreateClientIdentifierFromStorage();
-
 			const response = await fetch('https://plex.tv/api/v2/pins', {
 				method: 'POST',
 				headers: {
-					'X-Plex-Client-Identifier': clientId,
-					'X-Plex-Product': 'Rite',
-					'X-Plex-Version': '1.0.0',
-					'X-Plex-Device': Device.modelName || 'Unknown Device',
-					'X-Plex-Platform': Platform.OS,
+					...buildPlexIdentityHeaders(this.getClientIdentifier()),
 					Accept: 'application/json',
 				},
 			});
@@ -157,11 +145,10 @@ export class PlexAuthService {
 	 */
 	async pollPinStatus(pinId: number): Promise<PlexPinStatus | null> {
 		try {
-			const clientId = this.getOrCreateClientIdentifierFromStorage();
 			const response = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
 				method: 'GET',
 				headers: {
-					'X-Plex-Client-Identifier': clientId,
+					...buildPlexIdentityHeaders(this.getClientIdentifier()),
 					Accept: 'application/json',
 				},
 			});

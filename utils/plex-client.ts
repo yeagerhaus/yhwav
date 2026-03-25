@@ -6,6 +6,7 @@ import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
+import { appendPlexIdentityQueryToUrl, buildPlexIdentityHeaders, encodePlexIdentityQueryString, getPlexAppVersion } from './plex-identity';
 
 const OFFLINE_MODE_MESSAGE = 'Offline mode is on. Disable in Settings to fetch library data.';
 
@@ -150,10 +151,14 @@ export class PlexClient {
 
 		// Quick check: is the current baseURL still reachable?
 		try {
-			const testUrl = `${currentBase}/identity?X-Plex-Token=${encodeURIComponent(token)}`;
+			let testUrl = `${currentBase}/identity?X-Plex-Token=${encodeURIComponent(token)}`;
+			testUrl = appendPlexIdentityQueryToUrl(testUrl, plexAuthService.getClientIdentifier());
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 3000);
-			const response = await fetch(testUrl, { signal: controller.signal });
+			const response = await fetch(testUrl, {
+				signal: controller.signal,
+				headers: buildPlexIdentityHeaders(plexAuthService.getClientIdentifier()),
+			});
 			clearTimeout(timeoutId);
 			if (response.ok) return; // Still connected
 		} catch {
@@ -206,9 +211,12 @@ export class PlexClient {
 	 */
 	private buildTrackURL(path: string): string {
 		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-		return this.token
-			? `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}`
-			: `${this.baseURL}${normalizedPath}`;
+		const id = plexAuthService.getClientIdentifier();
+		const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(id));
+		if (this.token) {
+			return `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}&${identityQs}`;
+		}
+		return `${this.baseURL}${normalizedPath}?${identityQs}`;
 	}
 
 	/**
@@ -228,6 +236,11 @@ export class PlexClient {
 		// Add authentication token
 		if (this.token) {
 			url.searchParams.set('X-Plex-Token', this.token);
+		}
+
+		const clientId = plexAuthService.getClientIdentifier();
+		for (const [key, value] of Object.entries(buildPlexIdentityHeaders(clientId))) {
+			url.searchParams.set(key, value);
 		}
 
 		// Add additional parameters
@@ -314,11 +327,11 @@ export class PlexClient {
 
 		const url = this.buildURL(path, params);
 
-		// Default headers for Plex API
+		const clientId = plexAuthService.getClientIdentifier();
 		const defaultHeaders = {
 			Accept: 'application/json',
-			'User-Agent': 'Rite/1.0.0',
-			'X-Plex-Client-Identifier': 'rite-mobile',
+			'User-Agent': `Rite/${getPlexAppVersion()}`,
+			...buildPlexIdentityHeaders(clientId),
 			...headers,
 		};
 
