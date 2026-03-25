@@ -238,7 +238,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			queue: [...s.queue, ...newSongs],
 			queueTotal: s.queueTotal + newSongs.length,
 		}));
-		get().snapshotMetadataForSongs(songs);
+		get().snapshotMetadataForSongs(newSongs);
 		processQueue(get, set);
 	},
 
@@ -327,7 +327,6 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 	},
 
 	snapshotMetadataForSongs: async (songs: Song[]) => {
-		console.log(`[snapshot] called with ${songs.length} songs`);
 		const { useLibraryStore } = require('@/hooks/useLibraryStore');
 		const libState = useLibraryStore.getState() as {
 			artistsById: Record<string, Artist>;
@@ -336,17 +335,7 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		};
 		const { artistsById, artists, albumsById } = libState;
 
-		console.log(
-			`[snapshot] library has ${Object.keys(artistsById).length} artistsById, ${artists.length} artists array, ${Object.keys(albumsById).length} albumsById`,
-		);
-		if (artists.length > 0) {
-			console.log(`[snapshot] sample artist keys from artistsById:`, Object.keys(artistsById).slice(0, 5));
-		}
-
 		const { downloadedArtists, downloadedAlbums } = get();
-		console.log(
-			`[snapshot] already have ${Object.keys(downloadedArtists).length} downloadedArtists, ${Object.keys(downloadedAlbums).length} downloadedAlbums`,
-		);
 
 		let artistsChanged = false;
 		let albumsChanged = false;
@@ -359,32 +348,18 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 		for (const song of songs) {
 			if (song.artistKey && !seenArtistKeys.has(song.artistKey)) {
 				seenArtistKeys.add(song.artistKey);
-				console.log(`[snapshot] song "${song.title}" artistKey="${song.artistKey}" artist="${song.artist}"`);
 
 				let artist: Artist | undefined = artistsById[song.artistKey];
-				console.log(`[snapshot]   direct lookup artistsById["${song.artistKey}"]: ${artist ? artist.name : 'MISS'}`);
-
 				if (!artist) {
 					const ratingKey = song.artistKey.split('/').pop() || song.artistKey;
 					artist = artistsById[ratingKey];
-					console.log(`[snapshot]   ratingKey lookup artistsById["${ratingKey}"]: ${artist ? artist.name : 'MISS'}`);
 				}
 				if (!artist) {
 					artist = artists.find((a) => a.name === song.artist);
-					console.log(`[snapshot]   name lookup for "${song.artist}": ${artist ? `found key=${artist.key}` : 'MISS'}`);
 				}
-				if (artist) {
-					if (!nextArtists[artist.key]) {
-						console.log(
-							`[snapshot]   ✅ saving artist key="${artist.key}" name="${artist.name}" thumb=${!!artist.thumb} art=${!!(artist as any).art}`,
-						);
-						nextArtists[artist.key] = artist;
-						artistsChanged = true;
-					} else {
-						console.log(`[snapshot]   already saved artist key="${artist.key}"`);
-					}
-				} else {
-					console.log(`[snapshot]   ❌ could not find artist for song "${song.title}"`);
+				if (artist && !nextArtists[artist.key]) {
+					nextArtists[artist.key] = artist;
+					artistsChanged = true;
 				}
 			}
 
@@ -393,14 +368,12 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 				seenAlbumKeys.add(albumKey);
 				const album = Object.values(albumsById).find((a) => a.title === song.album && a.artist === song.artist);
 				if (album && !nextAlbums[album.id]) {
-					console.log(`[snapshot]   ✅ saving album id="${album.id}" title="${album.title}"`);
 					nextAlbums[album.id] = album;
 					albumsChanged = true;
 				}
 			}
 		}
 
-		console.log(`[snapshot] result: artistsChanged=${artistsChanged} albumsChanged=${albumsChanged}`);
 		if (artistsChanged || albumsChanged) {
 			set({
 				...(artistsChanged ? { downloadedArtists: nextArtists } : {}),
@@ -408,7 +381,6 @@ export const useMusicDownloadsStore = create<MusicDownloadsState>((set, get) => 
 			});
 			if (artistsChanged) persistArtists(nextArtists);
 			if (albumsChanged) persistAlbums(nextAlbums);
-			console.log(`[snapshot] persisted ${Object.keys(nextArtists).length} artists, ${Object.keys(nextAlbums).length} albums`);
 		}
 	},
 

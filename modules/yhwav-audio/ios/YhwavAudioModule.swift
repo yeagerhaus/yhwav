@@ -1118,7 +1118,7 @@ private final class NowPlayingManager {
 		if let dur = duration, dur > 0 {
 			info[MPMediaItemPropertyPlaybackDuration] = dur
 		}
-		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
+		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(module?.rate ?? 1.0) : 0.0
 		let current = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = current.merging(info) { _, new in new }
 	}

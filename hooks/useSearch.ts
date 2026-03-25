@@ -52,6 +52,8 @@ export function useSearch() {
 		return map;
 	}, [tracks]);
 
+	const audioPlaylists = useMemo(() => playlists.filter((p) => p.playlistType === 'audio'), [playlists]);
+
 	const indexEpoch = useRef(0);
 	useEffect(() => {
 		if (!useNativeSearch || !YhwavAudioModule) return;
@@ -108,7 +110,6 @@ export function useSearch() {
 			}
 
 			const playlistResults: SearchResult[] = [];
-			const audioPlaylists = playlists.filter((p) => p.playlistType === 'audio');
 			for (const playlist of audioPlaylists) {
 				const titleLower = playlist.title.toLowerCase();
 				const titleMatch = titleLower.includes(normalizedQuery);
@@ -184,7 +185,7 @@ export function useSearch() {
 		return () => {
 			cancelled = true;
 		};
-	}, [debouncedQuery, tracks, albums, artists, playlists, tracksById]);
+	}, [debouncedQuery, tracks, albums, artists, audioPlaylists, tracksById]);
 
 	return {
 		query,
