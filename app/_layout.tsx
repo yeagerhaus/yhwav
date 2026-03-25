@@ -13,6 +13,7 @@ import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-c
 import { AddToPlaylistModal, Div, MiniPlayer, SplashOverlay } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
+import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
@@ -127,6 +128,7 @@ export default function RootLayout() {
 	const hydrateDevSettings = useDevSettingsStore((state) => state.hydrate);
 	const hydrateOfflineMode = useOfflineModeStore((state) => state.hydrate);
 	const hydratePlaybackSettings = usePlaybackSettingsStore((state) => state.hydrate);
+	const addToPlaylistVisible = useAddToPlaylist((s) => s.visible);
 	const plexAuthReady = useRef(false);
 
 	useEffect(() => {
@@ -277,7 +279,7 @@ export default function RootLayout() {
 					<RootScaleProvider>
 						<AudioSync />
 						<AnimatedStack />
-						<AddToPlaylistModal />
+						{addToPlaylistVisible && <AddToPlaylistModal />}
 					</RootScaleProvider>
 				</ThemeProvider>
 			</SafeAreaProvider>
