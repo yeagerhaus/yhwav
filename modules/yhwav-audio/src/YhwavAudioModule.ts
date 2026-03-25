@@ -39,6 +39,7 @@ type YhwavAudioModuleType = {
 	getPlaybackState: () => PlaybackState;
 	getActiveTrackIndex: () => number;
 	getQueue: () => Track[];
+	prewarmURL: (url: string) => Promise<void>;
 	buildSearchIndex: (tracks: Array<{ id: string; title: string; artist: string; album: string }>) => Promise<void>;
 	searchTracks: (query: string, limit: number) => Promise<Array<{ id: string; score: number }>>;
 	addListener: (event: string, callback: (payload: unknown) => void) => { remove: () => void };

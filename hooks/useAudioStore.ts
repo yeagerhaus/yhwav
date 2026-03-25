@@ -135,8 +135,8 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 	return [currentSong, ...shuffled];
 }
 
-// Track which song URL has been pre-warmed to avoid duplicate fetches
-let prewarmedUrl: string | null = null;
+// Track which song ID has been pre-warmed to avoid duplicate fetches
+let prewarmedSongId: string | null = null;
 
 // Playback error retry tracking
 let lastErrorRetryAt = 0;
@@ -1045,11 +1045,17 @@ export function useTrackPlayerSync() {
 					if (currentIndex !== -1) {
 						const nextIndex = (currentIndex + 1) % state.queue.length;
 						const nextSong = state.queue[nextIndex];
-						if (nextSong && nextSong.uri !== prewarmedUrl) {
-							prewarmedUrl = nextSong.uri;
-							fetch(nextSong.uri, { headers: { Range: 'bytes=0-262143' } })
-								.then((r) => r.arrayBuffer())
-								.catch(() => {});
+						if (nextSong && nextSong.id !== prewarmedSongId) {
+							prewarmedSongId = nextSong.id;
+							try {
+								const track = songToTrack(nextSong);
+								const { YhwavAudioModule } = require('@/modules/yhwav-audio/src');
+								if (YhwavAudioModule?.prewarmURL) {
+									YhwavAudioModule.prewarmURL(track.url);
+								} else {
+									fetch(track.url, { headers: { Range: 'bytes=0-262143' } }).catch(() => {});
+								}
+							} catch {}
 						}
 					}
 				}
@@ -1094,7 +1100,7 @@ export function useTrackPlayerSync() {
 				if (previousSong) scrobbleSong(previousSong);
 
 				// Reset pre-warm tracker for the new track
-				prewarmedUrl = null;
+				prewarmedSongId = null;
 
 				state._setCurrentSong(newCurrentSong);
 
