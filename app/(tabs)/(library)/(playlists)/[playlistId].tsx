@@ -1,8 +1,9 @@
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { DefaultSharedComponents } from '@/constants/styles';
@@ -16,8 +17,6 @@ import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
 import { hexWithOpacity } from '@/utils/styles';
-
-const ITEM_HEIGHT = 70;
 
 export default function DetailScreen() {
 	const colors = useColors();
@@ -196,14 +195,6 @@ export default function DetailScreen() {
 		({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} playlistRatingKey={ratingKey} />,
 		[songs, ratingKey],
 	);
-	const getItemLayout = useCallback(
-		(_: any, index: number) => ({
-			length: ITEM_HEIGHT,
-			offset: ITEM_HEIGHT * index,
-			index,
-		}),
-		[],
-	);
 
 	const editKeyExtractor = useCallback((item: Song) => item.playlistItemId || item.id, []);
 	const renderEditItem = useCallback(
@@ -352,17 +343,11 @@ export default function DetailScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={songs}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
-				getItemLayout={getItemLayout}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>
 		</Main>

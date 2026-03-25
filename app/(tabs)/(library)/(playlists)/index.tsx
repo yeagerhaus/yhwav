@@ -1,7 +1,8 @@
+import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -100,19 +101,13 @@ export default function PlaylistsScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={formattedPlaylists}
 				keyExtractor={keyExtractor}
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={10}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
 	);

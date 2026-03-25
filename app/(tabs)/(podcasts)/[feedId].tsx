@@ -1,8 +1,9 @@
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
@@ -184,16 +185,11 @@ export default function PodcastFeedScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={episodes}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
 				keyboardDismissMode='on-drag'
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>

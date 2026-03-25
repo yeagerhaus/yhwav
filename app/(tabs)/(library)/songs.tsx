@@ -1,12 +1,10 @@
+import { FlashList } from '@shopify/flash-list';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
+import { ActivityIndicator, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
-
-// Estimated item height for getItemLayout optimization
-const ITEM_HEIGHT = 70;
 
 export default function SongsScreen() {
 	const colors = useColors();
@@ -85,15 +83,6 @@ export default function SongsScreen() {
 		[songs],
 	);
 
-	const getItemLayout = useCallback(
-		(_: any, index: number) => ({
-			length: ITEM_HEIGHT,
-			offset: ITEM_HEIGHT * index,
-			index,
-		}),
-		[],
-	);
-
 	const keyExtractor = useCallback((item: (typeof songs)[0]) => item.id.toString(), []);
 
 	const listHeaderComponent = useMemo(
@@ -121,17 +110,11 @@ export default function SongsScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={songs}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
-				getItemLayout={getItemLayout}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
 			/>

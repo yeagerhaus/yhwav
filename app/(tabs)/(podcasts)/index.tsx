@@ -1,7 +1,8 @@
+import { FlashList } from '@shopify/flash-list';
 import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, RefreshControl } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
@@ -114,20 +115,14 @@ export default function PodcastsScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={formattedShows}
 				keyExtractor={keyExtractor}
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={10}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
 	);

@@ -1,6 +1,7 @@
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
@@ -37,17 +38,12 @@ export default function ArtistsScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={sorted}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
 				ListEmptyComponent={listEmptyComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 80, paddingHorizontal: 16 }}
 			/>
 		</Main>

@@ -1,5 +1,5 @@
+import { FlashList } from '@shopify/flash-list';
 import { useCallback, useMemo } from 'react';
-import { FlatList } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 
@@ -33,19 +33,13 @@ export default function AlbumsScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={sorted}
 				keyExtractor={keyExtractor}
 				numColumns={2}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={10}
-				updateCellsBatchingPeriod={50}
 				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
-				columnWrapperStyle={{ justifyContent: 'space-between' }}
 			/>
 		</Main>
 	);
