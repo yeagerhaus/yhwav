@@ -68,13 +68,13 @@ export class PlexAuthService {
 			const _deviceId = Device.modelId || 'unknown';
 			const timestamp = Date.now();
 			const random = Math.random().toString(36).substring(2, 10);
-			const identifier = `yhwav-${platform}-${timestamp}-${random}`;
+			const identifier = `rite-${platform}-${timestamp}-${random}`;
 
 			storage.set(storageKey, identifier);
 			return identifier;
 		} catch (error) {
 			console.error('Failed to get/create client identifier:', error);
-			return `yhwav-${Platform.OS}-${Date.now()}`;
+			return `rite-${Platform.OS}-${Date.now()}`;
 		}
 	}
 
@@ -90,7 +90,7 @@ export class PlexAuthService {
 		const deviceId = Device.modelId || 'unknown';
 		const _timestamp = Date.now();
 		const random = Math.random().toString(36).substring(2, 10);
-		this.clientIdentifier = `yhwav-${platform}-${deviceId}-${random}`;
+		this.clientIdentifier = `rite-${platform}-${deviceId}-${random}`;
 		return this.clientIdentifier;
 	}
 
@@ -108,7 +108,7 @@ export class PlexAuthService {
 				method: 'POST',
 				headers: {
 					'X-Plex-Client-Identifier': clientId,
-					'X-Plex-Product': 'YH Player',
+					'X-Plex-Product': 'Rite',
 					'X-Plex-Version': '1.0.0',
 					'X-Plex-Device': Device.modelName || 'Unknown Device',
 					'X-Plex-Platform': Platform.OS,

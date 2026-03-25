@@ -30,7 +30,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
 	return {
 		...config,
-		name: 'yhwav',
+		name: 'Rite',
 		slug: 'yhwav',
 		version,
 		orientation: 'portrait',
