@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "yhwav",
+      "name": "rite",
       "dependencies": {
         "@expo/metro-runtime": "~6.1.2",
         "@react-native-community/slider": "5.0.1",

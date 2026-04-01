@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
 		fontWeight: '500',
 	},
 	artwork: {
-		marginLeft: 8,
+		marginLeft: 16,
 		width: 40,
 		height: 40,
 		borderRadius: 4,

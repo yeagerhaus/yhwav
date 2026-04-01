@@ -216,6 +216,9 @@ function getProgressStore() {
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
 	const localUri = song.localUri || getDownloadsStore().getState().getLocalUri(song.id);
+	if (__DEV__ && !localUri) {
+		console.log(`[songToTrack] No localUri for ${song.id}, using remote URL`);
+	}
 	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
@@ -498,11 +501,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 			await TrackPlayer.add(queue.map(songToTrack));
 
-			const trackIndex = queue.findIndex((s) => s.id === currentSong!.id);
-			if (trackIndex !== -1) {
-				await TrackPlayer.skip(trackIndex);
-				if (position > 0) await TrackPlayer.seekTo(position);
-			}
+			const trackIndex = Math.max(
+				0,
+				queue.findIndex((s) => s.id === currentSong!.id),
+			);
+			await TrackPlayer.skip(trackIndex);
+			if (position > 0) await TrackPlayer.seekTo(position);
 			// Always pause regardless of trackIndex — prevents auto-play on reload
 			await TrackPlayer.pause();
 
@@ -603,9 +607,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
 
 						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-						if (trackIndex !== -1 && (queueToUse.length > 1 || trackIndex > 0)) {
-							await TrackPlayer.skip(trackIndex);
-						}
+						await TrackPlayer.skip(Math.max(0, trackIndex));
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -614,6 +616,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
 						set({ queue: [song], originalQueue: [song] });
+						await TrackPlayer.skip(0);
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					}
@@ -1093,9 +1096,12 @@ export function useTrackPlayerSync() {
 				if (!isNaturalAdvance) return;
 
 				const previousSong = state.currentSong;
-				const gapMs = Date.now() - lastProgressTimestamp;
+				const now = Date.now();
+				const nativeGapMs = event.previousTrackEndedAt ? now - event.previousTrackEndedAt : null;
+				const jsGapMs = now - lastProgressTimestamp;
 				if (__DEV__) {
-					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
+					const gapLabel = nativeGapMs != null ? `${nativeGapMs.toFixed(0)}ms native` : `${jsGapMs.toFixed(0)}ms js`;
+					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapLabel})`);
 				}
 				if (previousSong) scrobbleSong(previousSong);
 
@@ -1112,9 +1118,6 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackError) {
-				console.warn('Playback error (will retry):', event);
-
-				// Retry the current track once instead of nuking the player state
 				const now = Date.now();
 				const canRetry = now - lastErrorRetryAt > 3000;
 
@@ -1132,9 +1135,23 @@ export function useTrackPlayerSync() {
 						}
 					}
 				} else if (!canRetry) {
-					// Retry already attempted recently — just pause, don't destroy state
-					console.warn('Playback error after recent retry, pausing');
-					useAudioStore.setState({ isPlaying: false });
+					console.warn('Playback error after recent retry, skipping to next');
+					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const nextIndex = trackIndex + 1;
+					if (nextIndex < state.queue.length) {
+						try {
+							lastErrorRetryAt = now;
+							const nextSong = state.queue[nextIndex];
+							state._setCurrentSong(nextSong);
+							await TrackPlayer.skip(nextIndex);
+							await TrackPlayer.play();
+							console.log(`✅ Skipped failed track → ${nextSong.id}`);
+						} catch {
+							useAudioStore.setState({ isPlaying: false });
+						}
+					} else {
+						useAudioStore.setState({ isPlaying: false });
+					}
 				}
 			}
 

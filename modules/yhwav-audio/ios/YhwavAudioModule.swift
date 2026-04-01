@@ -377,14 +377,21 @@ public final class YhwavAudioModule: Module {
 	fileprivate var rate: Float = 1.0
 	private var currentItemObservation: NSKeyValueObservation?
 	private var itemDidEndObserver: NSObjectProtocol?
+	private var itemFailedObserver: NSObjectProtocol?
+	private var itemStatusObservations: [NSKeyValueObservation] = []
 	private var isInitialized = false
 	private var suppressTrackChangeEvents = false
+	private var lastTrackEndTimestamp: Double = 0
+	private var failedItemIds = Set<String>()
+	private var lastPlaybackErrorEmitTime: Double = 0
+	private var lastEmittedTrackIndex: Int = -1
+	private var lastEmittedTrackTime: Double = 0
 
 	// Playback state for JS: "playing" | "paused" | "buffering" | "ready" | "loading" | "stopped" | "error"
 	private var lastEmittedState: String = "stopped"
 
-	// Audio processing tap: item we attached the tap to, so we can clear when switching
-	private weak var itemWithAudioTap: AVPlayerItem?
+	// Audio processing taps: tracked per-item so we can pre-attach for gapless transitions
+	private var itemsWithAudioTap = NSHashTable<AVPlayerItem>.weakObjects()
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -425,7 +432,7 @@ public final class YhwavAudioModule: Module {
 			self.queuePlayer?.volume = self.volume
 			self.queuePlayer?.rate = self.rate
 			self.observePlayerStatus()
-			self.setupAudioTapForCurrentItem()
+			self.ensureAudioTapsForWindow()
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
 		}
@@ -442,22 +449,12 @@ public final class YhwavAudioModule: Module {
 		AsyncFunction("add") { (tracks: [TrackRecord], insertAfterIndex: Int?) in
 			guard self.queuePlayer != nil else { return }
 			DispatchQueue.main.sync {
-				guard let player = self.queuePlayer else { return }
 				let afterIdx = insertAfterIndex ?? (self.trackOrder.isEmpty ? -1 : self.trackOrder.count - 1)
-				var insertAfter: AVPlayerItem?
-				if afterIdx >= 0, afterIdx < self.trackOrder.count {
-					let refId = self.trackOrder[afterIdx]
-					insertAfter = player.items().first { $0.associatedTrackId() == refId }
-				}
-				if insertAfter == nil, !player.items().isEmpty {
-					insertAfter = player.items().last
-				}
+				let wasEmpty = self.trackOrder.isEmpty
+				print("YhwavAudio: add \(tracks.count) tracks (wasEmpty=\(wasEmpty), afterIdx=\(afterIdx))")
+
 				for track in tracks {
-					let item = self.createPlayerItem(url: track.url)
-					item.setAssociatedTrack(track)
 					self.trackMetadata[track.id] = track
-					player.insert(item, after: insertAfter)
-					insertAfter = item
 				}
 				if self.trackOrder.isEmpty {
 					self.trackOrder = tracks.map(\.id)
@@ -468,17 +465,32 @@ public final class YhwavAudioModule: Module {
 					let tail = Array(self.trackOrder.dropFirst(afterIdx + 1))
 					self.trackOrder = head + tracks.map(\.id) + tail
 				}
-				self.startProgressTimerIfNeeded()
+
+				let currentIdx = self.currentActiveTrackIndex()
+				if currentIdx >= 0 {
+					self.extendWindow()
+				}
+				// When currentIdx < 0 (empty queue), don't build a window here.
+				// The caller (playSound) will call skip() which builds the window
+				// at the correct index — avoids a wasteful double rebuildWindow.
 			}
 		}
 
 		AsyncFunction("reset") {
 			DispatchQueue.main.sync {
+				print("YhwavAudio: reset (had \(self.trackOrder.count) tracks, \(self.queuePlayer?.items().count ?? 0) items)")
 				self.stopProgressTimer()
-				self.teardownAudioTap()
+				self.teardownAllAudioTaps()
 				self.queuePlayer?.removeAllItems()
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
+				self.failedItemIds.removeAll()
+				self.lastTrackEndTimestamp = 0
+				self.lastPlaybackErrorEmitTime = 0
+				self.lastEmittedTrackIndex = -1
+				self.lastEmittedTrackTime = 0
+				self.itemStatusObservations.forEach { $0.invalidate() }
+				self.itemStatusObservations.removeAll()
 				self.lastEmittedState = "stopped"
 				AudioDSPState.shared.resetFilterState()
 			}
@@ -488,15 +500,15 @@ public final class YhwavAudioModule: Module {
 			guard self.queuePlayer != nil else { return }
 			DispatchQueue.main.sync {
 				guard let player = self.queuePlayer else { return }
-				let allItems = player.items()
 				for idx in indices.sorted(by: >) where idx >= 0 && idx < self.trackOrder.count {
 					let id = self.trackOrder[idx]
-					if let item = allItems.first(where: { $0.associatedTrackId() == id }) {
+					if let item = player.items().first(where: { $0.associatedTrackId() == id }) {
 						player.remove(item)
 					}
 					self.trackOrder.remove(at: idx)
 					self.trackMetadata.removeValue(forKey: id)
 				}
+				self.extendWindow()
 			}
 		}
 
@@ -504,22 +516,17 @@ public final class YhwavAudioModule: Module {
 			guard self.queuePlayer != nil else { return }
 			DispatchQueue.main.sync {
 				guard let player = self.queuePlayer else { return }
-				let current = player.currentItem
-				let items = player.items()
-				var foundCurrent = false
-				for item in items {
-					if item === current {
-						foundCurrent = true
-						continue
-					}
-					if foundCurrent {
+				let currentIdx = self.currentActiveTrackIndex()
+				guard currentIdx >= 0 else { return }
+
+				let idsToRemove = Array(self.trackOrder.dropFirst(currentIdx + 1))
+				for id in idsToRemove {
+					if let item = player.items().first(where: { $0.associatedTrackId() == id }) {
 						player.remove(item)
-						if let id = item.associatedTrackId() {
-							self.trackOrder.removeAll { $0 == id }
-							self.trackMetadata.removeValue(forKey: id)
-						}
 					}
+					self.trackMetadata.removeValue(forKey: id)
 				}
+				self.trackOrder = Array(self.trackOrder.prefix(currentIdx + 1))
 			}
 		}
 
@@ -534,9 +541,9 @@ public final class YhwavAudioModule: Module {
 				let currentIdx = self.currentActiveTrackIndex()
 				let wasPlaying = self.queuePlayer?.timeControlStatus == .playing
 				self.suppressTrackChangeEvents = true
-				self.rebuildQueueFromOrder(makeCurrentIndex: currentIdx >= 0 ? currentIdx : nil)
+				self.rebuildWindow(aroundIndex: currentIdx >= 0 ? currentIdx : 0)
 				self.suppressTrackChangeEvents = false
-				if wasPlaying { self.queuePlayer?.rate = self.rate }
+				if wasPlaying { self.startPlayback() }
 			}
 		}
 
@@ -544,17 +551,18 @@ public final class YhwavAudioModule: Module {
 			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
 			DispatchQueue.main.sync {
 				let currentIdx = self.currentActiveTrackIndex()
+				let targetId = self.trackOrder[index]
+				print("YhwavAudio: skip idx=\(currentIdx)→\(index) (trackId=\(targetId)), queueSize=\(self.trackOrder.count)")
 				self.suppressTrackChangeEvents = true
 
 				if currentIdx >= 0 && index - currentIdx == 1 {
-					// One step forward: advance without rebuild — no audio cut, preserves preload
 					player.advanceToNextItem()
+					self.extendWindow()
 				} else {
-					// Backward, multi-step, or unknown current: full rebuild
-					self.rebuildQueueFromOrder(makeCurrentIndex: index)
+					self.rebuildWindow(aroundIndex: index)
 				}
 
-				player.rate = self.rate
+				self.startPlayback()
 				self.suppressTrackChangeEvents = false
 				self.emitActiveTrackChanged(index: index)
 				self.startProgressTimerIfNeeded()
@@ -732,10 +740,37 @@ public final class YhwavAudioModule: Module {
 
 	private func createPlayerItem(url: String) -> AVPlayerItem {
 		guard let u = URL(string: url) else {
+			print("YhwavAudio: createItem — invalid URL")
 			return AVPlayerItem(asset: AVAsset())
 		}
 		let asset = AVURLAsset(url: u)
 		let item = AVPlayerItem(asset: asset)
+		print("YhwavAudio: createItem url=\(u.scheme ?? "nil")://…")
+
+		let observation = item.observe(\.status, options: [.new]) { [weak self] observedItem, _ in
+			guard observedItem.status == .failed, let self = self else { return }
+			let trackId = observedItem.associatedTrackId() ?? "unknown"
+			let errMsg = observedItem.error?.localizedDescription ?? "unknown error"
+
+			if self.queuePlayer?.currentItem === observedItem {
+				print("YhwavAudio: Current item FAILED [\(trackId)]: \(errMsg)")
+				let now = Date().timeIntervalSince1970 * 1000
+				if now - self.lastPlaybackErrorEmitTime > 500 {
+					self.lastPlaybackErrorEmitTime = now
+					self.sendEvent("PlaybackError", [
+						"error": errMsg,
+						"trackId": trackId
+					])
+				}
+			} else {
+				print("YhwavAudio: Queued item FAILED [\(trackId)]: \(errMsg) — removing")
+				self.failedItemIds.insert(trackId)
+				self.queuePlayer?.remove(observedItem)
+				DispatchQueue.main.async { self.extendWindow() }
+			}
+		}
+		self.itemStatusObservations.append(observation)
+
 		return item
 	}
 
@@ -746,39 +781,101 @@ public final class YhwavAudioModule: Module {
 
 		currentItemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
 			DispatchQueue.main.async {
-				self?.setupAudioTapForCurrentItem()
 				self?.emitActiveTrackChangedFromCurrentItem()
+			}
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+				self?.ensureAudioTapsForWindow()
+				self?.extendWindow()
 			}
 		}
 
 		itemDidEndObserver = NotificationCenter.default.addObserver(
 			forName: .AVPlayerItemDidPlayToEndTime,
-			object: player,
+			object: nil,
 			queue: .main
 		) { [weak self] notification in
-			self?.playerItemDidReachEnd(notification)
+			guard let self = self,
+			      let item = notification.object as? AVPlayerItem,
+			      self.queuePlayer?.items().contains(item) == true
+			          || self.queuePlayer?.currentItem === item
+			else { return }
+			self.playerItemDidReachEnd(notification)
+		}
+
+		itemFailedObserver = NotificationCenter.default.addObserver(
+			forName: .AVPlayerItemFailedToPlayToEndTime,
+			object: nil,
+			queue: .main
+		) { [weak self] notification in
+			guard let self = self,
+			      let item = notification.object as? AVPlayerItem,
+			      self.queuePlayer?.items().contains(item) == true
+			else { return }
+			let trackId = item.associatedTrackId() ?? "unknown"
+			let err = (notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?
+				.localizedDescription ?? "unknown"
+			print("YhwavAudio: Item failed mid-playback [\(trackId)]: \(err)")
 		}
 	}
 
 	private func playerItemDidReachEnd(_ notification: Notification) {
 		guard let item = notification.object as? AVPlayerItem else { return }
-		AudioDSPState.shared.resetFilterState()
-		if repeatMode == 1 {
-			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
-				rebuildQueueFromOrder(makeCurrentIndex: idx)
-				queuePlayer?.rate = rate
+		lastTrackEndTimestamp = Date().timeIntervalSince1970 * 1000
+
+		let endedId = item.associatedTrackId() ?? "?"
+
+		// Defer so AVQueuePlayer has time to auto-advance before we inspect currentItem.
+		// Without this, currentItem is still the ended item and recovery logic is skipped.
+		DispatchQueue.main.async { [weak self] in
+			guard let self = self else { return }
+
+			if let nextItem = self.queuePlayer?.currentItem {
+				let nextId = nextItem.associatedTrackId() ?? "?"
+				let ready = nextItem.isPlaybackLikelyToKeepUp
+				let buffered = nextItem.loadedTimeRanges.first.map {
+					CMTimeGetSeconds($0.timeRangeValue.duration)
+				} ?? 0
+				let status: String
+				switch nextItem.status {
+				case .readyToPlay: status = "ready"
+				case .failed: status = "FAILED"
+				case .unknown: status = "unknown"
+				@unknown default: status = "other"
+				}
+				print("YhwavAudio: track \(endedId) ended → next \(nextId) [status=\(status), keepUp=\(ready), buffered=\(String(format: "%.1f", buffered))s]")
+			} else {
+				print("YhwavAudio: track \(endedId) ended → no next item in player")
 			}
-			return
-		}
-		if repeatMode == 2, !trackOrder.isEmpty {
-			if queuePlayer?.items().count == 1 {
-				rebuildQueueFromOrder(makeCurrentIndex: 0)
-				queuePlayer?.rate = rate
+
+			if self.repeatMode == 1 {
+				if let id = item.associatedTrackId(), let idx = self.trackOrder.firstIndex(of: id) {
+					self.rebuildWindow(aroundIndex: idx)
+					self.startPlayback()
+				}
 				return
 			}
-		}
-		DispatchQueue.main.async { [weak self] in
-			self?.checkQueueEnded()
+
+			if let id = item.associatedTrackId(), let idx = self.trackOrder.firstIndex(of: id) {
+				if idx + 1 < self.trackOrder.count && self.queuePlayer?.currentItem == nil {
+					print("YhwavAudio: window exhausted at \(id), rebuilding at index \(idx + 1)")
+					self.rebuildWindow(aroundIndex: idx + 1)
+					self.startPlayback()
+					let actualIdx = self.currentActiveTrackIndex()
+					if actualIdx >= 0 {
+						self.emitActiveTrackChanged(index: actualIdx)
+					}
+					return
+				}
+			}
+
+			if self.repeatMode == 2, !self.trackOrder.isEmpty, self.queuePlayer?.currentItem == nil {
+				self.rebuildWindow(aroundIndex: 0)
+				self.startPlayback()
+				self.emitActiveTrackChanged(index: 0)
+				return
+			}
+
+			self.checkQueueEnded()
 		}
 	}
 
@@ -797,7 +894,21 @@ public final class YhwavAudioModule: Module {
 	}
 
 	private func emitActiveTrackChanged(index: Int) {
-		sendEvent("PlaybackActiveTrackChanged", ["index": index])
+		let now = Date().timeIntervalSince1970 * 1000
+		if index == lastEmittedTrackIndex && (now - lastEmittedTrackTime) < 300 {
+			return
+		}
+		lastEmittedTrackIndex = index
+		lastEmittedTrackTime = now
+
+		let trackId = (index >= 0 && index < trackOrder.count) ? trackOrder[index] : "?"
+		let currentId = queuePlayer?.currentItem?.associatedTrackId() ?? "nil"
+		print("YhwavAudio: emitActiveTrackChanged idx=\(index) trackId=\(trackId) currentItem=\(currentId)")
+		var payload: [String: Any] = ["index": index]
+		if lastTrackEndTimestamp > 0 {
+			payload["previousTrackEndedAt"] = lastTrackEndTimestamp
+		}
+		sendEvent("PlaybackActiveTrackChanged", payload)
 		syncNowPlaying()
 	}
 
@@ -872,15 +983,96 @@ public final class YhwavAudioModule: Module {
 		}
 	}
 
-	private func rebuildQueueFromOrder(makeCurrentIndex: Int? = nil) {
+	private func startPlayback() {
 		guard let player = queuePlayer else { return }
+		player.play()
+		if rate != 1.0 {
+			player.rate = rate
+		}
+	}
+
+	private let playerWindowSize = 3
+
+	/// Destructive rebuild: clears AVQueuePlayer and creates items for the window around targetIdx.
+	/// Clears failedItemIds since fresh AVPlayerItems may succeed on retry.
+	private func rebuildWindow(aroundIndex targetIdx: Int) {
+		guard let player = queuePlayer else { return }
+		failedItemIds.removeAll()
+		teardownAllAudioTaps()
+		itemStatusObservations.forEach { $0.invalidate() }
+		itemStatusObservations.removeAll()
 		player.removeAllItems()
-		let startIdx = max(makeCurrentIndex ?? 0, 0)
-		for i in startIdx..<trackOrder.count {
-			guard let track = trackMetadata[trackOrder[i]] else { continue }
+		let startIdx = max(targetIdx, 0)
+		let endIdx = min(startIdx + playerWindowSize, trackOrder.count)
+		var createdIds: [String] = []
+		for i in startIdx..<endIdx {
+			let id = trackOrder[i]
+			guard let track = trackMetadata[id] else { continue }
 			let item = createPlayerItem(url: track.url)
 			item.setAssociatedTrack(track)
 			player.insert(item, after: player.items().last)
+			createdIds.append(id)
+		}
+		print("YhwavAudio: rebuildWindow around \(targetIdx), created \(createdIds.count) items: [\(createdIds.joined(separator: ", "))]")
+		preloadUpcomingAssets()
+		ensureAudioTapsForWindow()
+	}
+
+	/// Non-destructive: adds upcoming items to the window and removes items behind current.
+	/// Skips over track IDs that previously failed.
+	private func extendWindow() {
+		guard let player = queuePlayer else { return }
+		let currentIdx = currentActiveTrackIndex()
+		guard currentIdx >= 0 else { return }
+
+		var desiredIds = Set<String>()
+		desiredIds.insert(trackOrder[currentIdx])
+		var filled = 1
+		var i = currentIdx + 1
+		while filled < playerWindowSize && i < trackOrder.count {
+			let id = trackOrder[i]
+			i += 1
+			if failedItemIds.contains(id) { continue }
+			desiredIds.insert(id)
+			filled += 1
+		}
+
+		let existingIds = Set(player.items().compactMap { $0.associatedTrackId() })
+
+		var addedCount = 0
+		for id in desiredIds where !existingIds.contains(id) {
+			guard let track = trackMetadata[id] else { continue }
+			let item = createPlayerItem(url: track.url)
+			item.setAssociatedTrack(track)
+			player.insert(item, after: player.items().last)
+			addedCount += 1
+		}
+
+		var removedCount = 0
+		for item in player.items() {
+			guard let id = item.associatedTrackId() else { continue }
+			if !desiredIds.contains(id) && item !== player.currentItem {
+				player.remove(item)
+				removedCount += 1
+			}
+		}
+
+		if addedCount > 0 || removedCount > 0 {
+			print("YhwavAudio: extendWindow idx=\(currentIdx), items=\(player.items().count), +\(addedCount) -\(removedCount)")
+		}
+
+		preloadUpcomingAssets()
+		if addedCount > 0 {
+			ensureAudioTapsForWindow()
+		}
+	}
+
+	/// Kick off asset loading for items after the current one so they're ready for gapless transition.
+	private func preloadUpcomingAssets() {
+		guard let player = queuePlayer else { return }
+		let items = player.items()
+		for (i, item) in items.enumerated() where i > 0 {
+			item.asset.loadValuesAsynchronously(forKeys: ["playable", "duration", "tracks"]) { }
 		}
 	}
 
@@ -894,35 +1086,36 @@ public final class YhwavAudioModule: Module {
 
 	// MARK: - Audio processing tap (DSP + level metering)
 
-	private func setupAudioTapForCurrentItem() {
-		guard let player = queuePlayer, let item = player.currentItem else {
-			teardownAudioTap()
-			return
-		}
-		if item === itemWithAudioTap { return }
-		teardownAudioTap()
-		itemWithAudioTap = item
-		AudioDSPState.shared.resetFilterState()
-		let asset = item.asset
-		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
-			guard let self = self else { return }
-			var error: NSError?
-			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
-			guard let track = asset.tracks(withMediaType: .audio).first else { return }
-			DispatchQueue.main.async {
-				self.attachAudioTap(to: item, track: track)
+	/// Pre-attach audio taps to ALL items in the player window so transitions are gapless.
+	private func ensureAudioTapsForWindow() {
+		return // DIAGNOSTIC: disabled to test if taps cause FIGSANDBOX errors & gaps
+		guard let player = queuePlayer else { return }
+		for item in player.items() {
+			guard !itemsWithAudioTap.contains(item) else { continue }
+			itemsWithAudioTap.add(item)
+			let asset = item.asset
+			asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self, weak item] in
+				guard let self = self, let item = item else { return }
+				var error: NSError?
+				guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
+				guard let track = asset.tracks(withMediaType: .audio).first else { return }
+				DispatchQueue.main.async {
+					guard self.itemsWithAudioTap.contains(item) else { return }
+					self.attachAudioTap(to: item, track: track)
+				}
 			}
 		}
 	}
 
-	private func teardownAudioTap() {
-		itemWithAudioTap?.audioMix = nil
-		itemWithAudioTap = nil
+	private func teardownAllAudioTaps() {
+		for item in itemsWithAudioTap.allObjects {
+			item.audioMix = nil
+		}
+		itemsWithAudioTap.removeAllObjects()
 	}
 
 	private func attachAudioTap(to item: AVPlayerItem, track: AVAssetTrack) {
-		guard item === itemWithAudioTap else { return }
-		let context = AudioTapContext(module: self)
+		let context = AudioTapContext(module: self, item: item)
 		var callbacks = MTAudioProcessingTapCallbacks(
 			version: kMTAudioProcessingTapCallbacksVersion_0,
 			clientInfo: Unmanaged.passRetained(context).toOpaque(),
@@ -938,10 +1131,8 @@ public final class YhwavAudioModule: Module {
 			process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
 				guard noErr == MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut) else { return }
 
-				// Apply DSP effects (EQ, gain, normalization, mono)
 				AudioDSPState.shared.processAudio(bufferListInOut, frameCount: UInt32(numberFrames))
 
-				// Level metering (runs after DSP so visualizer reflects processed output)
 				let ptr = MTAudioProcessingTapGetStorage(tap)
 				let ctx = Unmanaged<AudioTapContext>.fromOpaque(ptr).takeUnretainedValue()
 				let levels = AudioTapContext.computeLevels(bufferListInOut, frameCount: UInt32(numberFrames), bandCount: 5)
@@ -962,9 +1153,14 @@ public final class YhwavAudioModule: Module {
 
 	deinit {
 		stopProgressTimer()
-		teardownAudioTap()
+		teardownAllAudioTaps()
 		currentItemObservation?.invalidate()
+		itemStatusObservations.forEach { $0.invalidate() }
+		itemStatusObservations.removeAll()
 		if let obs = itemDidEndObserver {
+			NotificationCenter.default.removeObserver(obs)
+		}
+		if let obs = itemFailedObserver {
 			NotificationCenter.default.removeObserver(obs)
 		}
 	}
@@ -974,12 +1170,14 @@ public final class YhwavAudioModule: Module {
 
 private final class AudioTapContext {
 	weak var module: YhwavAudioModule?
+	weak var item: AVPlayerItem?
 	private var lastSendTime: CFTimeInterval = 0
 	private let minInterval: CFTimeInterval = 0.06
 	private let lock = NSLock()
 
-	init(module: YhwavAudioModule) {
+	init(module: YhwavAudioModule, item: AVPlayerItem) {
 		self.module = module
+		self.item = item
 	}
 
 	func reportLevels(_ levels: [Float]) {
@@ -988,7 +1186,8 @@ private final class AudioTapContext {
 		guard now - lastSendTime >= minInterval else { lock.unlock(); return }
 		lastSendTime = now
 		lock.unlock()
-		guard let mod = module else { return }
+		guard let mod = module, let item = item,
+		      mod.queuePlayer?.currentItem === item else { return }
 		let levelsCopy = levels
 		DispatchQueue.main.async {
 			mod.sendEvent("AudioLevelsUpdated", ["levels": levelsCopy])

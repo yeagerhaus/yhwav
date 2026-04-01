@@ -215,7 +215,7 @@ export function usePlaybackState(): { state: string } {
 }
 
 type EventType = (typeof Event)[keyof typeof Event];
-type EventCallback = (event: { type: string; position?: number; duration?: number; index?: number }) => void;
+type EventCallback = (event: { type: string; position?: number; duration?: number; index?: number; previousTrackEndedAt?: number }) => void;
 
 export function useTrackPlayerEvents(events: EventType[], callback: EventCallback) {
 	const callbackRef = React.useRef(callback);
@@ -236,6 +236,7 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 					position: toNum(p?.position),
 					duration: toNum(p?.duration),
 					index: typeof idx === 'number' ? idx : undefined,
+					previousTrackEndedAt: toNum(p?.previousTrackEndedAt),
 				});
 			});
 			subscriptions.push(sub);

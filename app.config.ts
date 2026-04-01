@@ -31,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 	return {
 		...config,
 		name: 'Rite',
-		slug: 'yhwav',
+		slug: 'rite',
 		version,
 		orientation: 'portrait',
 		icon: './assets/images/icon.png',
@@ -46,7 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 		backgroundColor: '#080808',
 		ios: {
 			supportsTablet: true,
-			bundleIdentifier: 'com.yhprod.yhwav',
+			bundleIdentifier: 'com.yhprod.rite',
 			backgroundColor: '#080808',
 			buildNumber: commitCount,
 			infoPlist: {
