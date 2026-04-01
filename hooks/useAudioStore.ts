@@ -1110,6 +1110,11 @@ export function useTrackPlayerSync() {
 
 				state._setCurrentSong(newCurrentSong);
 
+				// Reset progress bar immediately so it doesn't flash the old track's position
+				const progressStore = getProgressStore().getState();
+				progressStore.setPosition(0);
+				progressStore.setDuration(newCurrentSong.duration ?? 0);
+
 				// Persist & extract color asynchronously
 				saveCurrentSong(newCurrentSong);
 				extractArtworkColor(newCurrentSong)
