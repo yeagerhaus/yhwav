@@ -8,12 +8,12 @@ const darkSplash = require('../assets/images/darkSplash.png');
 
 /** Backing color while the image opacity fades in (matches splash PNG backgrounds). */
 const SPLASH_BACKDROP = {
-	light: '#ECECEA',
+	light: '#F0EDE8',
 	dark: '#0A0A12',
 } as const;
 
-const FADE_IN_MS = 1500;
-const FADE_OUT_MS = 1500;
+const FADE_IN_MS = 1200;
+const FADE_OUT_MS = 500;
 
 export function SplashOverlay() {
 	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
