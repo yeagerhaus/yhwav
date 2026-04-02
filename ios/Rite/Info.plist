@@ -88,23 +88,10 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<true/>
-		<key>UISceneConfigurations</key>
-		<dict>
-			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneConfigurationName</key>
-					<string>CarPlay</string>
-					<key>UISceneDelegateClassName</key>
-					<string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
-				</dict>
-			</array>
-		</dict>
-	</dict>
+	<!--
+	  CARPLAY_EXPERIMENT (temporary): removed UIApplicationSceneManifest (multi-scene + CarPlay scene).
+	  If JS loads after this, restore the block from git and fix phone+CarPlay scene setup per react-native-carplay docs.
+	-->
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>
