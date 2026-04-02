@@ -123,13 +123,16 @@ final class AudioFileCache {
 
 	private func performDownload(url: URL, trackId: String) async throws -> URL {
 		let start = Date()
-		print("YhwavAudio: cache download start trackId=\(trackId) url=\(url.scheme ?? "nil")://…")
+		let isTranscode = url.path.contains("/transcode/")
+		print("YhwavAudio: cache download start trackId=\(trackId) transcode=\(isTranscode)")
 
 		let (tempURL, response) = try await URLSession.shared.download(from: url)
 
 		try Task.checkCancellation()
 
-		let ext = (response as? HTTPURLResponse)?.suggestedFilename.flatMap {
+		let httpResp = response as? HTTPURLResponse
+		let contentType = httpResp?.value(forHTTPHeaderField: "Content-Type") ?? "unknown"
+		let ext = httpResp?.suggestedFilename.flatMap {
 			URL(fileURLWithPath: $0).pathExtension
 		} ?? "audio"
 		let dest = cacheDir.appendingPathComponent("\(trackId).\(ext)")
@@ -139,7 +142,8 @@ final class AudioFileCache {
 
 		let size = (try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int) ?? 0
 		let elapsed = Int(Date().timeIntervalSince(start) * 1000)
-		print("YhwavAudio: cache download complete trackId=\(trackId) size=\(size) elapsed=\(elapsed)ms")
+		let sizeMB = String(format: "%.1f", Double(size) / 1_048_576)
+		print("YhwavAudio: cache download complete trackId=\(trackId) size=\(sizeMB)MB ext=\(ext) type=\(contentType) elapsed=\(elapsed)ms")
 
 		queue.sync {
 			cachedFiles[trackId] = dest

@@ -620,11 +620,9 @@ public final class YhwavAudioModule: Module {
 
 		// MARK: - Search
 
-		AsyncFunction("prewarmURL") { (urlString: String) in
+		AsyncFunction("prewarmURL") { (urlString: String, trackId: String) in
 			guard let url = URL(string: urlString) else { return }
-			var request = URLRequest(url: url)
-			request.setValue("bytes=0-262143", forHTTPHeaderField: "Range")
-			URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
+			self.fileCache?.predownload(url: url, trackId: trackId)
 		}
 
 		// MARK: - Search
@@ -717,12 +715,15 @@ public final class YhwavAudioModule: Module {
 		fileCache?.predownload(url: url, trackId: nextId)
 	}
 
-	private func predownloadAhead(fromIndex startIdx: Int) {
-		guard startIdx < trackOrder.count else { return }
-		let id = trackOrder[startIdx]
-		guard let track = trackMetadata[id],
-			  let url = URL(string: track.url) else { return }
-		fileCache?.predownload(url: url, trackId: id)
+	private func predownloadAhead(fromIndex startIdx: Int, count: Int = 2) {
+		for i in 0..<count {
+			let idx = startIdx + i
+			guard idx < trackOrder.count else { return }
+			let id = trackOrder[idx]
+			guard let track = trackMetadata[id],
+				  let url = URL(string: track.url) else { continue }
+			fileCache?.predownload(url: url, trackId: id)
+		}
 	}
 
 	private func rescheduleNextIfNeeded() {

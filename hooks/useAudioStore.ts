@@ -224,14 +224,20 @@ function songToTrack(song: Song) {
 		throw new Error('Podcast episode has no playable URL');
 	}
 
-	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
 	let finalUrl = url ?? song.uri ?? '';
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
 		const { store, bitrates } = getPlaybackSettingsStore();
 		const quality = store.getState().streamingQuality;
 		const bitrate = bitrates[quality];
 		if (bitrate !== null) {
-			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+			const transcodeUrl = buildPlexTranscodeUrl(song.id, bitrate);
+			if (transcodeUrl) {
+				finalUrl = transcodeUrl;
+				console.log(`[songToTrack] Using transcode URL for ${song.id} (${quality}/${bitrate}kbps)`);
+			} else {
+				finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+				console.log(`[songToTrack] Transcode unavailable, using direct URL with maxAudioBitrate=${bitrate}`);
+			}
 		}
 	}
 
@@ -243,6 +249,34 @@ function songToTrack(song: Song) {
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
 	};
+}
+
+/**
+ * Build a Plex universal transcode URL so the server sends a smaller
+ * MP3/AAC file instead of the original lossless file. Falls back to null
+ * if the plexClient connection info isn't available yet.
+ */
+function buildPlexTranscodeUrl(ratingKey: string, maxBitrate: number): string | null {
+	const { plexClient } = require('@/utils/plex-client');
+	const { plexAuthService } = require('@/utils/plex-auth');
+	const { encodePlexIdentityQueryString, buildPlexIdentityHeaders } = require('@/utils/plex-identity');
+
+	const conn = plexClient.getConnectionInfo();
+	if (!conn) return null;
+
+	const clientId = plexAuthService.getClientIdentifier();
+	const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(clientId));
+
+	return (
+		`${conn.baseURL}/music/:/transcode/universal/start.mp3` +
+		`?path=${encodeURIComponent(`/library/metadata/${ratingKey}`)}` +
+		`&mediaIndex=0&partIndex=0` +
+		`&protocol=http` +
+		`&directPlay=0&directStream=1` +
+		`&maxAudioBitrate=${maxBitrate}` +
+		`&X-Plex-Token=${encodeURIComponent(conn.token)}` +
+		`&${identityQs}`
+	);
 }
 
 /** Pending resume: seek is deferred until first progress (fixes local/downloaded files where seek before play() is ignored). */
@@ -1054,7 +1088,7 @@ export function useTrackPlayerSync() {
 								const track = songToTrack(nextSong);
 								const { YhwavAudioModule } = require('@/modules/yhwav-audio/src');
 								if (YhwavAudioModule?.prewarmURL) {
-									YhwavAudioModule.prewarmURL(track.url);
+									YhwavAudioModule.prewarmURL(track.url, nextSong.id);
 								} else {
 									fetch(track.url, { headers: { Range: 'bytes=0-262143' } }).catch(() => {});
 								}

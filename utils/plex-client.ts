@@ -991,6 +991,14 @@ export class PlexClient {
 			guid: playlist.guid,
 		};
 	}
+	/**
+	 * Returns the current connection info for building URLs outside the client.
+	 * Returns null if the client hasn't been initialized yet.
+	 */
+	getConnectionInfo(): { baseURL: string; token: string } | null {
+		if (!this.baseURL || !this.token) return null;
+		return { baseURL: this.baseURL, token: this.token };
+	}
 }
 
 // Create singleton instance (baseURL will be set during initialization)

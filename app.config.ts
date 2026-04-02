@@ -34,7 +34,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 		slug: 'rite',
 		version,
 		orientation: 'portrait',
-		icon: './assets/images/icon.png',
+		icon: './assets/images/riteIcon.png',
 		scheme: 'myapp',
 		userInterfaceStyle: 'automatic',
 		newArchEnabled: false,
