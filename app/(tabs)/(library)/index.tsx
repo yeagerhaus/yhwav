@@ -53,6 +53,40 @@ export default function LibraryScreen() {
 		setRefreshing(false);
 	}, []);
 
+	const renderRecentlyPlayed = useCallback(
+		(item: (typeof limitedRecentlyPlayed)[0]) => (
+			<DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />
+		),
+		[limitedRecentlyPlayed],
+	);
+
+	const renderRecentlyAdded = useCallback(
+		(item: (typeof recentlyAdded)[0]) => (
+			<DynamicItem
+				type='album'
+				item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
+				size={ITEM_SIZE}
+			/>
+		),
+		[recentlyAdded],
+	);
+
+	const renderRecentPlaylists = useCallback(
+		(item: (typeof recentPlaylists)[0]) => (
+			<DynamicItem
+				type='playlist'
+				item={{
+					id: item.key ?? item.id,
+					title: item.title,
+					artwork: item.artworkUrl ?? '',
+					count: item.leafCount ?? 0,
+				}}
+				size={ITEM_SIZE}
+			/>
+		),
+		[recentPlaylists],
+	);
+
 	return (
 		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
 			<Div flex={1} style={{ paddingHorizontal: 16, marginBottom: 16 }} transparent>
@@ -82,7 +116,7 @@ export default function LibraryScreen() {
 						title='Recently Played'
 						data={limitedRecentlyPlayed}
 						keyExtractor={(item) => item.id}
-						renderItem={(item) => <DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />}
+						renderItem={renderRecentlyPlayed}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
 					/>
@@ -91,13 +125,7 @@ export default function LibraryScreen() {
 						title='Recently Added'
 						data={recentlyAdded}
 						keyExtractor={(item) => item.id}
-						renderItem={(item) => (
-							<DynamicItem
-								type='album'
-								item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
-								size={ITEM_SIZE}
-							/>
-						)}
+						renderItem={renderRecentlyAdded}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
 					/>
@@ -106,18 +134,7 @@ export default function LibraryScreen() {
 						title='Recent Playlists'
 						data={recentPlaylists}
 						keyExtractor={(item) => item.key ?? item.id}
-						renderItem={(item) => (
-							<DynamicItem
-								type='playlist'
-								item={{
-									id: item.key ?? item.id,
-									title: item.title,
-									artwork: item.artworkUrl ?? '',
-									count: item.leafCount ?? 0,
-								}}
-								size={ITEM_SIZE}
-							/>
-						)}
+						renderItem={renderRecentPlaylists}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
 					/>

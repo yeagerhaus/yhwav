@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';

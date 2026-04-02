@@ -1,6 +1,7 @@
+import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';
+import { Alert, Pressable, StyleSheet } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { DefaultStyles } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
@@ -109,7 +110,7 @@ export function AddToPlaylistModal() {
 					</Text>
 				</Pressable>
 
-				<FlatList
+				<FlashList
 					data={audioPlaylists}
 					keyExtractor={(item) => item.id}
 					renderItem={({ item }) => (
@@ -126,7 +127,7 @@ export function AddToPlaylistModal() {
 							</Text>
 						</Pressable>
 					)}
-					style={styles.list}
+					contentContainerStyle={styles.list}
 				/>
 			</Animated.View>
 		</Animated.View>

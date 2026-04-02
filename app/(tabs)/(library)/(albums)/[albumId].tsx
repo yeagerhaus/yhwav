@@ -1,17 +1,24 @@
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import ImageColors from 'react-native-image-colors';
-import { Div, DynamicItem, Main, Text } from '@/components';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Div, DynamicItem, Text } from '@/components';
+import { SkeletonList, SkeletonTrackRow } from '@/components/Skeletons';
 import { useAlbums } from '@/hooks/useAlbums';
 import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import type { Song } from '@/types/song';
 
 export default function AlbumDetailScreen() {
 	const colors = useColors();
+	const backgroundColor = useThemeColor({}, 'background');
+	const insets = useSafeAreaInsets();
 	const { albumId } = useLocalSearchParams<{ albumId: string }>();
 	const { tracks: allTracks, albums: offlineAlbums } = useOfflineFilteredLibrary();
 	const { albumsById } = useAlbums();
@@ -87,15 +94,19 @@ export default function AlbumDetailScreen() {
 				? `Download (${songs.length - downloadedCount} remaining)`
 				: 'Download';
 
-	return (
-		<Main>
+	const renderItem = useCallback(({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} listItem />, [songs]);
+
+	const keyExtractor = useCallback((item: Song) => item.id, []);
+
+	const listHeaderComponent = useMemo(
+		() => (
 			<Div style={{ paddingHorizontal: 16 }} transparent>
 				{artwork && (
 					<Div transparent style={{ width: '100%', alignItems: 'center' }}>
 						<Image
 							source={{ uri: artwork }}
 							style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
-							resizeMode='contain'
+							contentFit='contain'
 						/>
 					</Div>
 				)}
@@ -125,16 +136,46 @@ export default function AlbumDetailScreen() {
 							</Text>
 						</Pressable>
 					)}
-					<FlatList
-						scrollEnabled={false}
-						data={songs}
-						keyExtractor={(item) => item.id}
-						renderItem={({ item }) => <DynamicItem item={item} type='song' queue={songs} listItem />}
-						contentContainerStyle={{ paddingBottom: 100 }}
-					/>
 				</Div>
 			</Div>
-		</Main>
+		),
+		[
+			artwork,
+			albumTitle,
+			artistName,
+			album?.year,
+			songs.length,
+			handleDownload,
+			isActive,
+			isFullyDownloaded,
+			downloadLabel,
+			colors.brand,
+		],
+	);
+
+	const listEmptyComponent = useMemo(
+		() =>
+			album ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={8}>
+						<SkeletonTrackRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[album],
+	);
+
+	return (
+		<View style={{ flex: 1, backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom }}>
+			<FlashList
+				data={songs}
+				keyExtractor={keyExtractor}
+				renderItem={renderItem}
+				ListHeaderComponent={listHeaderComponent}
+				ListEmptyComponent={listEmptyComponent}
+				contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
+			/>
+		</View>
 	);
 }
 

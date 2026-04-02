@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 
 const STORAGE_KEY = 'DEV_SHOW_PERFORMANCE_DEBUGGER';
 
@@ -7,7 +7,7 @@ interface DevSettingsState {
 	showPerformanceDebugger: boolean;
 	hydrated: boolean;
 	setShowPerformanceDebugger: (value: boolean) => void;
-	hydrate: () => Promise<void>;
+	hydrate: () => void;
 }
 
 export const useDevSettingsStore = create<DevSettingsState>((set, _get) => ({
@@ -16,12 +16,12 @@ export const useDevSettingsStore = create<DevSettingsState>((set, _get) => ({
 
 	setShowPerformanceDebugger: (value: boolean) => {
 		set({ showPerformanceDebugger: value });
-		AsyncStorage.setItem(STORAGE_KEY, value ? '1' : '0').catch(() => {});
+		storage.set(STORAGE_KEY, value ? '1' : '0');
 	},
 
-	hydrate: async () => {
+	hydrate: () => {
 		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
+			const raw = storage.getString(STORAGE_KEY);
 			const show = raw === '1';
 			set({ showPerformanceDebugger: show, hydrated: true });
 		} catch {

@@ -5,8 +5,13 @@ import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
 import { DefaultStyles } from '@/constants/styles';
 import { useColors, useThemedStyles } from '@/hooks/useColors';
-import type { StreamingQuality } from '@/hooks/usePlaybackSettingsStore';
-import { EQ_PRESETS, formatFrequency, STREAMING_QUALITY_BITRATES, usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
+import {
+	EQ_PRESETS,
+	formatBitrateChoiceLabel,
+	formatFrequency,
+	STREAMING_BITRATE_KBPS_OPTIONS,
+	usePlaybackSettingsStore,
+} from '@/hooks/usePlaybackSettingsStore';
 import { hexWithOpacity } from '@/utils/styles';
 
 const EQ_TRACK_LENGTH = 150;
@@ -85,6 +90,41 @@ function EQBandSlider({
 	);
 }
 
+function BitrateChoiceRow({
+	label,
+	description,
+	value,
+	onSelect,
+}: {
+	label: string;
+	description?: string;
+	value: number | null;
+	onSelect: (v: number | null) => void;
+}) {
+	return (
+		<Div transparent style={{ marginBottom: 18 }}>
+			<Text type='label' colorVariant='muted'>
+				{label}
+			</Text>
+			{description ? (
+				<Text type='bodyXS' colorVariant='muted' style={{ marginTop: 4 }}>
+					{description}
+				</Text>
+			) : null}
+			<Div transparent style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+				{STREAMING_BITRATE_KBPS_OPTIONS.map((opt) => (
+					<PresetChip
+						key={opt === null ? 'original' : String(opt)}
+						name={formatBitrateChoiceLabel(opt)}
+						selected={value === opt}
+						onPress={() => onSelect(opt)}
+					/>
+				))}
+			</Div>
+		</Div>
+	);
+}
+
 function PresetChip({ name, selected, onPress }: { name: string; selected: boolean; onPress: () => void }) {
 	const colors = useColors();
 	return (
@@ -114,7 +154,10 @@ export default function PlaybackScreen() {
 		outputGainDb,
 		normalizationEnabled,
 		monoAudioEnabled,
-		streamingQuality,
+		streamingBitrateWifi,
+		streamingBitrateCellular,
+		streamingTranscodeCapKbps,
+		downloadBitrateKbps,
 		setEqualizerEnabled,
 		setBandGain,
 		setPreset,
@@ -122,7 +165,10 @@ export default function PlaybackScreen() {
 		setOutputGain,
 		setNormalizationEnabled,
 		setMonoAudioEnabled,
-		setStreamingQuality,
+		setStreamingBitrateWifi,
+		setStreamingBitrateCellular,
+		setStreamingTranscodeCapKbps,
+		setDownloadBitrateKbps,
 	} = usePlaybackSettingsStore();
 
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -153,25 +199,43 @@ export default function PlaybackScreen() {
 					</Text>
 				</Div>
 
-				{/* Streaming Quality Section */}
+				{/* Streaming & download quality */}
 				<Div transparent style={DefaultStyles.section}>
 					<Text type='h3' style={DefaultStyles.sectionTitle}>
-						Streaming Quality
+						Streaming and downloads
 					</Text>
-					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>
-						Controls Plex server transcoding for remote streams. Original plays the file as-is; lower settings reduce data use
-						and buffering.
+					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 8 }]}>
+						Remote Plex music uses a max audio bitrate (kbps). We pick Wi‑Fi vs cellular from your connection; Original sends
+						the file unchanged. Downloads apply the same limits to new saves—re-download to replace an existing file.
 					</Text>
-					<Div transparent style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-						{(Object.keys(STREAMING_QUALITY_BITRATES) as StreamingQuality[]).map((q) => (
-							<PresetChip
-								key={q}
-								name={q.charAt(0).toUpperCase() + q.slice(1)}
-								selected={streamingQuality === q}
-								onPress={() => setStreamingQuality(q)}
-							/>
-						))}
-					</Div>
+
+					<BitrateChoiceRow
+						label='Wi‑Fi streaming'
+						description='Used when you are on Wi‑Fi or Ethernet.'
+						value={streamingBitrateWifi}
+						onSelect={setStreamingBitrateWifi}
+					/>
+					<BitrateChoiceRow
+						label='Cellular streaming'
+						description='Used on mobile data.'
+						value={streamingBitrateCellular}
+						onSelect={setStreamingBitrateCellular}
+					/>
+					<BitrateChoiceRow
+						label='Conversion cap'
+						description='Optional ceiling when Plex transcodes (lower of this and your connection limit). Original leaves only Wi‑Fi/cellular in effect.'
+						value={streamingTranscodeCapKbps}
+						onSelect={setStreamingTranscodeCapKbps}
+					/>
+
+					<View style={[styles.divider, { backgroundColor: colors.surfaceTertiary, marginVertical: 8 }]} />
+
+					<BitrateChoiceRow
+						label='Download quality'
+						description='Bitrate for music saved offline. Does not affect podcasts.'
+						value={downloadBitrateKbps}
+						onSelect={setDownloadBitrateKbps}
+					/>
 				</Div>
 
 				{/* Equalizer Section */}

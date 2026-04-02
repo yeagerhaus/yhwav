@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { Text } from '@/components/Text';
 import { useColors } from '@/hooks/useColors';
 import type { Playlist } from '@/types/playlist';

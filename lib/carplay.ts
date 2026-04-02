@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
-import { CarPlay, ListTemplate, TabBarTemplate } from 'react-native-carplay';
-import type { ListItem } from 'react-native-carplay/lib/interfaces/ListItem';
+import { CarPlay, type ListItem, ListTemplate, TabBarTemplate } from 'react-native-carplay';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import type { Playlist, Song } from '@/types';
@@ -36,7 +35,7 @@ function buildRecentlyPlayedTemplate(songs: Song[]): ListTemplate {
 		sections: [{ items: songs.map(songToListItem) }],
 		emptyViewTitleVariants: ['No Recently Played'],
 		emptyViewSubtitleVariants: ['Play some music to see it here'],
-		async onItemSelect({ index }) {
+		async onItemSelect({ index }: { templateId: string; index: number }) {
 			const { recentlyPlayed } = useLibraryStore.getState();
 			const song = recentlyPlayed[index];
 			if (song) {
@@ -56,7 +55,7 @@ function buildPlaylistsTemplate(playlists: Playlist[]): ListTemplate {
 		sections: [{ items: playlists.map(playlistToListItem) }],
 		emptyViewTitleVariants: ['No Playlists'],
 		emptyViewSubtitleVariants: ['Create playlists in your Plex library'],
-		async onItemSelect({ index }) {
+		async onItemSelect({ index }: { templateId: string; index: number }) {
 			const { playlists: currentPlaylists } = useLibraryStore.getState();
 			const playlist = currentPlaylists[index];
 			if (!playlist) return;
@@ -66,7 +65,7 @@ function buildPlaylistsTemplate(playlists: Playlist[]): ListTemplate {
 				title: playlist.title,
 				sections: [{ items: tracks.map(songToListItem) }],
 				emptyViewTitleVariants: ['Empty Playlist'],
-				async onItemSelect({ index: trackIndex }) {
+				async onItemSelect({ index: trackIndex }: { templateId: string; index: number }) {
 					const song = tracks[trackIndex];
 					if (song) {
 						useAudioStore.getState().playSound(song, tracks);

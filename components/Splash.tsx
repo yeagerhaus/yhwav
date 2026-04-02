@@ -1,102 +1,62 @@
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { useAppearanceStore } from '@/hooks/useAppearanceStore';
+import { Animated, StyleSheet, useColorScheme } from 'react-native';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 
-// Match the native splash backgroundColor in app.config.ts
-const SPLASH_BG = '#000000';
+const lightSplash = require('../assets/images/lightSplash.png');
+const darkSplash = require('../assets/images/darkSplash.png');
 
-const BAR_MAX_HEIGHT = 52;
-const BAR_WIDTH = 4;
-const BAR_MIN_HEIGHT = 3;
-const FADE_DURATION = 550;
+/** Backing color while the image opacity fades in (matches splash PNG backgrounds). */
+const SPLASH_BACKDROP = {
+	light: '#F0EDE8',
+	dark: '#0A0A12',
+} as const;
 
-// Symmetric pyramid shape — tallest bar in the center
-const BAR_CONFIGS = [
-	{ duration: 840, delay: 0, target: 0.36 },
-	{ duration: 640, delay: 50, target: 0.58 },
-	{ duration: 760, delay: 120, target: 0.78 },
-	{ duration: 540, delay: 200, target: 0.68 },
-	{ duration: 920, delay: 280, target: 1.0 },
-	{ duration: 540, delay: 200, target: 0.68 },
-	{ duration: 760, delay: 120, target: 0.78 },
-	{ duration: 640, delay: 50, target: 0.58 },
-	{ duration: 840, delay: 0, target: 0.36 },
-] as const;
-
-function VisualizerBars({ color }: { color: string }) {
-	const anims = useRef(BAR_CONFIGS.map(() => new Animated.Value(BAR_MIN_HEIGHT))).current;
-	const loopsRef = useRef<Animated.CompositeAnimation[]>([]);
-	const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-	useEffect(() => {
-		const loops = anims.map((anim, i) => {
-			const { duration, delay, target } = BAR_CONFIGS[i];
-			const loop = Animated.loop(
-				Animated.sequence([
-					Animated.timing(anim, {
-						toValue: target * BAR_MAX_HEIGHT,
-						duration: Math.round(duration * 0.55),
-						useNativeDriver: false,
-					}),
-					Animated.timing(anim, {
-						toValue: BAR_MIN_HEIGHT,
-						duration: Math.round(duration * 0.45),
-						useNativeDriver: false,
-					}),
-				]),
-			);
-			const t = setTimeout(() => loop.start(), delay);
-			timeoutsRef.current.push(t);
-			return loop;
-		});
-		loopsRef.current = loops;
-
-		return () => {
-			loops.forEach((l) => l.stop());
-			timeoutsRef.current.forEach(clearTimeout);
-			loopsRef.current = [];
-			timeoutsRef.current = [];
-		};
-	}, [anims]);
-
-	return (
-		<View style={styles.barsRow}>
-			{anims.map((anim, i) => (
-				<Animated.View key={i} style={[styles.bar, { backgroundColor: color, height: anim }]} />
-			))}
-		</View>
-	);
-}
+const FADE_IN_MS = 1200;
+const FADE_OUT_MS = 500;
 
 export function SplashOverlay() {
 	const hasInitialized = useLibraryStore((s) => s.hasInitialized);
-	const brandColor = useAppearanceStore((s) => s.brandColor) ?? '#7f62f5';
-	const overlayOpacity = useRef(new Animated.Value(1)).current;
+	const colorScheme = useColorScheme();
+	const isDark = colorScheme === 'dark';
+
+	const enterOpacity = useRef(new Animated.Value(0)).current;
+	const exitOpacity = useRef(new Animated.Value(1)).current;
 	const [visible, setVisible] = useState(true);
 
-	// Hide the native splash as soon as our overlay is painted — same bg colour
-	// makes the swap seamless.
 	useEffect(() => {
 		ExpoSplashScreen.hideAsync().catch(() => {});
 	}, []);
 
-	// Fade out once all stores and the player have finished initialising.
+	useEffect(() => {
+		enterOpacity.setValue(0);
+		Animated.timing(enterOpacity, {
+			toValue: 1,
+			duration: FADE_IN_MS,
+			useNativeDriver: true,
+		}).start();
+	}, [isDark, enterOpacity]);
+
 	useEffect(() => {
 		if (!hasInitialized) return;
-		Animated.timing(overlayOpacity, {
+		Animated.timing(exitOpacity, {
 			toValue: 0,
-			duration: FADE_DURATION,
+			duration: FADE_OUT_MS,
 			useNativeDriver: true,
 		}).start(() => setVisible(false));
-	}, [hasInitialized, overlayOpacity]);
+	}, [hasInitialized, exitOpacity]);
 
 	if (!visible) return null;
 
+	const backdrop = isDark ? SPLASH_BACKDROP.dark : SPLASH_BACKDROP.light;
+
 	return (
-		<Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-			<VisualizerBars color={brandColor} />
+		<Animated.View style={[styles.overlay, { opacity: exitOpacity, backgroundColor: backdrop }]}>
+			<Animated.Image
+				source={isDark ? darkSplash : lightSplash}
+				style={[styles.image, { opacity: enterOpacity }]}
+				resizeMode='cover'
+			/>
 		</Animated.View>
 	);
 }
@@ -104,25 +64,11 @@ export function SplashOverlay() {
 const styles = StyleSheet.create({
 	overlay: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: SPLASH_BG,
-		alignItems: 'center',
-		justifyContent: 'center',
-		gap: 36,
 		zIndex: 9999,
 	},
-	icon: {
-		width: 100,
-		height: 100,
-		borderRadius: 22,
-	},
-	barsRow: {
-		flexDirection: 'row',
-		alignItems: 'flex-end',
-		gap: 6,
-		height: BAR_MAX_HEIGHT,
-	},
-	bar: {
-		width: BAR_WIDTH,
-		borderRadius: 2,
+	image: {
+		...StyleSheet.absoluteFillObject,
+		width: undefined,
+		height: undefined,
 	},
 });

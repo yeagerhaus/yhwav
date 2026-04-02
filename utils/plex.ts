@@ -10,6 +10,8 @@ export {
 	fetchAllArtists,
 	fetchAllPlaylists,
 	fetchAllTracks,
+	fetchArtistRadioPlaylist,
+	fetchArtistRadioTracks,
 	fetchPlaylist,
 	fetchPlaylistTracks,
 	fetchRecentlyPlayed,

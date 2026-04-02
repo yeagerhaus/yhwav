@@ -1,17 +1,13 @@
+import { FlashList } from '@shopify/flash-list';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl } from 'react-native';
+import { RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
-import { useColors } from '@/hooks/useColors';
+import { SkeletonList, SkeletonSongRow } from '@/components/Skeletons';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 
-// Estimated item height for getItemLayout optimization
-const ITEM_HEIGHT = 70;
-
 export default function SongsScreen() {
-	const colors = useColors();
 	const { tracks } = useOfflineFilteredLibrary();
-	const isIndexing = false; // Track indexing is now synchronous
 	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
 	const [refreshing, setRefreshing] = useState(false);
 
@@ -85,15 +81,6 @@ export default function SongsScreen() {
 		[songs],
 	);
 
-	const getItemLayout = useCallback(
-		(_: any, index: number) => ({
-			length: ITEM_HEIGHT,
-			offset: ITEM_HEIGHT * index,
-			index,
-		}),
-		[],
-	);
-
 	const keyExtractor = useCallback((item: (typeof songs)[0]) => item.id.toString(), []);
 
 	const listHeaderComponent = useMemo(
@@ -105,33 +92,25 @@ export default function SongsScreen() {
 		[],
 	);
 
-	// Show loading state while indexing or sorting
-	if (isIndexing || (tracks.length > 0 && sortedSongs.length === 0)) {
-		return (
-			<Main scrollEnabled={false}>
-				<Div transparent style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
-					<ActivityIndicator size='large' color={colors.brand} />
-					<Text type='body' style={{ marginTop: 16, opacity: 0.7 }}>
-						{isIndexing ? 'Indexing library...' : 'Sorting songs...'}
-					</Text>
-				</Div>
-			</Main>
-		);
-	}
+	const listEmptyComponent = useMemo(
+		() => (
+			<Div transparent style={{ paddingTop: 8 }}>
+				<SkeletonList count={12}>
+					<SkeletonSongRow />
+				</SkeletonList>
+			</Div>
+		),
+		[],
+	);
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={songs}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
-				getItemLayout={getItemLayout}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor='#FA2D48' />}
 			/>

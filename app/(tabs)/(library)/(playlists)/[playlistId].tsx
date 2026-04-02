@@ -1,9 +1,12 @@
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput } from 'react-native';
 import DraggableFlatList, { type RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { Div, DynamicItem, Main, Text } from '@/components';
+import { SkeletonList, SkeletonTrackRow } from '@/components/Skeletons';
 import { DefaultSharedComponents } from '@/constants/styles';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -16,8 +19,6 @@ import type { Song } from '@/types/song';
 import { deletePlaylist, updatePlaylistMetadata } from '@/utils/plex';
 import { hexWithOpacity } from '@/utils/styles';
 
-const ITEM_HEIGHT = 70;
-
 export default function DetailScreen() {
 	const colors = useColors();
 	const { playlistId } = useLocalSearchParams<{ playlistId: string }>();
@@ -28,6 +29,7 @@ export default function DetailScreen() {
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
 	const [artwork, setArtwork] = useState<string | null>(null);
 	const [editTitle, setEditTitle] = useState('');
+	const [tracksLoading, setTracksLoading] = useState(true);
 
 	const ratingKey = playlist?.ratingKey ?? '';
 	const editor = usePlaylistEditor(ratingKey, playlistId);
@@ -109,7 +111,7 @@ export default function DetailScreen() {
 			}
 		};
 
-		loadPlaylistData();
+		loadPlaylistData().finally(() => setTracksLoading(false));
 	}, [playlistId, playlists, loadPlaylistTracks, downloadedPlaylists]);
 
 	const handleEdit = useCallback(() => {
@@ -195,14 +197,6 @@ export default function DetailScreen() {
 		({ item }: { item: Song }) => <DynamicItem item={item} type='song' queue={songs} playlistRatingKey={ratingKey} />,
 		[songs, ratingKey],
 	);
-	const getItemLayout = useCallback(
-		(_: any, index: number) => ({
-			length: ITEM_HEIGHT,
-			offset: ITEM_HEIGHT * index,
-			index,
-		}),
-		[],
-	);
 
 	const editKeyExtractor = useCallback((item: Song) => item.playlistItemId || item.id, []);
 	const renderEditItem = useCallback(
@@ -238,7 +232,7 @@ export default function DetailScreen() {
 					<Image
 						source={{ uri: artwork }}
 						style={{ width: '100%', maxHeight: 250, aspectRatio: 1, borderRadius: 8 }}
-						resizeMode='contain'
+						contentFit='contain'
 					/>
 				)}
 				<Div style={{ paddingVertical: 16, width: '100%' }} transparent>
@@ -334,6 +328,18 @@ export default function DetailScreen() {
 		],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			tracksLoading ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={8}>
+						<SkeletonTrackRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[tracksLoading],
+	);
+
 	if (editor.isEditing) {
 		return (
 			<Main scrollEnabled={false}>
@@ -351,17 +357,12 @@ export default function DetailScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={songs}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
-				getItemLayout={getItemLayout}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
+				ListEmptyComponent={listEmptyComponent}
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>
 		</Main>

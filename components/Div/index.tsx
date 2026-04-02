@@ -54,19 +54,15 @@ const gradientStyles = StyleSheet.create({
 	fill: { flex: 1, width: '100%', height: '100%' },
 });
 
-export function Div({
-	flex,
-	display,
+function GlassDiv({
 	children,
-	useGlass,
-	showGradients,
-	transparent,
 	blurIntensity = 50,
 	blurTint,
 	style,
 	gradients,
+	showGradients,
 	...restProps
-}: DivProps) {
+}: Omit<DivProps, 'transparent' | 'useGlass'>) {
 	const colorScheme = useColorScheme() ?? 'dark';
 	const { useBlurInsteadOfGlass } = useAppearanceStore();
 	const systemTint: BlurViewProps['tint'] = colorScheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight';
@@ -74,30 +70,41 @@ export function Div({
 	const showGradient = gradients?.length && (!!useBlurInsteadOfGlass || showGradients);
 	const inner = showGradient ? wrapWithGradients(children, gradients!) : children;
 
-	if (useGlass) {
-		if (useBlurInsteadOfGlass) {
-			return (
-				<BlurView intensity={blurIntensity} tint={blurTint ?? systemTint} style={[style, { overflow: 'hidden' }]} {...restProps}>
-					{inner}
-				</BlurView>
-			);
-		}
+	if (useBlurInsteadOfGlass) {
 		return (
-			<GlassView style={style} {...restProps} glassEffectStyle='regular' colorScheme='auto'>
+			<BlurView intensity={blurIntensity} tint={blurTint ?? systemTint} style={[style, { overflow: 'hidden' }]} {...restProps}>
 				{inner}
-			</GlassView>
+			</BlurView>
 		);
 	}
+	return (
+		<GlassView style={style} {...restProps} glassEffectStyle='regular' colorScheme='auto'>
+			{inner}
+		</GlassView>
+	);
+}
+
+export function Div({ useGlass, transparent, children, gradients, showGradients, ...rest }: DivProps) {
 	if (transparent) {
+		const inner = gradients?.length && showGradients ? wrapWithGradients(children, gradients) : children;
 		return (
-			<View style={style} {...restProps}>
+			<View style={rest.style} {...rest}>
 				{inner}
 			</View>
 		);
 	}
+
+	if (useGlass) {
+		return (
+			<GlassDiv gradients={gradients} showGradients={showGradients} {...rest}>
+				{children}
+			</GlassDiv>
+		);
+	}
+
 	return (
-		<ThemedView style={style} {...restProps}>
-			{inner}
+		<ThemedView style={rest.style} {...rest}>
+			{children}
 		</ThemedView>
 	);
 }

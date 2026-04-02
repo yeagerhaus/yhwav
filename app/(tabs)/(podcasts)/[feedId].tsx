@@ -1,9 +1,12 @@
+import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, useColorScheme } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
+import { SkeletonEpisodeRow, SkeletonList } from '@/components/Skeletons';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
@@ -21,6 +24,7 @@ export default function PodcastFeedScreen() {
 	const getDownloadedEpisodesForFeed = usePodcastDownloadsStore((s) => s.getDownloadedEpisodesForFeed);
 	const getLocalUri = usePodcastDownloadsStore((s) => s.getLocalUri);
 	const [filterQuery, setFilterQuery] = useState('');
+	const [feedLoading, setFeedLoading] = useState(false);
 
 	const feed = useMemo(() => feeds.find((f) => f.id === feedId), [feeds, feedId]);
 	const fetchedEpisodes = useMemo(() => (feedId ? episodesByFeedId[feedId] || [] : []), [feedId, episodesByFeedId]);
@@ -41,7 +45,12 @@ export default function PodcastFeedScreen() {
 	}, [allEpisodes, filterQuery]);
 
 	useEffect(() => {
-		if (feedId && feed && fetchedEpisodes.length === 0) fetchFeed(feedId).catch(() => {});
+		if (feedId && feed && fetchedEpisodes.length === 0) {
+			setFeedLoading(true);
+			fetchFeed(feedId)
+				.catch(() => {})
+				.finally(() => setFeedLoading(false));
+		}
 	}, [feedId, feed, fetchedEpisodes.length, fetchFeed]);
 
 	const showTitle = feed?.title || feed?.url || 'Show';
@@ -115,7 +124,7 @@ export default function PodcastFeedScreen() {
 	const listHeaderComponent = useMemo(
 		() => (
 			<Div style={feedStyles.header} transparent>
-				{showImageUrl ? <Image source={{ uri: showImageUrl }} style={feedStyles.artwork} resizeMode='contain' /> : null}
+				{showImageUrl ? <Image source={{ uri: showImageUrl }} style={feedStyles.artwork} contentFit='contain' /> : null}
 				<Div style={feedStyles.titleContainer} transparent>
 					<Div transparent style={feedStyles.titleRow}>
 						<Div transparent style={{ flex: 1 }}>
@@ -169,6 +178,18 @@ export default function PodcastFeedScreen() {
 		[showImageUrl, showTitle, allEpisodes.length, episodes.length, filterQuery, isDark, feedMenuItems],
 	);
 
+	const listEmptyComponent = useMemo(
+		() =>
+			feedLoading ? (
+				<Div transparent style={{ paddingTop: 8 }}>
+					<SkeletonList count={6}>
+						<SkeletonEpisodeRow />
+					</SkeletonList>
+				</Div>
+			) : null,
+		[feedLoading],
+	);
+
 	if (!feed) {
 		return (
 			<Main>
@@ -183,16 +204,12 @@ export default function PodcastFeedScreen() {
 
 	return (
 		<Main scrollEnabled={false}>
-			<FlatList
+			<FlashList
 				data={episodes}
 				keyExtractor={keyExtractor}
 				renderItem={renderItem}
 				ListHeaderComponent={listHeaderComponent}
-				removeClippedSubviews={true}
-				maxToRenderPerBatch={10}
-				windowSize={10}
-				initialNumToRender={15}
-				updateCellsBatchingPeriod={50}
+				ListEmptyComponent={listEmptyComponent}
 				keyboardDismissMode='on-drag'
 				contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
 			/>

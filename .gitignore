@@ -36,6 +36,3 @@ yarn-error.*
 
 # TypeScript cache
 *.tsbuildinfo
-
-# Project-specific files
-/musrv

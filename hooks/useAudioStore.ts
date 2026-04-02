@@ -1,7 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
+import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
+import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
+import { getCachedNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer, {
 	Capability,
 	Event,
@@ -12,8 +14,10 @@ import TrackPlayer, {
 	usePlaybackState,
 	useTrackPlayerEvents,
 } from '@/lib/playerAdapter';
+import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
+import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 import { queueScrobble } from '@/utils/scrobble-queue';
 
 // Storage keys
@@ -32,19 +36,16 @@ export const STORAGE_SLEEP_TIMER_ENDS_AT_KEY = 'SLEEP_TIMER_ENDS_AT';
 function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song | null) {
 	const queueIds = queue.map((s) => s.id);
 	const originalIds = originalQueue.map((s) => s.id);
-	const ops: Promise<void>[] = [
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(queueIds)),
-		AsyncStorage.setItem(STORAGE_ORIGINAL_QUEUE_KEY, JSON.stringify(originalIds)),
-	];
+	storage.set(STORAGE_QUEUE_KEY, JSON.stringify(queueIds));
+	storage.set(STORAGE_ORIGINAL_QUEUE_KEY, JSON.stringify(originalIds));
 	if (currentSong) {
-		ops.push(AsyncStorage.setItem(STORAGE_SONG_KEY, currentSong.id));
+		storage.set(STORAGE_SONG_KEY, currentSong.id);
 	}
-	Promise.all(ops).catch(() => {});
 }
 
 function saveCurrentSong(song: Song) {
-	AsyncStorage.setItem(STORAGE_SONG_KEY, song.id).catch(() => {});
-	AsyncStorage.setItem(STORAGE_SONG_DATA_KEY, JSON.stringify(song)).catch(() => {});
+	storage.set(STORAGE_SONG_KEY, song.id);
+	storage.set(STORAGE_SONG_DATA_KEY, JSON.stringify(song));
 }
 
 function resolveIdsToSongs(ids: string[]): Song[] {
@@ -67,8 +68,6 @@ interface AudioState {
 	queue: Song[];
 	originalQueue: Song[];
 	isPlaying: boolean;
-	position: number;
-	duration: number;
 	repeatMode: number;
 	isShuffled: boolean;
 	volume: number;
@@ -108,8 +107,6 @@ interface AudioState {
 
 	// Internal state management
 	_setIsPlaying: (isPlaying: boolean) => void;
-	_setPosition: (position: number) => void;
-	_setDuration: (duration: number) => void;
 	_setCurrentSong: (song: Song | null) => void;
 	_setIsBuffering: (isBuffering: boolean) => void;
 	_setError: (error: string | null) => void;
@@ -142,8 +139,8 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 	return [currentSong, ...shuffled];
 }
 
-// Track which song URL has been pre-warmed to avoid duplicate fetches
-let prewarmedUrl: string | null = null;
+// Track which song ID has been pre-warmed to avoid duplicate fetches
+let prewarmedSongId: string | null = null;
 
 // Playback error retry tracking
 let lastErrorRetryAt = 0;
@@ -157,18 +154,6 @@ function scrobbleSong(song: Song) {
 	if (song.source === 'podcast') return;
 	queueScrobble(song).catch(() => {});
 }
-
-// Debounced position save (max once per 2 seconds)
-let positionSaveTimeout: ReturnType<typeof setTimeout> | null = null;
-const debouncedSavePosition = (position: number) => {
-	if (positionSaveTimeout) {
-		clearTimeout(positionSaveTimeout);
-	}
-	positionSaveTimeout = setTimeout(async () => {
-		await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(position));
-		positionSaveTimeout = null;
-	}, 2000);
-};
 
 // Extract artwork color with caching
 async function extractArtworkColor(song: Song): Promise<string> {
@@ -205,29 +190,64 @@ async function extractArtworkColor(song: Song): Promise<string> {
 	}
 }
 
+// Cached lazy-require accessors (avoids repeated require() per call in hot paths)
+let _downloadsStore: typeof import('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore | undefined;
+let _playbackSettingsStore: typeof import('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore | undefined;
+let _progressStore: typeof import('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore | undefined;
+
+function getDownloadsStore() {
+	if (!_downloadsStore) {
+		_downloadsStore = require('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore;
+	}
+	return _downloadsStore!;
+}
+function getPlaybackSettingsStore() {
+	if (!_playbackSettingsStore) {
+		_playbackSettingsStore = require('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore;
+	}
+	return _playbackSettingsStore!;
+}
+function getProgressStore() {
+	if (!_progressStore) {
+		_progressStore = require('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore;
+	}
+	return _progressStore!;
+}
+
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
-	const { useMusicDownloadsStore } = require('@/hooks/useMusicDownloadsStore');
-	const localUri = song.localUri || useMusicDownloadsStore.getState().getLocalUri(song.id);
+	const localUri = song.localUri || getDownloadsStore().getState().getLocalUri(song.id);
+	if (__DEV__ && !localUri) {
+		console.log(`[songToTrack] No localUri for ${song.id}, using remote URL`);
+	}
 	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}
 
-	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
-	let finalUrl = url ?? song.uri ?? '';
+	const referenceUrl = url ?? song.uri ?? '';
+	let finalUrl = referenceUrl;
+	let directUrl: string | undefined;
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
-		const { usePlaybackSettingsStore, STREAMING_QUALITY_BITRATES } = require('@/hooks/usePlaybackSettingsStore');
-		const quality = usePlaybackSettingsStore.getState().streamingQuality;
-		const bitrate = STREAMING_QUALITY_BITRATES[quality];
+		const ps = getPlaybackSettingsStore().getState();
+		const bitrate = getStreamingPlaybackBitrateKbps(
+			ps.streamingBitrateWifi,
+			ps.streamingBitrateCellular,
+			ps.streamingTranscodeCapKbps,
+			getCachedNetworkPlaybackRoute(),
+		);
 		if (bitrate !== null) {
-			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+			const built = buildPlexStreamUrl(song, referenceUrl, bitrate);
+			finalUrl = built.url;
+			directUrl = built.directUrl;
+			console.log(`[songToTrack] Plex remote stream ${song.id} @ ${bitrate} kbps`);
 		}
 	}
 
 	return {
 		id: song.id.toString(),
 		url: finalUrl,
+		...(directUrl ? { directUrl } : {}),
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
@@ -314,8 +334,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	queue: [],
 	originalQueue: [],
 	isPlaying: false,
-	position: 0,
-	duration: 0,
 	repeatMode: RepeatMode.Queue,
 	isShuffled: false,
 	volume: 1.0,
@@ -328,11 +346,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
-	_setPosition: (position) => {
-		set({ position });
-		debouncedSavePosition(position);
-	},
-	_setDuration: (duration) => set({ duration }),
 	_setCurrentSong: (song) => set({ currentSong: song }),
 	_setIsBuffering: (isBuffering) => set({ isBuffering }),
 	_setError: (error) => set({ error }),
@@ -378,15 +391,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 			// Restore saved settings
 			try {
-				const [savedRepeatStr, savedShuffleStr, savedVolumeStr, savedRateStr, savedSleepTimerEndsAtStr] = await Promise.all([
-					AsyncStorage.getItem(STORAGE_REPEAT_MODE_KEY),
-					AsyncStorage.getItem(STORAGE_SHUFFLE_KEY),
-					AsyncStorage.getItem(STORAGE_VOLUME_KEY),
-					AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY),
-					AsyncStorage.getItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY),
-				]);
+				const savedRepeatStr = storage.getString(STORAGE_REPEAT_MODE_KEY);
+				const savedShuffleStr = storage.getString(STORAGE_SHUFFLE_KEY);
+				const savedVolumeStr = storage.getString(STORAGE_VOLUME_KEY);
+				const savedRateStr = storage.getString(STORAGE_PLAYBACK_RATE_KEY);
+				const savedSleepTimerEndsAtStr = storage.getString(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 
-				// Restore settings
 				if (savedRepeatStr) {
 					const repeatMode = Number.parseInt(savedRepeatStr, 10);
 					set({ repeatMode });
@@ -414,7 +424,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					if (endsAt > Date.now()) {
 						set({ sleepTimerEndsAt: endsAt });
 					} else {
-						await AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
+						storage.remove(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 					}
 				}
 
@@ -428,20 +438,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		}
 	},
 
-	// Restore queue + current song + position from AsyncStorage.
+	// Restore queue + current song + position from MMKV.
 	// Safe to call multiple times — bails early if a song is already loaded.
 	// Falls back to a single-song queue if the library isn't hydrated yet (shows mini player).
 	restorePlaybackState: async () => {
 		if (get().currentSong !== null) return;
 
 		try {
-			const [savedSongStr, savedSongDataStr, savedQueueStr, savedOriginalQueueStr, savedPosStr] = await Promise.all([
-				AsyncStorage.getItem(STORAGE_SONG_KEY),
-				AsyncStorage.getItem(STORAGE_SONG_DATA_KEY),
-				AsyncStorage.getItem(STORAGE_QUEUE_KEY),
-				AsyncStorage.getItem(STORAGE_ORIGINAL_QUEUE_KEY),
-				AsyncStorage.getItem(STORAGE_POSITION_KEY),
-			]);
+			const savedSongStr = storage.getString(STORAGE_SONG_KEY);
+			const savedSongDataStr = storage.getString(STORAGE_SONG_DATA_KEY);
+			const savedQueueStr = storage.getString(STORAGE_QUEUE_KEY);
+			const savedOriginalQueueStr = storage.getString(STORAGE_ORIGINAL_QUEUE_KEY);
+			const savedPosStr = storage.getString(STORAGE_POSITION_KEY);
 
 			if (!savedSongStr && !savedSongDataStr) return;
 
@@ -501,18 +509,27 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				} catch {}
 			}
 
+			// Defer native queue load until after transitions/animations so a quick "open album" tap
+			// does not reset() a restore that already started a download (avoids spurious "cancelled").
+			await new Promise<void>((resolve) => {
+				InteractionManager.runAfterInteractions(() => resolve());
+			});
+
 			await TrackPlayer.add(queue.map(songToTrack));
 
-			const trackIndex = queue.findIndex((s) => s.id === currentSong!.id);
-			if (trackIndex !== -1) {
-				await TrackPlayer.skip(trackIndex);
-				if (position > 0) await TrackPlayer.seekTo(position);
-			}
+			const trackIndex = Math.max(
+				0,
+				queue.findIndex((s) => s.id === currentSong!.id),
+			);
+			await TrackPlayer.skip(trackIndex);
+			if (position > 0) await TrackPlayer.seekTo(position);
 			// Always pause regardless of trackIndex — prevents auto-play on reload
 			await TrackPlayer.pause();
 
 			const color = await extractArtworkColor(currentSong);
-			set({ currentSong, queue, position, artworkBgColor: color, isPlaying: false });
+			set({ currentSong, queue, artworkBgColor: color, isPlaying: false });
+			const usePlaybackProgressStore = getProgressStore();
+			usePlaybackProgressStore.setState({ position });
 
 			if (currentSong.source !== 'podcast') {
 				await TrackPlayer.setRate(1);
@@ -553,7 +570,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					// because PlaybackActiveTrackChanged will see the new currentSong and skip the save).
 					const prev = get().currentSong;
 					if (prev?.source === 'podcast' && prev.id !== song.id) {
-						const { position: prevPos, duration: prevDur } = get();
+						const usePlaybackProgressStore = getProgressStore();
+						const { position: prevPos, duration: prevDur } = usePlaybackProgressStore.getState();
 						savePodcastProgressImmediate(prev.id, prevPos, prevDur);
 					}
 
@@ -564,7 +582,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						currentPlaylistRatingKey: options?.playlistRatingKey ?? null,
 					});
 					saveCurrentSong(song);
-					AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+					storage.remove(STORAGE_POSITION_KEY);
 
 					// Fire-and-forget artwork color extraction
 					extractArtworkColor(song)
@@ -605,9 +623,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
 
 						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-						if (trackIndex !== -1 && (queueToUse.length > 1 || trackIndex > 0)) {
-							await TrackPlayer.skip(trackIndex);
-						}
+						await TrackPlayer.skip(Math.max(0, trackIndex));
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -616,6 +632,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
 						set({ queue: [song], originalQueue: [song] });
+						await TrackPlayer.skip(0);
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					}
@@ -627,7 +644,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 							set({ playbackRate: 1 });
 						}
 					} else {
-						const savedRateStr = await AsyncStorage.getItem(STORAGE_PLAYBACK_RATE_KEY);
+						const savedRateStr = storage.getString(STORAGE_PLAYBACK_RATE_KEY);
 						const savedRate = savedRateStr ? Math.max(0.5, Math.min(2.0, Number.parseFloat(savedRateStr))) : 1;
 						if (get().playbackRate !== savedRate) {
 							await TrackPlayer.setRate(savedRate);
@@ -654,7 +671,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						isPlaying: false,
 						artworkBgColor: null,
 					});
-					AsyncStorage.removeItem(STORAGE_SONG_KEY).catch(() => {});
+					storage.remove(STORAGE_SONG_KEY);
 				}
 			},
 			{ songId: song.id, queueLength: newQueue?.length || 0 },
@@ -693,7 +710,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				set({ currentSong: nextSong });
 
 				saveQueueState(state.queue, state.originalQueue, nextSong);
-				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				storage.remove(STORAGE_POSITION_KEY);
 
 				extractArtworkColor(nextSong)
 					.then((color) => set({ artworkBgColor: color }))
@@ -713,7 +730,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				if (!state.currentSong || state.queue.length === 0) return;
 
 				// If position >= 3s, restart current song
-				if (state.position >= 3) {
+				const usePlaybackProgressStore = getProgressStore();
+				if (usePlaybackProgressStore.getState().position >= 3) {
 					await TrackPlayer.seekTo(0);
 					return;
 				}
@@ -728,7 +746,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				set({ currentSong: prevSong });
 
 				saveQueueState(state.queue, state.originalQueue, prevSong);
-				AsyncStorage.removeItem(STORAGE_POSITION_KEY).catch(() => {});
+				storage.remove(STORAGE_POSITION_KEY);
 
 				extractArtworkColor(prevSong)
 					.then((color) => set({ artworkBgColor: color }))
@@ -743,21 +761,23 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	seekTo: async (position: number) => {
 		try {
 			await TrackPlayer.seekTo(position);
-			set({ position });
-			await AsyncStorage.setItem(STORAGE_POSITION_KEY, String(position));
+			const usePlaybackProgressStore = getProgressStore();
+			usePlaybackProgressStore.getState().setPosition(position);
 		} catch (error) {
 			console.error('Error seeking:', error);
 		}
 	},
 
 	skipBackward15: async () => {
-		const { position, seekTo } = get();
-		await seekTo(Math.max(0, position - 15));
+		const usePlaybackProgressStore = getProgressStore();
+		const { position } = usePlaybackProgressStore.getState();
+		await get().seekTo(Math.max(0, position - 15));
 	},
 
 	skipForward15: async () => {
-		const { position, duration, seekTo } = get();
-		await seekTo(Math.min(duration, position + 15));
+		const usePlaybackProgressStore = getProgressStore();
+		const { position, duration } = usePlaybackProgressStore.getState();
+		await get().seekTo(Math.min(duration, position + 15));
 	},
 
 	// Add to queue
@@ -858,7 +878,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		newQueue.splice(toIndex, 0, movedSong);
 
 		set({ queue: newQueue });
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id))).catch(() => {});
+		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
 
 		// Reorder in TrackPlayer
 		TrackPlayer.move(fromIndex, toIndex).catch((err) => console.warn('Failed to reorder track:', err));
@@ -879,7 +899,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 		await TrackPlayer.setRepeatMode(nextMode);
 		set({ repeatMode: nextMode });
-		await AsyncStorage.setItem(STORAGE_REPEAT_MODE_KEY, String(nextMode));
+		storage.set(STORAGE_REPEAT_MODE_KEY, String(nextMode));
 	},
 
 	// Toggle shuffle — swaps upcoming tracks without interrupting current playback
@@ -922,8 +942,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			console.warn('Failed to update TrackPlayer queue for shuffle:', err);
 		}
 
-		AsyncStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id))).catch(() => {});
-		AsyncStorage.setItem(STORAGE_SHUFFLE_KEY, String(newShuffleState)).catch(() => {});
+		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
+		storage.set(STORAGE_SHUFFLE_KEY, String(newShuffleState));
 	},
 
 	// Set volume
@@ -932,7 +952,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			const clampedVolume = Math.max(0, Math.min(1, volume));
 			await TrackPlayer.setVolume(clampedVolume);
 			set({ volume: clampedVolume });
-			await AsyncStorage.setItem(STORAGE_VOLUME_KEY, String(clampedVolume));
+			storage.set(STORAGE_VOLUME_KEY, String(clampedVolume));
 		} catch (error) {
 			console.error('Error setting volume:', error);
 		}
@@ -944,7 +964,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			const clampedRate = Math.max(0.5, Math.min(2.0, rate));
 			await TrackPlayer.setRate(clampedRate);
 			set({ playbackRate: clampedRate });
-			await AsyncStorage.setItem(STORAGE_PLAYBACK_RATE_KEY, String(clampedRate));
+			storage.set(STORAGE_PLAYBACK_RATE_KEY, String(clampedRate));
 		} catch (error) {
 			console.error('Error setting playback rate:', error);
 		}
@@ -953,12 +973,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	setSleepTimer: (minutes: number | null) => {
 		if (minutes == null) {
 			set({ sleepTimerEndsAt: null });
-			AsyncStorage.removeItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY).catch(() => {});
+			storage.remove(STORAGE_SLEEP_TIMER_ENDS_AT_KEY);
 			return;
 		}
 		const endsAt = Date.now() + minutes * 60 * 1000;
 		set({ sleepTimerEndsAt: endsAt });
-		AsyncStorage.setItem(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt)).catch(() => {});
+		storage.set(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt));
 	},
 
 	getSleepTimerRemainingSeconds: () => {
@@ -981,10 +1001,10 @@ export function useTrackPlayerSync() {
 			state._setIsPlaying(true);
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
-			// Save podcast progress immediately on pause so resume position is accurate
 			if (state.currentSong?.source === 'podcast') {
-				const s = useAudioStore.getState();
-				savePodcastProgressImmediate(state.currentSong.id, s.position, s.duration);
+				const usePlaybackProgressStore = getProgressStore();
+				const { position, duration } = usePlaybackProgressStore.getState();
+				savePodcastProgressImmediate(state.currentSong.id, position, duration);
 			}
 		}
 
@@ -1015,8 +1035,10 @@ export function useTrackPlayerSync() {
 			if (event.type === Event.PlaybackProgressUpdated) {
 				const position = event.position ?? 0;
 				const duration = event.duration ?? 0;
-				state._setPosition(position);
-				state._setDuration(duration);
+				const usePlaybackProgressStore = getProgressStore();
+				const progressStore = usePlaybackProgressStore.getState();
+				progressStore.setPosition(position);
+				progressStore.setDuration(duration);
 				lastProgressTimestamp = Date.now();
 
 				// Deferred podcast resume: for downloaded/local files, seek before play() is often ignored; seek now if we're still near 0.
@@ -1042,11 +1064,17 @@ export function useTrackPlayerSync() {
 					if (currentIndex !== -1) {
 						const nextIndex = (currentIndex + 1) % state.queue.length;
 						const nextSong = state.queue[nextIndex];
-						if (nextSong && nextSong.uri !== prewarmedUrl) {
-							prewarmedUrl = nextSong.uri;
-							fetch(nextSong.uri, { headers: { Range: 'bytes=0-262143' } })
-								.then((r) => r.arrayBuffer())
-								.catch(() => {});
+						if (nextSong && nextSong.id !== prewarmedSongId) {
+							prewarmedSongId = nextSong.id;
+							try {
+								const track = songToTrack(nextSong);
+								const { YhwavAudioModule } = require('@/modules/yhwav-audio/src');
+								if (YhwavAudioModule?.prewarmURL) {
+									YhwavAudioModule.prewarmURL(track.url, nextSong.id);
+								} else {
+									fetch(track.url, { headers: { Range: 'bytes=0-262143' } }).catch(() => {});
+								}
+							} catch {}
 						}
 					}
 				}
@@ -1059,7 +1087,9 @@ export function useTrackPlayerSync() {
 
 			if (event.type === Event.PlaybackQueueEnded) {
 				if (state.currentSong?.source === 'podcast') {
-					const dur = state.duration > 0 ? state.duration : state.position;
+					const usePlaybackProgressStore = getProgressStore();
+					const prog = usePlaybackProgressStore.getState();
+					const dur = prog.duration > 0 ? prog.duration : prog.position;
 					savePodcastProgressImmediate(state.currentSong.id, dur, dur);
 				}
 				if (state.currentSong) scrobbleSong(state.currentSong);
@@ -1082,16 +1112,24 @@ export function useTrackPlayerSync() {
 				if (!isNaturalAdvance) return;
 
 				const previousSong = state.currentSong;
-				const gapMs = Date.now() - lastProgressTimestamp;
+				const now = Date.now();
+				const nativeGapMs = event.previousTrackEndedAt ? now - event.previousTrackEndedAt : null;
+				const jsGapMs = now - lastProgressTimestamp;
 				if (__DEV__) {
-					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
+					const gapLabel = nativeGapMs != null ? `${nativeGapMs.toFixed(0)}ms native` : `${jsGapMs.toFixed(0)}ms js`;
+					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapLabel})`);
 				}
 				if (previousSong) scrobbleSong(previousSong);
 
 				// Reset pre-warm tracker for the new track
-				prewarmedUrl = null;
+				prewarmedSongId = null;
 
 				state._setCurrentSong(newCurrentSong);
+
+				// Reset progress bar immediately so it doesn't flash the old track's position
+				const progressStore = getProgressStore().getState();
+				progressStore.setPosition(0);
+				progressStore.setDuration(newCurrentSong.duration ?? 0);
 
 				// Persist & extract color asynchronously
 				saveCurrentSong(newCurrentSong);
@@ -1101,9 +1139,6 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackError) {
-				console.warn('Playback error (will retry):', event);
-
-				// Retry the current track once instead of nuking the player state
 				const now = Date.now();
 				const canRetry = now - lastErrorRetryAt > 3000;
 
@@ -1121,9 +1156,23 @@ export function useTrackPlayerSync() {
 						}
 					}
 				} else if (!canRetry) {
-					// Retry already attempted recently — just pause, don't destroy state
-					console.warn('Playback error after recent retry, pausing');
-					useAudioStore.setState({ isPlaying: false });
+					console.warn('Playback error after recent retry, skipping to next');
+					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const nextIndex = trackIndex + 1;
+					if (nextIndex < state.queue.length) {
+						try {
+							lastErrorRetryAt = now;
+							const nextSong = state.queue[nextIndex];
+							state._setCurrentSong(nextSong);
+							await TrackPlayer.skip(nextIndex);
+							await TrackPlayer.play();
+							console.log(`✅ Skipped failed track → ${nextSong.id}`);
+						} catch {
+							useAudioStore.setState({ isPlaying: false });
+						}
+					} else {
+						useAudioStore.setState({ isPlaying: false });
+					}
 				}
 			}
 

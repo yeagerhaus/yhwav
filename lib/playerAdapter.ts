@@ -59,7 +59,15 @@ function getPlayer() {
 }
 
 // Track shape: { id, url, title, artist, artwork, duration }
-type TrackLike = { id: string; url: string; title?: string; artist?: string; artwork?: string; duration?: number };
+type TrackLike = {
+	id: string;
+	url: string;
+	directUrl?: string;
+	title?: string;
+	artist?: string;
+	artwork?: string;
+	duration?: number;
+};
 
 const TrackPlayer = {
 	async setupPlayer(options: Record<string, unknown>) {
@@ -215,7 +223,7 @@ export function usePlaybackState(): { state: string } {
 }
 
 type EventType = (typeof Event)[keyof typeof Event];
-type EventCallback = (event: { type: string; position?: number; duration?: number; index?: number }) => void;
+type EventCallback = (event: { type: string; position?: number; duration?: number; index?: number; previousTrackEndedAt?: number }) => void;
 
 export function useTrackPlayerEvents(events: EventType[], callback: EventCallback) {
 	const callbackRef = React.useRef(callback);
@@ -236,6 +244,7 @@ export function useTrackPlayerEvents(events: EventType[], callback: EventCallbac
 					position: toNum(p?.position),
 					duration: toNum(p?.duration),
 					index: typeof idx === 'number' ? idx : undefined,
+					previousTrackEndedAt: toNum(p?.previousTrackEndedAt),
 				});
 			});
 			subscriptions.push(sub);

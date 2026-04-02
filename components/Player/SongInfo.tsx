@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import React from 'react';
-import { Dimensions, Image, StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { Div } from '@/components/Div';
 import { Text } from '@/components/Text';

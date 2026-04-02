@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { fetchUltraBlurColors } from '@/utils/plex';
 import { useAudioStore } from './useAudioStore';
@@ -8,38 +8,26 @@ const STORAGE_KEY = 'ULTRABLUR_CACHE';
 const MAX_ENTRIES = 500;
 const TRIM_TO = 250;
 
-// In-memory cache keyed by song ID
 const memoryCache = new Map<string, string[]>();
 let cacheLoaded = false;
-let cacheLoadPromise: Promise<void> | null = null;
 
-async function loadCache(): Promise<void> {
+function loadCache(): void {
 	if (cacheLoaded) return;
-	if (cacheLoadPromise) return cacheLoadPromise;
-
-	cacheLoadPromise = (async () => {
-		try {
-			const raw = await AsyncStorage.getItem(STORAGE_KEY);
-			if (raw) {
-				const parsed: Record<string, string[]> = JSON.parse(raw);
-				for (const [key, value] of Object.entries(parsed)) {
-					if (Array.isArray(value)) {
-						memoryCache.set(key, value);
-					}
+	try {
+		const raw = storage.getString(STORAGE_KEY);
+		if (raw) {
+			const parsed: Record<string, string[]> = JSON.parse(raw);
+			for (const [key, value] of Object.entries(parsed)) {
+				if (Array.isArray(value)) {
+					memoryCache.set(key, value);
 				}
 			}
-		} catch {
-			// Ignore — start with empty cache
 		}
-		cacheLoaded = true;
-		cacheLoadPromise = null;
-	})();
-
-	return cacheLoadPromise;
+	} catch {}
+	cacheLoaded = true;
 }
 
 function persistCache(): void {
-	// Trim if over limit
 	if (memoryCache.size > MAX_ENTRIES) {
 		const keys = Array.from(memoryCache.keys());
 		const toRemove = keys.slice(0, keys.length - TRIM_TO);
@@ -52,7 +40,7 @@ function persistCache(): void {
 	for (const [key, value] of memoryCache.entries()) {
 		obj[key] = value;
 	}
-	AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(obj)).catch(() => {});
+	storage.set(STORAGE_KEY, JSON.stringify(obj));
 }
 
 export interface UltraBlurDirectionalColors {
@@ -99,9 +87,9 @@ export const useUltraBlurColors = create<UltraBlurState>((set) => ({
 			return;
 		}
 
-		// 2. Ensure AsyncStorage cache is loaded, then re-check
+		// 2. Ensure MMKV cache is loaded, then re-check
 		if (!cacheLoaded) {
-			await loadCache();
+			loadCache();
 			const fromDisk = memoryCache.get(songId);
 			if (fromDisk) {
 				set({ colors: arrayToDirectional(fromDisk), hasColors: true });

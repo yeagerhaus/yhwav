@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, useColorScheme, View }
 import { Text } from '@/components/Text';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { toPlayableSong } from '@/types';
@@ -63,9 +64,11 @@ const PodcastEpisodeItem = React.memo(
 		const playNext = useAudioStore((state) => state.playNext);
 		const addToQueue = useAudioStore((state) => state.addToQueue);
 		const togglePlayPause = useAudioStore((state) => state.togglePlayPause);
-		const livePosition = useAudioStore((state) => (state.currentSong?.id === episode.id ? state.position : null));
-		const liveDuration = useAudioStore((state) => (state.currentSong?.id === episode.id ? state.duration : null));
 		const isPlaying = useAudioStore((state) => (state.currentSong?.id === episode.id ? state.isPlaying : false));
+
+		const isCurrentEpisode = currentSong?.id === episode.id;
+		const livePosition = usePlaybackProgressStore((state) => (isCurrentEpisode ? state.position : null));
+		const liveDuration = usePlaybackProgressStore((state) => (isCurrentEpisode ? state.duration : null));
 		const progress = usePodcastProgressStore((state) => state.progressByEpisodeId[episode.id]);
 		const markAsPlayed = usePodcastProgressStore((state) => state.markAsPlayed);
 		const saveProgress = usePodcastProgressStore((state) => state.saveProgress);
@@ -74,8 +77,6 @@ const PodcastEpisodeItem = React.memo(
 		const isDownloading = usePodcastDownloadsStore((s) => s.isDownloading(episode.id));
 		const downloadEpisode = usePodcastDownloadsStore((s) => s.downloadEpisode);
 		const removeDownload = usePodcastDownloadsStore((s) => s.removeDownload);
-
-		const isCurrentEpisode = currentSong?.id === episode.id;
 
 		const localUri = useMemo(() => (isDownload(episode) ? episode.localUri : getLocalUri(episode.id)), [episode, getLocalUri]);
 

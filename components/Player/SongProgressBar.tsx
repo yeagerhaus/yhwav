@@ -12,6 +12,7 @@ import Animated, {
 	withTiming,
 } from 'react-native-reanimated';
 import { useAudioStore } from '@/hooks/useAudioStore';
+import { usePlaybackProgressStore } from '@/hooks/usePlaybackProgressStore';
 import { Div } from '../Div';
 
 configureReanimatedLogger({
@@ -22,8 +23,8 @@ configureReanimatedLogger({
 const PROGRESS_UPDATE_INTERVAL_MS = 500;
 
 export function SongProgressBar() {
-	const position = useAudioStore((state) => state.position);
-	const duration = useAudioStore((state) => state.duration);
+	const position = usePlaybackProgressStore((state) => state.position);
+	const duration = usePlaybackProgressStore((state) => state.duration);
 	const isPlaying = useAudioStore((state) => state.isPlaying);
 	const playbackRate = useAudioStore((state) => state.playbackRate);
 	const seekTo = useAudioStore((state) => state.seekTo);
@@ -41,7 +42,9 @@ export function SongProgressBar() {
 
 	// On each native position update, animate smoothly to the next expected position
 	useEffect(() => {
+		// Avoid wiping the bar on transient duration=0 while we still have a position (native timing/metadata hiccups).
 		if (duration === 0) {
+			if (position > 0) return;
 			animatedProgress.value = 0;
 			return;
 		}

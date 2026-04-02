@@ -1,21 +1,20 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, useColorScheme } from 'react-native';
 import { Div } from '@/components';
 import { Text } from '@/components/Text';
 import { useColors } from '@/hooks/useColors';
+import { storage } from '@/lib/storage';
 import { requestNotificationPermissions } from '@/utils/notifications';
 
 const PROMPT_DISMISSED_KEY = 'NOTIFICATION_PROMPT_SEEN';
 
-export async function hasSeenNotificationPrompt(): Promise<boolean> {
-	const val = await AsyncStorage.getItem(PROMPT_DISMISSED_KEY);
-	return val === 'true';
+export function hasSeenNotificationPrompt(): boolean {
+	return storage.getString(PROMPT_DISMISSED_KEY) === 'true';
 }
 
-async function markPromptSeen() {
-	await AsyncStorage.setItem(PROMPT_DISMISSED_KEY, 'true');
+function markPromptSeen() {
+	storage.set(PROMPT_DISMISSED_KEY, 'true');
 }
 
 export default function NotificationPromptScreen() {
@@ -24,13 +23,13 @@ export default function NotificationPromptScreen() {
 	const isDark = useColorScheme() === 'dark';
 
 	const handleEnable = async () => {
-		await markPromptSeen();
+		markPromptSeen();
 		await requestNotificationPermissions();
 		router.back();
 	};
 
-	const handleSkip = async () => {
-		await markPromptSeen();
+	const handleSkip = () => {
+		markPromptSeen();
 		router.back();
 	};
 

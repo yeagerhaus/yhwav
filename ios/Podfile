@@ -4,27 +4,33 @@ require File.join(File.dirname(`node --print "require.resolve('react-native/pack
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
-ENV['RCT_NEW_ARCH_ENABLED'] = '0' if podfile_properties['newArchEnabled'] == 'false'
-ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
-ENV['NODE_BINARY'] = '/usr/local/bin/node'
+def ccache_enabled?(podfile_properties)
+  # Environment variable takes precedence
+  return ENV['USE_CCACHE'] == '1' if ENV['USE_CCACHE']
+  
+  # Fall back to Podfile properties
+  podfile_properties['apple.ccacheEnabled'] == 'true'
+end
 
+ENV['RCT_NEW_ARCH_ENABLED'] ||= '0' if podfile_properties['newArchEnabled'] == 'false'
+ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
+ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
+ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
-install! 'cocoapods',
-  :deterministic_uuids => false
 
 prepare_react_native_project!
 
-target 'yhwav' do
-  use_expo_modules!(
-    modules_provider_script_phase: false
-  )
-
+target 'Rite' do
+  use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else
     config_command = [
-      'npx',
+      'node',
+      '--no-warnings',
+      '--eval',
+      'require(\'expo/bin/autolinking\')',
       'expo-modules-autolinking',
       'react-native-config',
       '--json',
@@ -51,75 +57,7 @@ target 'yhwav' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
+      :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-
-    # Fix RCT-Folly New.h for Xcode 26+ compatibility
-    # The FOLLY_CREATE_QUAL_INVOKER wrappers for ::operator new/delete fail
-    # SFINAE resolution under Xcode 26's Clang; replace with direct impls.
-    folly_new_h = File.join(__dir__, 'Pods', 'RCT-Folly', 'folly', 'lang', 'New.h')
-    if File.exist?(folly_new_h)
-      require 'fileutils'
-      FileUtils.chmod(0644, folly_new_h)
-      content = File.read(folly_new_h)
-      content.gsub!(
-        'FOLLY_CREATE_QUAL_INVOKER(op_new_library_fn_, ::operator new);',
-        "struct op_new_library_fn_ {\n" \
-        "  template <typename... A>\n" \
-        "  FOLLY_ERASE void* operator()(A&&... a) const {\n" \
-        "    return ::operator new(static_cast<A&&>(a)...);\n" \
-        "  }\n" \
-        "};"
-      )
-      content.gsub!(
-        'FOLLY_CREATE_QUAL_INVOKER(op_del_library_fn_, ::operator delete);',
-        "struct op_del_library_fn_ {\n" \
-        "  template <typename... A>\n" \
-        "  FOLLY_ERASE void operator()(A&&... a) const noexcept {\n" \
-        "    ::operator delete(static_cast<A&&>(a)...);\n" \
-        "  }\n" \
-        "};"
-      )
-      File.write(folly_new_h, content)
-      puts "  ✅ Patched folly/lang/New.h for Xcode 26 compatibility"
-    end
-
-    # Apply gapless playback patches to SwiftAudioEx
-    patches_dir = File.join(__dir__, 'patches', 'SwiftAudioEx')
-    if File.directory?(patches_dir)
-      swift_audio_dir = File.join(__dir__, 'Pods', 'SwiftAudioEx', 'Sources', 'SwiftAudioEx')
-      if File.directory?(swift_audio_dir)
-        require 'fileutils'
-        Dir.glob(File.join(patches_dir, '**', '*.swift')).each do |patch_file|
-          relative_path = patch_file.sub("#{patches_dir}/", '')
-          target = File.join(swift_audio_dir, relative_path)
-          FileUtils.chmod(0644, target) if File.exist?(target)
-          FileUtils.cp(patch_file, target)
-          puts "  ✅ Applied gapless patch: #{relative_path}"
-        end
-      end
-    end
-
-    # Fix Hermes script phase to avoid running on every build
-    installer.pods_project.targets.each do |target|
-      target.build_phases.each do |phase|
-        if phase.is_a?(Xcodeproj::Project::Object::PBXShellScriptBuildPhase) && 
-           phase.name&.include?('[CP-User] [Hermes] Replace Hermes for the right configuration, if needed')
-          # Add output files to prevent running on every build
-          phase.output_paths = ['$(DERIVED_FILE_DIR)/hermes-ios-$(EXECUTABLE_ARCH).tar.gz']
-        end
-      end
-    end
-
-    # This is necessary for Xcode 14, because it signs resource bundles by default
-    # when building for devices.
-    installer.target_installation_results.pod_target_installation_results
-      .each do |pod_name, target_installation_result|
-      target_installation_result.resource_bundle_targets.each do |resource_bundle_target|
-        resource_bundle_target.build_configurations.each do |config|
-          config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-        end
-      end
-    end
   end
 end

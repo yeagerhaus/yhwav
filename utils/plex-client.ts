@@ -6,6 +6,7 @@ import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
+import { appendPlexIdentityQueryToUrl, buildPlexIdentityHeaders, encodePlexIdentityQueryString, getPlexAppVersion } from './plex-identity';
 
 const OFFLINE_MODE_MESSAGE = 'Offline mode is on. Disable in Settings to fetch library data.';
 
@@ -150,10 +151,14 @@ export class PlexClient {
 
 		// Quick check: is the current baseURL still reachable?
 		try {
-			const testUrl = `${currentBase}/identity?X-Plex-Token=${encodeURIComponent(token)}`;
+			let testUrl = `${currentBase}/identity?X-Plex-Token=${encodeURIComponent(token)}`;
+			testUrl = appendPlexIdentityQueryToUrl(testUrl, plexAuthService.getClientIdentifier());
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 3000);
-			const response = await fetch(testUrl, { signal: controller.signal });
+			const response = await fetch(testUrl, {
+				signal: controller.signal,
+				headers: buildPlexIdentityHeaders(plexAuthService.getClientIdentifier()),
+			});
 			clearTimeout(timeoutId);
 			if (response.ok) return; // Still connected
 		} catch {
@@ -206,9 +211,12 @@ export class PlexClient {
 	 */
 	private buildTrackURL(path: string): string {
 		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-		return this.token
-			? `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}`
-			: `${this.baseURL}${normalizedPath}`;
+		const id = plexAuthService.getClientIdentifier();
+		const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(id));
+		if (this.token) {
+			return `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}&${identityQs}`;
+		}
+		return `${this.baseURL}${normalizedPath}?${identityQs}`;
 	}
 
 	/**
@@ -228,6 +236,11 @@ export class PlexClient {
 		// Add authentication token
 		if (this.token) {
 			url.searchParams.set('X-Plex-Token', this.token);
+		}
+
+		const clientId = plexAuthService.getClientIdentifier();
+		for (const [key, value] of Object.entries(buildPlexIdentityHeaders(clientId))) {
+			url.searchParams.set(key, value);
 		}
 
 		// Add additional parameters
@@ -314,11 +327,11 @@ export class PlexClient {
 
 		const url = this.buildURL(path, params);
 
-		// Default headers for Plex API
+		const clientId = plexAuthService.getClientIdentifier();
 		const defaultHeaders = {
 			Accept: 'application/json',
-			'User-Agent': 'YHWav/1.0.0',
-			'X-Plex-Client-Identifier': 'yhwav-mobile',
+			'User-Agent': `Rite/${getPlexAppVersion()}`,
+			...buildPlexIdentityHeaders(clientId),
 			...headers,
 		};
 
@@ -473,7 +486,7 @@ export class PlexClient {
 			type: '10', // 10 = track
 			sort: 'titleSort:asc',
 			includeFields:
-				'title,ratingKey,thumb,art,duration,index,parentIndex,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+				'title,ratingKey,thumb,art,duration,index,parentIndex,parentRatingKey,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
 		});
 
 		const data = response.data as any;
@@ -605,6 +618,7 @@ export class PlexClient {
 			title,
 			artist,
 			album,
+			albumId: track.parentRatingKey || '',
 			artworkUrl,
 			artwork: '',
 			streamUrl,
@@ -764,6 +778,80 @@ export class PlexClient {
 	}
 
 	/**
+	 * Plex artist radio: first station playlist for this artist (GET .../metadata/{id}?includeStations=1).
+	 */
+	async fetchArtistRadioPlaylist(artistRatingKey: string): Promise<Playlist | null> {
+		await this.initialize();
+
+		try {
+			const response = await this.request(`/library/metadata/${artistRatingKey}`, {
+				includeStations: '1',
+			});
+			const raw = this.extractFirstStationPlaylist(response.data);
+			return raw ? this.formatPlaylist(raw) : null;
+		} catch (error) {
+			console.error('Failed to fetch artist radio playlist:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Artist radio tracks: station playlist items, or empty if none.
+	 */
+	async fetchArtistRadioTracks(artistRatingKey: string): Promise<Song[]> {
+		const playlist = await this.fetchArtistRadioPlaylist(artistRatingKey);
+		if (!playlist?.key) return [];
+		return this.fetchPlaylistTracks(playlist.key);
+	}
+
+	/**
+	 * Parse includeStations=1 response — first audio playlist under Stations (plexapi rtag Stations).
+	 */
+	private extractFirstStationPlaylist(data: any): any | null {
+		const container = data?.MediaContainer;
+		if (!container) return null;
+
+		const metadata = container.Metadata;
+		const artist = Array.isArray(metadata) ? metadata[0] : metadata;
+		if (artist) {
+			const stations = artist.Station ?? artist.Stations ?? artist.station;
+			if (stations) {
+				const list = Array.isArray(stations) ? stations : [stations];
+				const playlist =
+					list.find(
+						(s: any) =>
+							s &&
+							(s.playlistType === 'audio' ||
+								s.type === 'playlist' ||
+								(typeof s.key === 'string' && s.key.includes('/playlists/'))),
+					) ?? list[0];
+				if (playlist?.key) return playlist;
+			}
+		}
+
+		// Some PMS builds expose station rows as Hub
+		const hubs = container.Hub;
+		if (hubs) {
+			const hubList = Array.isArray(hubs) ? hubs : [hubs];
+			for (const hub of hubList) {
+				const hubMeta = hub?.Metadata;
+				if (!hubMeta) continue;
+				const items = Array.isArray(hubMeta) ? hubMeta : [hubMeta];
+				const pl = items.find(
+					(m: any) =>
+						m &&
+						(m.type === 'playlist' ||
+							m.playlistType === 'audio' ||
+							(typeof m.key === 'string' && m.key.includes('/playlists/'))),
+				);
+				if (pl?.key) return pl;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Fetch tracks from a specific playlist
 	 */
 	async fetchPlaylistTracks(playlistId: string): Promise<Song[]> {
@@ -903,6 +991,14 @@ export class PlexClient {
 			guid: playlist.guid,
 		};
 	}
+	/**
+	 * Returns the current connection info for building URLs outside the client.
+	 * Returns null if the client hasn't been initialized yet.
+	 */
+	getConnectionInfo(): { baseURL: string; token: string } | null {
+		if (!this.baseURL || !this.token) return null;
+		return { baseURL: this.baseURL, token: this.token };
+	}
 }
 
 // Create singleton instance (baseURL will be set during initialization)
@@ -917,6 +1013,8 @@ export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
 export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
 export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
+export const fetchArtistRadioPlaylist = (artistRatingKey: string) => plexClient.fetchArtistRadioPlaylist(artistRatingKey);
+export const fetchArtistRadioTracks = (artistRatingKey: string) => plexClient.fetchArtistRadioTracks(artistRatingKey);
 export const fetchUltraBlurColors = (thumbUrl: string) => plexClient.fetchUltraBlurColors(thumbUrl);
 export const buildPlexURL = async (path: string, params: Record<string, string> = {}) => {
 	await plexClient.initialize();

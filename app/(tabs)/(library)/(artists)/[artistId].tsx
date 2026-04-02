@@ -1,16 +1,22 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Div, DynamicItem } from '@/components';
 import { Main } from '@/components/Main';
+import { SkeletonCard } from '@/components/SkeletonCard';
+import { SkeletonBanner } from '@/components/Skeletons';
 import { Text } from '@/components/Text';
 import { DefaultSharedComponents } from '@/constants/styles';
 import { useArtists } from '@/hooks/useArtists';
+import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
+import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import type { Album } from '@/types/album';
+import { fetchArtistRadioPlaylist, fetchPlaylistTracks } from '@/utils/plex';
 
 type AlbumCategory = 'Albums' | 'EPs' | 'Singles' | 'Compilations' | 'Live Albums';
 
@@ -76,6 +82,9 @@ export default function ArtistDetailScreen() {
 	const colors = useColors();
 	const { artistId } = useLocalSearchParams<{ artistId: string }>();
 	const { artistsById } = useArtists();
+	const isOffline = useOfflineModeStore((s) => s.offlineMode);
+	const playSound = useAudioStore((s) => s.playSound);
+	const [radioLoading, setRadioLoading] = useState(false);
 	const { albums, tracks, artists: offlineArtists } = useOfflineFilteredLibrary();
 
 	const downloads = useMusicDownloadsStore((s) => s.downloads);
@@ -116,6 +125,29 @@ export default function ArtistDetailScreen() {
 			downloadTracks(artistTracks);
 		}
 	}, [isFullyDownloaded, artistTracks, downloadTracks, removeDownloads]);
+
+	const handleArtistRadio = useCallback(async () => {
+		if (!artist) return;
+		setRadioLoading(true);
+		try {
+			const playlist = await fetchArtistRadioPlaylist(artist.key);
+			if (!playlist?.key) {
+				Alert.alert('Artist radio', 'No artist radio is available for this artist.');
+				return;
+			}
+			const radioTracks = await fetchPlaylistTracks(playlist.key);
+			if (radioTracks.length === 0) {
+				Alert.alert('Artist radio', 'No tracks in this station.');
+				return;
+			}
+			await playSound(radioTracks[0], radioTracks, { playlistRatingKey: playlist.ratingKey });
+		} catch (e) {
+			const message = e instanceof Error ? e.message : 'Could not start artist radio.';
+			Alert.alert('Artist radio', message);
+		} finally {
+			setRadioLoading(false);
+		}
+	}, [artist, playSound]);
 
 	const downloadLabel = isActive
 		? `Downloading${queueTotal > 0 ? ` ${queueCompleted}/${queueTotal}` : '…'}`
@@ -207,7 +239,11 @@ export default function ArtistDetailScreen() {
 	return (
 		<Main>
 			<Div transparent style={{ paddingTop: 24, paddingHorizontal: 16 }}>
-				{artist.art && <Image source={{ uri: artist.art }} style={styles.banner} resizeMode='cover' />}
+				{artist.art ? (
+					<Image source={{ uri: artist.art }} style={styles.banner} contentFit='cover' transition={300} />
+				) : (
+					<SkeletonBanner />
+				)}
 				<Div transparent>
 					<Text type='h1' style={{ marginBottom: 4 }}>
 						{artist.name}
@@ -224,6 +260,18 @@ export default function ArtistDetailScreen() {
 						</Text>
 					</Div>
 				) : null}
+				{!isOffline && (
+					<Pressable onPress={handleArtistRadio} disabled={radioLoading} style={styles.downloadButton}>
+						{radioLoading ? (
+							<ActivityIndicator size='small' color={colors.brand} />
+						) : (
+							<SymbolView name='dot.radiowaves.left.and.right' size={20} tintColor={colors.brand} />
+						)}
+						<Text type='bodySM' style={{ color: colors.brand }}>
+							Artist radio
+						</Text>
+					</Pressable>
+				)}
 				{artistTracks.length > 0 && (
 					<Pressable onPress={handleDownload} disabled={isActive} style={styles.downloadButton}>
 						{isActive ? (
@@ -237,21 +285,31 @@ export default function ArtistDetailScreen() {
 					</Pressable>
 				)}
 			</Div>
-			{sections.map((section) => (
-				<Div key={section.category} transparent style={{ marginBottom: 8 }}>
-					<Text type='h2' style={styles.sectionHeader}>
-						{section.category}
-					</Text>
-					<FlatList
-						horizontal
-						data={section.albums}
-						keyExtractor={(item) => item.id}
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
-						renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
-					/>
-				</Div>
-			))}
+			{sections.length > 0
+				? sections.map((section) => (
+						<Div key={section.category} transparent style={{ marginBottom: 8 }}>
+							<Text type='h2' style={styles.sectionHeader}>
+								{section.category}
+							</Text>
+							<FlatList
+								horizontal
+								data={section.albums}
+								keyExtractor={(item) => item.id}
+								showsHorizontalScrollIndicator={false}
+								contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}
+								renderItem={({ item }) => <DynamicItem item={item} type='album' size={140} />}
+							/>
+						</Div>
+					))
+				: Array.from({ length: 2 }, (_, i) => (
+						<Div key={`sk-section-${i}`} transparent style={{ marginBottom: 8 }}>
+							<View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 12, paddingTop: 16 }}>
+								{Array.from({ length: 3 }, (__, j) => (
+									<SkeletonCard key={`sk-${i}-${j}`} size={140} />
+								))}
+							</View>
+						</Div>
+					))}
 			<Div transparent style={{ height: 64 }} />
 		</Main>
 	);
