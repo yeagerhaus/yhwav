@@ -25,6 +25,7 @@ import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+import { setupCarPlay, teardownCarPlay } from '@/lib/carplay';
 import { initNetworkPlaybackRoute, refreshNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import { rehydrateLibraryStore } from '@/utils';
 import '@/utils/background-fetch-task';
@@ -186,6 +187,8 @@ export default function RootLayout() {
 
 				await initializePlayer();
 
+				setupCarPlay();
+
 				if (authLoaded && plexAuthService.isAuthenticated()) {
 					plexAuthReady.current = true;
 					initScrobbleQueue().catch(() => {});
@@ -217,7 +220,6 @@ export default function RootLayout() {
 		};
 
 		init();
-
 		const appStateSub = AppState.addEventListener('change', (state) => {
 			if (state === 'active') {
 				refreshNetworkPlaybackRoute().catch(() => {});
@@ -227,7 +229,10 @@ export default function RootLayout() {
 			}
 		});
 
-		return () => appStateSub.remove();
+		return () => {
+			appStateSub.remove();
+			teardownCarPlay();
+		};
 	}, []);
 
 	useEffect(() => {
