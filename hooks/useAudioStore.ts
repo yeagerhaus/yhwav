@@ -2,6 +2,8 @@ import React from 'react';
 import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
+import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
+import { getCachedNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer, {
 	Capability,
 	Event,
@@ -15,6 +17,7 @@ import TrackPlayer, {
 import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
+import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 import { queueScrobble } from '@/utils/scrobble-queue';
 
 // Storage keys
@@ -190,7 +193,6 @@ async function extractArtworkColor(song: Song): Promise<string> {
 // Cached lazy-require accessors (avoids repeated require() per call in hot paths)
 let _downloadsStore: typeof import('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore | undefined;
 let _playbackSettingsStore: typeof import('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore | undefined;
-let _playbackSettingsBitrates: any;
 let _progressStore: typeof import('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore | undefined;
 
 function getDownloadsStore() {
@@ -201,11 +203,9 @@ function getDownloadsStore() {
 }
 function getPlaybackSettingsStore() {
 	if (!_playbackSettingsStore) {
-		const mod = require('@/hooks/usePlaybackSettingsStore');
-		_playbackSettingsStore = mod.usePlaybackSettingsStore;
-		_playbackSettingsBitrates = mod.STREAMING_QUALITY_BITRATES;
+		_playbackSettingsStore = require('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore;
 	}
-	return { store: _playbackSettingsStore!, bitrates: _playbackSettingsBitrates };
+	return _playbackSettingsStore!;
 }
 function getProgressStore() {
 	if (!_progressStore) {
@@ -229,22 +229,18 @@ function songToTrack(song: Song) {
 	let finalUrl = referenceUrl;
 	let directUrl: string | undefined;
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
-		const { store, bitrates } = getPlaybackSettingsStore();
-		const quality = store.getState().streamingQuality;
-		const bitrate = bitrates[quality];
+		const ps = getPlaybackSettingsStore().getState();
+		const bitrate = getStreamingPlaybackBitrateKbps(
+			ps.streamingBitrateWifi,
+			ps.streamingBitrateCellular,
+			ps.streamingTranscodeCapKbps,
+			getCachedNetworkPlaybackRoute(),
+		);
 		if (bitrate !== null) {
-			const transcodeUrl = buildPlexTranscodeUrl(song.id, bitrate, referenceUrl);
-			if (transcodeUrl) {
-				finalUrl = transcodeUrl;
-				const raw = typeof song.uri === 'string' ? song.uri.trim() : '';
-				if (raw.length > 0 && raw.includes('X-Plex-Token')) {
-					directUrl = raw;
-				}
-				console.log(`[songToTrack] Using transcode URL for ${song.id} (${quality}/${bitrate}kbps)`);
-			} else {
-				finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
-				console.log(`[songToTrack] Transcode unavailable, using direct URL with maxAudioBitrate=${bitrate}`);
-			}
+			const built = buildPlexStreamUrl(song, referenceUrl, bitrate);
+			finalUrl = built.url;
+			directUrl = built.directUrl;
+			console.log(`[songToTrack] Plex remote stream ${song.id} @ ${bitrate} kbps`);
 		}
 	}
 
@@ -257,57 +253,6 @@ function songToTrack(song: Song) {
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
 	};
-}
-
-/** Origin (scheme + host[:port]) from a Plex stream URL; works before plexClient.initialize(). */
-function plexOriginFromDirectUrl(directUrl: string): string | null {
-	try {
-		const u = new URL(directUrl);
-		if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-		if (!u.host) return null;
-		return `${u.protocol}//${u.host}`;
-	} catch {
-		return null;
-	}
-}
-
-function plexTokenFromUrl(directUrl: string): string | null {
-	try {
-		return new URL(directUrl).searchParams.get('X-Plex-Token');
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Build a Plex universal transcode URL so the server sends a smaller
- * MP3 instead of the original lossless file.
- * Uses plexClient when initialized; otherwise derives base URL + token from the direct stream URL
- * so restore-before-init still transcodes.
- */
-function buildPlexTranscodeUrl(ratingKey: string, maxBitrate: number, referenceUrl: string): string | null {
-	const { plexClient } = require('@/utils/plex-client');
-	const { plexAuthService } = require('@/utils/plex-auth');
-	const { encodePlexIdentityQueryString, buildPlexIdentityHeaders } = require('@/utils/plex-identity');
-
-	const conn = plexClient.getConnectionInfo();
-	const baseURL = conn?.baseURL ?? plexOriginFromDirectUrl(referenceUrl);
-	const token = conn?.token ?? plexAuthService.getAccessToken() ?? plexTokenFromUrl(referenceUrl) ?? '';
-	if (!baseURL || !token) return null;
-
-	const clientId = plexAuthService.getClientIdentifier();
-	const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(clientId));
-
-	return (
-		`${baseURL}/music/:/transcode/universal/start.mp3` +
-		`?path=${encodeURIComponent(`/library/metadata/${ratingKey}`)}` +
-		`&mediaIndex=0&partIndex=0` +
-		`&protocol=http` +
-		`&directPlay=0&directStream=1` +
-		`&maxAudioBitrate=${maxBitrate}` +
-		`&X-Plex-Token=${encodeURIComponent(token)}` +
-		`&${identityQs}`
-	);
 }
 
 /** Pending resume: seek is deferred until first progress (fixes local/downloaded files where seek before play() is ignored). */
