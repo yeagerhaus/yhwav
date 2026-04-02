@@ -3,6 +3,7 @@ import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
 import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
+import { computeCrossfadeDuration } from '@/lib/crossfadeAlgorithm';
 import { getCachedNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer, {
 	Capability,
@@ -141,6 +142,19 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 
 // Track which song ID has been pre-warmed to avoid duplicate fetches
 let prewarmedSongId: string | null = null;
+let lastCrossfadeSignature = '';
+
+function getNextQueueSongForCrossfade(queue: Song[], currentSong: Song | null, repeatMode: number): Song | null {
+	if (!currentSong || queue.length < 2) return null;
+	const idx = queue.findIndex((s) => s.id === currentSong.id);
+	if (idx === -1) return null;
+	let nextIdx = idx + 1;
+	if (nextIdx >= queue.length) {
+		if (repeatMode === RepeatMode.Queue) nextIdx = 0;
+		else return null;
+	}
+	return queue[nextIdx] ?? null;
+}
 
 // Playback error retry tracking
 let lastErrorRetryAt = 0;
@@ -252,6 +266,7 @@ function songToTrack(song: Song) {
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
+		...(song.source === 'podcast' ? { crossfadeDisabled: true as const } : {}),
 	};
 }
 
@@ -388,6 +403,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				],
 				progressUpdateEventInterval: 0.5,
 			});
+
+			getPlaybackSettingsStore().getState().syncNativeCrossfade();
 
 			// Restore saved settings
 			try {
@@ -1058,6 +1075,32 @@ export function useTrackPlayerSync() {
 
 				const remaining = duration - position;
 
+				const pbs = getPlaybackSettingsStore().getState();
+				if (
+					pbs.crossfadeEnabled &&
+					state.currentSong?.source !== 'podcast' &&
+					state.repeatMode !== RepeatMode.Track &&
+					duration > 0 &&
+					remaining < 90
+				) {
+					const nextSong = getNextQueueSongForCrossfade(state.queue, state.currentSong, state.repeatMode);
+					if (nextSong && state.currentSong) {
+						const baseConfig = {
+							defaultDuration: pbs.crossfadeDurationSec,
+							minDuration: 1,
+							maxDuration: 12,
+						};
+						const sec = pbs.crossfadeAdaptiveEnabled
+							? computeCrossfadeDuration(state.currentSong.loudnessData, nextSong.loudnessData, baseConfig)
+							: pbs.crossfadeDurationSec;
+						const sig = `${state.currentSong.id}|${nextSong.id}|${sec.toFixed(2)}`;
+						if (sig !== lastCrossfadeSignature) {
+							lastCrossfadeSignature = sig;
+							TrackPlayer.setNextCrossfadeDuration(sec).catch(() => {});
+						}
+					}
+				}
+
 				// Pre-fetch first 256KB of next track to warm OS HTTP cache
 				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
 					const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
@@ -1123,6 +1166,7 @@ export function useTrackPlayerSync() {
 
 				// Reset pre-warm tracker for the new track
 				prewarmedSongId = null;
+				lastCrossfadeSignature = '';
 
 				state._setCurrentSong(newCurrentSong);
 

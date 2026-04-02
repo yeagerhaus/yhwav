@@ -3,7 +3,7 @@ import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
-import type { Song } from '@/types/song';
+import type { LoudnessData, Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
 import { appendPlexIdentityQueryToUrl, buildPlexIdentityHeaders, encodePlexIdentityQueryString, getPlexAppVersion } from './plex-identity';
@@ -487,6 +487,8 @@ export class PlexClient {
 			sort: 'titleSort:asc',
 			includeFields:
 				'title,ratingKey,thumb,art,duration,index,parentIndex,parentRatingKey,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+			// Loudness / ReplayGain live on Stream elements under Media → Part
+			includeStreamDetails: '1',
 		});
 
 		const data = response.data as any;
@@ -531,6 +533,7 @@ export class PlexClient {
 			sort: 'lastViewedAt:desc',
 			'X-Plex-Container-Start': '0',
 			'X-Plex-Container-Size': String(limit),
+			includeStreamDetails: '1',
 		});
 
 		const data = response.data as any;
@@ -591,6 +594,50 @@ export class PlexClient {
 		return rawArray.map((item) => this.formatAlbum(item));
 	}
 
+	private parseLoudnessData(media: any): LoudnessData | undefined {
+		const part = media?.Part?.[0];
+		const raw = part?.Stream;
+		if (raw == null) return undefined;
+		const streams = Array.isArray(raw) ? raw : [raw];
+		const audio = streams.find(
+			(s: any) =>
+				s &&
+				(s.streamType === 2 ||
+					s.streamType === '2' ||
+					(s.loudness != null && s.loudness !== '') ||
+					(s.lra != null && s.lra !== '')),
+		);
+		if (!audio) return undefined;
+
+		const num = (v: unknown): number | undefined => {
+			if (v == null || v === '') return undefined;
+			const x = typeof v === 'string' ? Number.parseFloat(v) : Number(v);
+			return Number.isFinite(x) ? x : undefined;
+		};
+
+		const loudness = num(audio.loudness);
+		const gain = num(audio.gain);
+		const peak = num(audio.peak);
+		const lra = num(audio.lra);
+		const albumGain = num(audio.albumGain);
+		const albumPeak = num(audio.albumPeak);
+		const albumRange = num(audio.albumRange);
+
+		if (loudness == null && gain == null && peak == null && lra == null) {
+			return undefined;
+		}
+
+		return {
+			loudness: loudness ?? 0,
+			gain: gain ?? 0,
+			peak: peak ?? 0,
+			lra: lra ?? 0,
+			albumGain: albumGain ?? 0,
+			albumPeak: albumPeak ?? 0,
+			albumRange: albumRange ?? 0,
+		};
+	}
+
 	/**
 	 * Format a Plex track into our Song type
 	 */
@@ -612,6 +659,7 @@ export class PlexClient {
 		const title = track.title || 'Unknown Title';
 		const artist = track.grandparentTitle || 'Unknown Artist';
 		const album = track.parentTitle || '';
+		const loudnessData = this.parseLoudnessData(media);
 
 		return {
 			id: track.ratingKey,
@@ -632,6 +680,7 @@ export class PlexClient {
 			titleLower: title.toLowerCase(),
 			artistLower: artist.toLowerCase(),
 			albumLower: album.toLowerCase(),
+			...(loudnessData ? { loudnessData } : {}),
 		};
 	}
 
@@ -858,7 +907,9 @@ export class PlexClient {
 		await this.initialize();
 
 		try {
-			const response = await this.request(`${playlistId}`);
+			const response = await this.request(`${playlistId}`, {
+				includeStreamDetails: '1',
+			});
 			const data = response.data as any;
 			const rawTracks = data?.MediaContainer?.Metadata || [];
 

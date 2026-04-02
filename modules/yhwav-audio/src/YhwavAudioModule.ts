@@ -9,6 +9,17 @@ export interface Track {
 	artist?: string;
 	artwork?: string;
 	duration?: number;
+	/** Gapless handoff into this track even when Sweet Fades is enabled (e.g. podcasts). */
+	crossfadeDisabled?: boolean;
+}
+
+export interface CrossfadeConfig {
+	enabled: boolean;
+	defaultDuration: number;
+	minDuration: number;
+	maxDuration: number;
+	fadeInOnManualSkip: boolean;
+	manualSkipFadeDuration: number;
 }
 
 export interface PlaybackState {
@@ -38,6 +49,8 @@ type YhwavAudioModuleType = {
 	setOutputGain: (gainDb: number) => Promise<void>;
 	setNormalizationEnabled: (enabled: boolean) => Promise<void>;
 	setMonoAudioEnabled: (enabled: boolean) => Promise<void>;
+	setCrossfadeConfig: (config: CrossfadeConfig) => Promise<void>;
+	setNextCrossfadeDuration: (seconds: number) => Promise<void>;
 	getPlaybackState: () => PlaybackState;
 	getActiveTrackIndex: () => number;
 	getQueue: () => Track[];

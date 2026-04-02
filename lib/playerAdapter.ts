@@ -1,5 +1,5 @@
 /**
- * Player: uses yhwav-audio native module (AVQueuePlayer, gapless).
+ * Player: yhwav-audio native module (AVAudioEngine, gapless + optional Sweet Fades crossfade).
  * Exposes Event/State/RepeatMode etc. and the same API shape for useAudioStore and components.
  */
 
@@ -67,6 +67,16 @@ type TrackLike = {
 	artist?: string;
 	artwork?: string;
 	duration?: number;
+	crossfadeDisabled?: boolean;
+};
+
+export type CrossfadeConfigNative = {
+	enabled: boolean;
+	defaultDuration: number;
+	minDuration: number;
+	maxDuration: number;
+	fadeInOnManualSkip: boolean;
+	manualSkipFadeDuration: number;
 };
 
 const TrackPlayer = {
@@ -169,6 +179,16 @@ const TrackPlayer = {
 	async setMonoAudioEnabled(enabled: boolean) {
 		const p = getPlayer();
 		if (p?.setMonoAudioEnabled) await p.setMonoAudioEnabled(enabled);
+	},
+
+	async setCrossfadeConfig(config: CrossfadeConfigNative) {
+		const p = getPlayer();
+		if (p?.setCrossfadeConfig) await p.setCrossfadeConfig(config);
+	},
+
+	async setNextCrossfadeDuration(seconds: number) {
+		const p = getPlayer();
+		if (p?.setNextCrossfadeDuration) await p.setNextCrossfadeDuration(seconds);
 	},
 
 	async getPlaybackState() {

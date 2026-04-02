@@ -3,14 +3,14 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useRef } from 'react';
-import { AppState, LogBox, StyleSheet, useColorScheme } from 'react-native';
+import { AppState, StyleSheet, useColorScheme } from 'react-native';
 
-LogBox.ignoreAllLogs();
+// LogBox.ignoreAllLogs();
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
-import { AddToPlaylistModal, Div, MiniPlayer, SplashOverlay } from '@/components';
+import { AddToPlaylistModal, Div, MiniPlayer } from '@/components';
 import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
@@ -255,7 +255,7 @@ export default function RootLayout() {
 					</RootScaleProvider>
 				</ThemeProvider>
 			</SafeAreaProvider>
-			<SplashOverlay />
+			{/* <SplashOverlay /> */}
 		</GestureHandlerRootView>
 	);
 }
