@@ -1,4 +1,5 @@
 import React from 'react';
+import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
 import TrackPlayer, {
@@ -224,15 +225,21 @@ function songToTrack(song: Song) {
 		throw new Error('Podcast episode has no playable URL');
 	}
 
-	let finalUrl = url ?? song.uri ?? '';
+	const referenceUrl = url ?? song.uri ?? '';
+	let finalUrl = referenceUrl;
+	let directUrl: string | undefined;
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
 		const { store, bitrates } = getPlaybackSettingsStore();
 		const quality = store.getState().streamingQuality;
 		const bitrate = bitrates[quality];
 		if (bitrate !== null) {
-			const transcodeUrl = buildPlexTranscodeUrl(song.id, bitrate);
+			const transcodeUrl = buildPlexTranscodeUrl(song.id, bitrate, referenceUrl);
 			if (transcodeUrl) {
 				finalUrl = transcodeUrl;
+				const raw = typeof song.uri === 'string' ? song.uri.trim() : '';
+				if (raw.length > 0 && raw.includes('X-Plex-Token')) {
+					directUrl = raw;
+				}
 				console.log(`[songToTrack] Using transcode URL for ${song.id} (${quality}/${bitrate}kbps)`);
 			} else {
 				finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
@@ -244,6 +251,7 @@ function songToTrack(song: Song) {
 	return {
 		id: song.id.toString(),
 		url: finalUrl,
+		...(directUrl ? { directUrl } : {}),
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
@@ -251,30 +259,53 @@ function songToTrack(song: Song) {
 	};
 }
 
+/** Origin (scheme + host[:port]) from a Plex stream URL; works before plexClient.initialize(). */
+function plexOriginFromDirectUrl(directUrl: string): string | null {
+	try {
+		const u = new URL(directUrl);
+		if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+		if (!u.host) return null;
+		return `${u.protocol}//${u.host}`;
+	} catch {
+		return null;
+	}
+}
+
+function plexTokenFromUrl(directUrl: string): string | null {
+	try {
+		return new URL(directUrl).searchParams.get('X-Plex-Token');
+	} catch {
+		return null;
+	}
+}
+
 /**
  * Build a Plex universal transcode URL so the server sends a smaller
- * MP3/AAC file instead of the original lossless file. Falls back to null
- * if the plexClient connection info isn't available yet.
+ * MP3 instead of the original lossless file.
+ * Uses plexClient when initialized; otherwise derives base URL + token from the direct stream URL
+ * so restore-before-init still transcodes.
  */
-function buildPlexTranscodeUrl(ratingKey: string, maxBitrate: number): string | null {
+function buildPlexTranscodeUrl(ratingKey: string, maxBitrate: number, referenceUrl: string): string | null {
 	const { plexClient } = require('@/utils/plex-client');
 	const { plexAuthService } = require('@/utils/plex-auth');
 	const { encodePlexIdentityQueryString, buildPlexIdentityHeaders } = require('@/utils/plex-identity');
 
 	const conn = plexClient.getConnectionInfo();
-	if (!conn) return null;
+	const baseURL = conn?.baseURL ?? plexOriginFromDirectUrl(referenceUrl);
+	const token = conn?.token ?? plexAuthService.getAccessToken() ?? plexTokenFromUrl(referenceUrl) ?? '';
+	if (!baseURL || !token) return null;
 
 	const clientId = plexAuthService.getClientIdentifier();
 	const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(clientId));
 
 	return (
-		`${conn.baseURL}/music/:/transcode/universal/start.mp3` +
+		`${baseURL}/music/:/transcode/universal/start.mp3` +
 		`?path=${encodeURIComponent(`/library/metadata/${ratingKey}`)}` +
 		`&mediaIndex=0&partIndex=0` +
 		`&protocol=http` +
 		`&directPlay=0&directStream=1` +
 		`&maxAudioBitrate=${maxBitrate}` +
-		`&X-Plex-Token=${encodeURIComponent(conn.token)}` +
+		`&X-Plex-Token=${encodeURIComponent(token)}` +
 		`&${identityQs}`
 	);
 }
@@ -532,6 +563,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					if (resolvedOrig.length > 0) set({ originalQueue: resolvedOrig });
 				} catch {}
 			}
+
+			// Defer native queue load until after transitions/animations so a quick "open album" tap
+			// does not reset() a restore that already started a download (avoids spurious "cancelled").
+			await new Promise<void>((resolve) => {
+				InteractionManager.runAfterInteractions(() => resolve());
+			});
 
 			await TrackPlayer.add(queue.map(songToTrack));
 

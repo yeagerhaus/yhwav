@@ -59,7 +59,15 @@ function getPlayer() {
 }
 
 // Track shape: { id, url, title, artist, artwork, duration }
-type TrackLike = { id: string; url: string; title?: string; artist?: string; artwork?: string; duration?: number };
+type TrackLike = {
+	id: string;
+	url: string;
+	directUrl?: string;
+	title?: string;
+	artist?: string;
+	artwork?: string;
+	duration?: number;
+};
 
 const TrackPlayer = {
 	async setupPlayer(options: Record<string, unknown>) {

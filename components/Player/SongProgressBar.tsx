@@ -42,7 +42,9 @@ export function SongProgressBar() {
 
 	// On each native position update, animate smoothly to the next expected position
 	useEffect(() => {
+		// Avoid wiping the bar on transient duration=0 while we still have a position (native timing/metadata hiccups).
 		if (duration === 0) {
+			if (position > 0) return;
 			animatedProgress.value = 0;
 			return;
 		}

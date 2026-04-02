@@ -92,6 +92,9 @@ final class AudioEnginePlayer {
 
 	private var trackEndWallTime: Double = 0
 
+	/// When `lastRenderTime` / `playerTime` is invalid (common around pause/resume), avoid reporting 0 and collapsing the UI progress.
+	private var cachedPlaybackSeconds: Double = 0
+
 	private var interruptionObserver: NSObjectProtocol?
 	private var routeChangeObserver: NSObjectProtocol?
 
@@ -178,11 +181,28 @@ final class AudioEnginePlayer {
 		nextTrackId = nil
 		isNextScheduled = false
 		_isPlaying = false
+		cachedPlaybackSeconds = 0
 	}
 
 	// MARK: - Playback
 
-	func play(url: URL, trackId: String) async throws {
+	private func loadAudioFile(url: URL, trackId: String, expectedDurationSeconds: Double?, fallbackURL: URL?) async throws -> AVAudioFile {
+		do {
+			return try await fileCache.getAudioFile(url: url, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds)
+		} catch {
+			let ns = error as NSError
+			if let fb = fallbackURL,
+			   ns.domain == AudioFileCache.errorDomain,
+			   ns.code == AudioFileCache.durationMismatchCode {
+				print("YhwavAudio: transcode too short vs metadata — trying direct file URL trackId=\(trackId)")
+				fileCache.evict(trackIds: Set([trackId]))
+				return try await fileCache.getAudioFile(url: fb, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds)
+			}
+			throw error
+		}
+	}
+
+	func play(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil) async throws {
 		guard let playerNode = playerNode, let engine = engine else { return }
 
 		playGeneration &+= 1
@@ -197,7 +217,7 @@ final class AudioEnginePlayer {
 
 		let file: AVAudioFile
 		do {
-			file = try await fileCache.getAudioFile(url: url, trackId: trackId)
+			file = try await loadAudioFile(url: url, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds, fallbackURL: fallbackURL)
 		} catch {
 			print("YhwavAudio: error trackId=\(trackId): \(error.localizedDescription)")
 			throw error
@@ -218,6 +238,7 @@ final class AudioEnginePlayer {
 		currentTrackId = trackId
 		currentFrameOffset = 0
 		playerTimeBaseOffset = 0
+		cachedPlaybackSeconds = 0
 
 		let frameCount = AVAudioFrameCount(file.length)
 		let duration = Double(file.length) / file.processingFormat.sampleRate
@@ -235,13 +256,13 @@ final class AudioEnginePlayer {
 		playerNode.volume = _volume
 	}
 
-	func scheduleNext(url: URL, trackId: String) async throws {
+	func scheduleNext(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil) async throws {
 		guard playerNode != nil else { return }
 		let gen = playGeneration
 
 		let file: AVAudioFile
 		do {
-			file = try await fileCache.getAudioFile(url: url, trackId: trackId)
+			file = try await loadAudioFile(url: url, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds, fallbackURL: fallbackURL)
 		} catch {
 			print("YhwavAudio: error loading next trackId=\(trackId): \(error.localizedDescription)")
 			return
@@ -279,6 +300,7 @@ final class AudioEnginePlayer {
 		isNextScheduled = false
 		_isPlaying = false
 		trackEndWallTime = 0
+		cachedPlaybackSeconds = 0
 	}
 
 	func pause() {
@@ -315,6 +337,8 @@ final class AudioEnginePlayer {
 
 		print("YhwavAudio: seek trackId=\(trackId) to=\(String(format: "%.1f", seconds))s frame=\(clampedFrame)")
 
+		cachedPlaybackSeconds = Double(clampedFrame) / sampleRate
+
 		let wasPlaying = _isPlaying
 		playerNode.stop()
 		isNextScheduled = false
@@ -347,15 +371,22 @@ final class AudioEnginePlayer {
 	var isPlaying: Bool { _isPlaying }
 
 	var currentPosition: Double {
+		guard let file = currentFile else {
+			cachedPlaybackSeconds = 0
+			return 0
+		}
+		let dur = Double(file.length) / file.processingFormat.sampleRate
 		guard let playerNode = playerNode,
 			  let nodeTime = playerNode.lastRenderTime,
 			  nodeTime.isSampleTimeValid,
-			  let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
-			  let file = currentFile else { return 0 }
+			  let playerTime = playerNode.playerTime(forNodeTime: nodeTime) else {
+			return max(0, min(cachedPlaybackSeconds, dur))
+		}
 		let frames = playerTime.sampleTime - playerTimeBaseOffset + currentFrameOffset
 		let pos = Double(frames) / file.processingFormat.sampleRate
-		let dur = Double(file.length) / file.processingFormat.sampleRate
-		return max(0, min(pos, dur))
+		let clamped = max(0, min(pos, dur))
+		cachedPlaybackSeconds = clamped
+		return clamped
 	}
 
 	var currentDuration: Double {
@@ -407,6 +438,7 @@ final class AudioEnginePlayer {
 			nextFile = nil
 			nextTrackId = nil
 			isNextScheduled = false
+			cachedPlaybackSeconds = 0
 		} else {
 			print("YhwavAudio: transition trackId=\(trackId) → end (no next scheduled)")
 			_isPlaying = false

@@ -23,6 +23,8 @@ struct TrackRecord: Record {
 	@Field var artist: String?
 	@Field var artwork: String?
 	@Field var duration: Double?
+	/// Original Plex `/library/parts/...` URL when `url` is a transcode URL (used if transcode file is truncated).
+	@Field var directUrl: String?
 }
 
 struct PlaybackStateRecord: Record {
@@ -506,9 +508,20 @@ public final class YhwavAudioModule: Module {
 			guard let track = self.trackMetadata[targetId],
 				  let url = URL(string: track.url) else { return }
 
+			var keepPrefetch: Set<String> = [targetId]
+			if index + 1 < self.trackOrder.count {
+				keepPrefetch.insert(self.trackOrder[index + 1])
+			}
+			self.fileCache?.cancelDownloads(exceptTrackIds: keepPrefetch)
+
 			Task {
 				do {
-					try await engine.play(url: url, trackId: targetId)
+					try await engine.play(
+						url: url,
+						trackId: targetId,
+						expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+						fallbackURL: self.fallbackDirectURL(for: track)
+					)
 					await MainActor.run {
 						self.emitActiveTrackChanged(index: index)
 						self.startProgressTimerIfNeeded()
@@ -524,29 +537,15 @@ public final class YhwavAudioModule: Module {
 		}
 
 		AsyncFunction("play") {
-			self.enginePlayer?.resume()
-			DispatchQueue.main.async {
-				self.startProgressTimerIfNeeded()
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performPlayAndSync()
 		}
 
 		AsyncFunction("pause") {
-			self.enginePlayer?.pause()
-			self.stopProgressTimer()
-			DispatchQueue.main.async {
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performPauseAndSync()
 		}
 
 		AsyncFunction("seekTo") { (position: Double) in
-			self.enginePlayer?.seek(to: position)
-			DispatchQueue.main.async {
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performSeekAndSync(position)
 		}
 
 		AsyncFunction("setVolume") { (value: Float) in
@@ -671,6 +670,19 @@ public final class YhwavAudioModule: Module {
 		}
 	}
 
+	// MARK: - Track playback helpers
+
+	/// JS sends Plex `duration` in milliseconds.
+	private func expectedDurationSeconds(for track: TrackRecord) -> Double? {
+		guard let d = track.duration, d > 0 else { return nil }
+		return d / 1000.0
+	}
+
+	private func fallbackDirectURL(for track: TrackRecord) -> URL? {
+		guard let s = track.directUrl, !s.isEmpty, s != track.url, let u = URL(string: s) else { return nil }
+		return u
+	}
+
 	// MARK: - Audio session
 
 	private func configureAudioSession() {
@@ -694,7 +706,12 @@ public final class YhwavAudioModule: Module {
 
 		Task {
 			do {
-				try await engine.scheduleNext(url: url, trackId: nextId)
+				try await engine.scheduleNext(
+					url: url,
+					trackId: nextId,
+					expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+					fallbackURL: self.fallbackDirectURL(for: track)
+				)
 			} catch {
 				print("YhwavAudio: failed to schedule next: \(error)")
 			}
@@ -811,7 +828,14 @@ public final class YhwavAudioModule: Module {
 			return ("stopped", 0, 0)
 		}
 		let pos = engine.currentPosition
-		let dur = engine.currentDuration
+		var dur = engine.currentDuration
+		if !dur.isFinite || dur <= 0 {
+			let idx = currentActiveTrackIndex()
+			if idx >= 0, idx < trackOrder.count,
+			   let meta = trackMetadata[trackOrder[idx]], let md = meta.duration, md > 0 {
+				dur = md
+			}
+		}
 		let validPos = pos.isFinite && pos >= 0 ? pos : 0
 		let validDur = dur.isFinite && dur >= 0 ? dur : 0
 
@@ -819,6 +843,36 @@ public final class YhwavAudioModule: Module {
 			return ("playing", validPos, validDur)
 		} else {
 			return ("paused", validPos, validDur)
+		}
+	}
+
+	// MARK: - Play / pause / seek (bridge + remote control)
+
+	/// Same behavior as the JS `play` bridge: resume engine, run progress timer + Now Playing on the main thread.
+	fileprivate func performPlayAndSync() {
+		enginePlayer?.resume()
+		DispatchQueue.main.async {
+			self.startProgressTimerIfNeeded()
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
+		}
+	}
+
+	/// Same behavior as the JS `pause` bridge: stop audio immediately, then timer + Now Playing on main.
+	fileprivate func performPauseAndSync() {
+		enginePlayer?.pause()
+		DispatchQueue.main.async {
+			self.stopProgressTimer()
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
+		}
+	}
+
+	fileprivate func performSeekAndSync(_ position: Double) {
+		enginePlayer?.seek(to: position)
+		DispatchQueue.main.async {
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
 		}
 	}
 
@@ -842,7 +896,12 @@ extension YhwavAudioModule: AudioEnginePlayerDelegate {
 				  let url = URL(string: track.url) else { return }
 			Task {
 				do {
-					try await player.play(url: url, trackId: trackId)
+					try await player.play(
+						url: url,
+						trackId: trackId,
+						expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+						fallbackURL: self.fallbackDirectURL(for: track)
+					)
 					await MainActor.run {
 						self.emitActiveTrackChanged(index: finishedIdx)
 						self.scheduleNextTrack(afterIndex: finishedIdx)
@@ -897,7 +956,12 @@ extension YhwavAudioModule: AudioEnginePlayerDelegate {
 
 		Task {
 			do {
-				try await player.play(url: url, trackId: targetId)
+				try await player.play(
+					url: url,
+					trackId: targetId,
+					expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+					fallbackURL: self.fallbackDirectURL(for: track)
+				)
 				await MainActor.run {
 					self.emitActiveTrackChanged(index: idx)
 					self.scheduleNextTrack(afterIndex: idx)
@@ -941,37 +1005,53 @@ private final class NowPlayingManager {
 
 	func setCapabilities(_ caps: [String]) {
 		capabilities = Set(caps)
+		applyRemoteCommandEnabledFlags()
+	}
+
+	private func applyRemoteCommandEnabledFlags() {
+		let center = MPRemoteCommandCenter.shared()
+		center.playCommand.isEnabled = capabilities.contains("Play")
+		center.pauseCommand.isEnabled = capabilities.contains("Pause")
+		center.nextTrackCommand.isEnabled = capabilities.contains("SkipToNext")
+		center.previousTrackCommand.isEnabled = capabilities.contains("SkipToPrevious")
+		center.changePlaybackPositionCommand.isEnabled = capabilities.contains("SeekTo")
 	}
 
 	func setupRemoteCommands() {
 		let center = MPRemoteCommandCenter.shared()
-		center.playCommand.isEnabled = capabilities.contains("Play")
+		center.playCommand.removeTarget(nil)
+		center.pauseCommand.removeTarget(nil)
+		center.nextTrackCommand.removeTarget(nil)
+		center.previousTrackCommand.removeTarget(nil)
+		center.changePlaybackPositionCommand.removeTarget(nil)
+
+		applyRemoteCommandEnabledFlags()
+
 		center.playCommand.addTarget { [weak self] _ in
-			self?.module?.sendEvent("RemotePlay", [:])
-			self?.module?.enginePlayer?.resume()
+			guard let mod = self?.module else { return .commandFailed }
+			mod.performPlayAndSync()
+			mod.sendEvent("RemotePlay", [:])
 			return .success
 		}
-		center.pauseCommand.isEnabled = capabilities.contains("Pause")
 		center.pauseCommand.addTarget { [weak self] _ in
-			self?.module?.sendEvent("RemotePause", [:])
-			self?.module?.enginePlayer?.pause()
+			guard let mod = self?.module else { return .commandFailed }
+			mod.performPauseAndSync()
+			mod.sendEvent("RemotePause", [:])
 			return .success
 		}
-		center.nextTrackCommand.isEnabled = capabilities.contains("SkipToNext")
 		center.nextTrackCommand.addTarget { [weak self] _ in
 			self?.module?.sendEvent("RemoteNext", [:])
 			return .success
 		}
-		center.previousTrackCommand.isEnabled = capabilities.contains("SkipToPrevious")
 		center.previousTrackCommand.addTarget { [weak self] _ in
 			self?.module?.sendEvent("RemotePrevious", [:])
 			return .success
 		}
-		center.changePlaybackPositionCommand.isEnabled = capabilities.contains("SeekTo")
 		center.changePlaybackPositionCommand.addTarget { [weak self] event in
 			guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-			self?.module?.sendEvent("RemoteSeek", ["position": e.positionTime])
-			self?.module?.enginePlayer?.seek(to: e.positionTime)
+			guard let mod = self?.module else { return .commandFailed }
+			mod.sendEvent("RemoteSeek", ["position": e.positionTime])
+			mod.performSeekAndSync(e.positionTime)
 			return .success
 		}
 	}

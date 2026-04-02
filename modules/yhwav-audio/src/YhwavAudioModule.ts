@@ -3,6 +3,8 @@ import { requireOptionalNativeModule } from 'expo';
 export interface Track {
 	id: string;
 	url: string;
+	/** Direct Plex file URL when `url` is a transcode URL (native fallback if transcode is truncated). */
+	directUrl?: string;
 	title?: string;
 	artist?: string;
 	artwork?: string;
