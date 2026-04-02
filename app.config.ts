@@ -39,9 +39,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 		userInterfaceStyle: 'automatic',
 		newArchEnabled: false,
 		splash: {
-			image: './assets/images/splash.png',
-			resizeMode: 'contain',
-			backgroundColor: '#000000',
+			image: './assets/images/lightSplash.png',
+			resizeMode: 'cover',
+			backgroundColor: '#ECECEA',
 		},
 		backgroundColor: '#080808',
 		ios: {
@@ -67,10 +67,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 			[
 				'expo-splash-screen',
 				{
-					image: './assets/images/splash-icon.png',
-					imageWidth: 200,
-					resizeMode: 'contain',
-					backgroundColor: '#000',
+					image: './assets/images/lightSplash.png',
+					resizeMode: 'cover',
+					backgroundColor: '#ECECEA',
+					dark: {
+						image: './assets/images/darkSplash.png',
+						backgroundColor: '#0A0A12',
+					},
 					preventAutoHide: true,
 				},
 			],
