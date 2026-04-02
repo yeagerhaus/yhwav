@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { NetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer from '@/lib/playerAdapter';
 import { storage } from '@/lib/storage';
 
@@ -8,16 +9,42 @@ const STORAGE_EQ_PRESET = 'PLAYBACK_EQ_PRESET';
 const STORAGE_OUTPUT_GAIN = 'PLAYBACK_OUTPUT_GAIN';
 const STORAGE_NORMALIZATION = 'PLAYBACK_NORMALIZATION';
 const STORAGE_MONO_AUDIO = 'PLAYBACK_MONO_AUDIO';
-const STORAGE_STREAMING_QUALITY = 'PLAYBACK_STREAMING_QUALITY';
+const STORAGE_LEGACY_STREAMING_QUALITY = 'PLAYBACK_STREAMING_QUALITY';
+const STORAGE_STREAM_BITRATE_WIFI = 'PLAYBACK_STREAM_BITRATE_WIFI';
+const STORAGE_STREAM_BITRATE_CELLULAR = 'PLAYBACK_STREAM_BITRATE_CELLULAR';
+const STORAGE_STREAM_TRANSCODE_CAP = 'PLAYBACK_STREAM_TRANSCODE_CAP';
+const STORAGE_DOWNLOAD_BITRATE = 'PLAYBACK_DOWNLOAD_BITRATE';
 
-export type StreamingQuality = 'original' | 'high' | 'medium' | 'low';
+/** null = Original (no bitrate cap). */
+export const STREAMING_BITRATE_KBPS_OPTIONS = [null, 320, 192, 128, 96] as const;
+export type StreamingBitrateKbpsChoice = (typeof STREAMING_BITRATE_KBPS_OPTIONS)[number];
 
-export const STREAMING_QUALITY_BITRATES: Record<StreamingQuality, number | null> = {
-	original: null,
-	high: 320,
-	medium: 192,
-	low: 96,
-};
+function encodeBitrateStorage(v: number | null): string {
+	return v === null ? 'original' : String(v);
+}
+
+function decodeBitrateStorage(raw: string | undefined): number | null {
+	if (raw == null || raw === '' || raw === 'original') return null;
+	const n = Number.parseInt(raw, 10);
+	return Number.isFinite(n) ? n : null;
+}
+
+/** Max bitrate for playback from Wi‑Fi / cellular limits and optional transcode ceiling. */
+export function getStreamingPlaybackBitrateKbps(
+	streamingBitrateWifi: number | null,
+	streamingBitrateCellular: number | null,
+	streamingTranscodeCapKbps: number | null,
+	route: NetworkPlaybackRoute,
+): number | null {
+	const base = route === 'cellular' ? streamingBitrateCellular : streamingBitrateWifi;
+	if (base === null) return null;
+	if (streamingTranscodeCapKbps === null) return base;
+	return Math.min(base, streamingTranscodeCapKbps);
+}
+
+export function formatBitrateChoiceLabel(choice: number | null): string {
+	return choice === null ? 'Original' : `${choice} kbps`;
+}
 
 export interface EQBand {
 	frequency: number;
@@ -60,7 +87,11 @@ interface PlaybackSettingsState {
 	outputGainDb: number;
 	normalizationEnabled: boolean;
 	monoAudioEnabled: boolean;
-	streamingQuality: StreamingQuality;
+	streamingBitrateWifi: number | null;
+	streamingBitrateCellular: number | null;
+	/** Optional ceiling on top of Wi‑Fi/cellular when Plex transcodes (null = no extra cap). */
+	streamingTranscodeCapKbps: number | null;
+	downloadBitrateKbps: number | null;
 
 	hydrate: () => void;
 	setEqualizerEnabled: (enabled: boolean) => void;
@@ -71,7 +102,10 @@ interface PlaybackSettingsState {
 	setOutputGain: (db: number) => void;
 	setNormalizationEnabled: (enabled: boolean) => void;
 	setMonoAudioEnabled: (enabled: boolean) => void;
-	setStreamingQuality: (q: StreamingQuality) => void;
+	setStreamingBitrateWifi: (kbps: number | null) => void;
+	setStreamingBitrateCellular: (kbps: number | null) => void;
+	setStreamingTranscodeCapKbps: (kbps: number | null) => void;
+	setDownloadBitrateKbps: (kbps: number | null) => void;
 }
 
 function applyBandsToNative(bands: EQBand[]) {
@@ -86,7 +120,10 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	outputGainDb: 0,
 	normalizationEnabled: false,
 	monoAudioEnabled: false,
-	streamingQuality: 'original',
+	streamingBitrateWifi: 128,
+	streamingBitrateCellular: 128,
+	streamingTranscodeCapKbps: null,
+	downloadBitrateKbps: 128,
 
 	hydrate: () => {
 		try {
@@ -96,7 +133,6 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			const gainRaw = storage.getString(STORAGE_OUTPUT_GAIN);
 			const normRaw = storage.getString(STORAGE_NORMALIZATION);
 			const monoRaw = storage.getString(STORAGE_MONO_AUDIO);
-			const streamingQualityRaw = storage.getString(STORAGE_STREAMING_QUALITY);
 
 			const eqEnabled = eqEnabledRaw === '1';
 			const bands = bandsRaw ? JSON.parse(bandsRaw) : DEFAULT_BANDS;
@@ -104,7 +140,57 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			const gainDb = gainRaw ? Number.parseFloat(gainRaw) : 0;
 			const normalization = normRaw === '1';
 			const mono = monoRaw === '1';
-			const streamingQuality = (streamingQualityRaw as StreamingQuality | null) || 'original';
+
+			let streamingBitrateWifi: number | null;
+			let streamingBitrateCellular: number | null;
+			let streamingTranscodeCapKbps: number | null;
+			let downloadBitrateKbps: number | null;
+
+			if (!storage.contains(STORAGE_STREAM_BITRATE_WIFI)) {
+				const legacy = storage.getString(STORAGE_LEGACY_STREAMING_QUALITY);
+				if (legacy === 'original') {
+					streamingBitrateWifi = null;
+					streamingBitrateCellular = null;
+				} else if (legacy === 'high') {
+					streamingBitrateWifi = 320;
+					streamingBitrateCellular = 320;
+				} else if (legacy === 'medium') {
+					streamingBitrateWifi = 192;
+					streamingBitrateCellular = 192;
+				} else if (legacy === 'low') {
+					streamingBitrateWifi = 96;
+					streamingBitrateCellular = 96;
+				} else {
+					streamingBitrateWifi = 128;
+					streamingBitrateCellular = 128;
+				}
+				streamingTranscodeCapKbps = null;
+				downloadBitrateKbps = 128;
+				storage.set(STORAGE_STREAM_BITRATE_WIFI, encodeBitrateStorage(streamingBitrateWifi));
+				storage.set(STORAGE_STREAM_BITRATE_CELLULAR, encodeBitrateStorage(streamingBitrateCellular));
+				storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(null));
+				storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(128));
+			} else {
+				streamingBitrateWifi = decodeBitrateStorage(storage.getString(STORAGE_STREAM_BITRATE_WIFI));
+				streamingBitrateCellular = storage.contains(STORAGE_STREAM_BITRATE_CELLULAR)
+					? decodeBitrateStorage(storage.getString(STORAGE_STREAM_BITRATE_CELLULAR))
+					: streamingBitrateWifi;
+				if (!storage.contains(STORAGE_STREAM_BITRATE_CELLULAR)) {
+					storage.set(STORAGE_STREAM_BITRATE_CELLULAR, encodeBitrateStorage(streamingBitrateCellular));
+				}
+				streamingTranscodeCapKbps = storage.contains(STORAGE_STREAM_TRANSCODE_CAP)
+					? decodeBitrateStorage(storage.getString(STORAGE_STREAM_TRANSCODE_CAP))
+					: null;
+				if (!storage.contains(STORAGE_STREAM_TRANSCODE_CAP)) {
+					storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(null));
+				}
+				if (!storage.contains(STORAGE_DOWNLOAD_BITRATE)) {
+					downloadBitrateKbps = 128;
+					storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(128));
+				} else {
+					downloadBitrateKbps = decodeBitrateStorage(storage.getString(STORAGE_DOWNLOAD_BITRATE));
+				}
+			}
 
 			set({
 				hydrated: true,
@@ -114,7 +200,10 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 				outputGainDb: gainDb,
 				normalizationEnabled: normalization,
 				monoAudioEnabled: mono,
-				streamingQuality,
+				streamingBitrateWifi,
+				streamingBitrateCellular,
+				streamingTranscodeCapKbps,
+				downloadBitrateKbps,
 			});
 
 			TrackPlayer.setEqualizerEnabled(eqEnabled).catch(() => {});
@@ -189,8 +278,23 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 		storage.set(STORAGE_MONO_AUDIO, enabled ? '1' : '0');
 	},
 
-	setStreamingQuality: (q: StreamingQuality) => {
-		set({ streamingQuality: q });
-		storage.set(STORAGE_STREAMING_QUALITY, q);
+	setStreamingBitrateWifi: (kbps: number | null) => {
+		set({ streamingBitrateWifi: kbps });
+		storage.set(STORAGE_STREAM_BITRATE_WIFI, encodeBitrateStorage(kbps));
+	},
+
+	setStreamingBitrateCellular: (kbps: number | null) => {
+		set({ streamingBitrateCellular: kbps });
+		storage.set(STORAGE_STREAM_BITRATE_CELLULAR, encodeBitrateStorage(kbps));
+	},
+
+	setStreamingTranscodeCapKbps: (kbps: number | null) => {
+		set({ streamingTranscodeCapKbps: kbps });
+		storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(kbps));
+	},
+
+	setDownloadBitrateKbps: (kbps: number | null) => {
+		set({ downloadBitrateKbps: kbps });
+		storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(kbps));
 	},
 }));

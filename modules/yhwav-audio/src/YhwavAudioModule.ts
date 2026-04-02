@@ -3,6 +3,8 @@ import { requireOptionalNativeModule } from 'expo';
 export interface Track {
 	id: string;
 	url: string;
+	/** Direct Plex file URL when `url` is a transcode URL (native fallback if transcode is truncated). */
+	directUrl?: string;
 	title?: string;
 	artist?: string;
 	artwork?: string;
@@ -39,7 +41,7 @@ type YhwavAudioModuleType = {
 	getPlaybackState: () => PlaybackState;
 	getActiveTrackIndex: () => number;
 	getQueue: () => Track[];
-	prewarmURL: (url: string) => Promise<void>;
+	prewarmURL: (url: string, trackId: string) => Promise<void>;
 	buildSearchIndex: (tracks: Array<{ id: string; title: string; artist: string; album: string }>) => Promise<void>;
 	searchTracks: (query: string, limit: number) => Promise<Array<{ id: string; score: number }>>;
 	addListener: (event: string, callback: (payload: unknown) => void) => { remove: () => void };

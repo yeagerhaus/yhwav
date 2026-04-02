@@ -1,10 +1,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { storage } from '@/lib/storage';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
+import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 
 const STORAGE_KEY = 'MUSIC_DOWNLOADS';
 const PLAYLISTS_STORAGE_KEY = 'MUSIC_DOWNLOAD_PLAYLISTS';
@@ -135,7 +137,10 @@ async function processQueue(
 
 			try {
 				await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-				const { uri } = await FileSystem.downloadAsync(song.uri || song.streamUrl || '', localPath);
+				const sourceUrl = song.uri || song.streamUrl || '';
+				const downloadBitrateKbps = usePlaybackSettingsStore.getState().downloadBitrateKbps;
+				const { url: downloadUrl } = buildPlexStreamUrl(song, sourceUrl, downloadBitrateKbps);
+				const { uri } = await FileSystem.downloadAsync(downloadUrl, localPath);
 
 				const entry: MusicDownload = {
 					songId: song.id,

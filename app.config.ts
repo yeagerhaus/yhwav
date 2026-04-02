@@ -31,22 +31,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 	return {
 		...config,
 		name: 'Rite',
-		slug: 'yhwav',
+		slug: 'rite',
 		version,
 		orientation: 'portrait',
-		icon: './assets/images/icon.png',
+		icon: './assets/images/riteIcon.png',
 		scheme: 'myapp',
 		userInterfaceStyle: 'automatic',
 		newArchEnabled: false,
 		splash: {
-			image: './assets/images/splash.png',
-			resizeMode: 'contain',
-			backgroundColor: '#000000',
+			image: './assets/images/lightSplash.png',
+			resizeMode: 'cover',
+			backgroundColor: '#ECECEA',
 		},
 		backgroundColor: '#080808',
 		ios: {
 			supportsTablet: true,
-			bundleIdentifier: 'com.yhprod.yhwav',
+			bundleIdentifier: 'com.yhprod.rite',
 			backgroundColor: '#080808',
 			buildNumber: commitCount,
 			infoPlist: {
@@ -67,10 +67,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 			[
 				'expo-splash-screen',
 				{
-					image: './assets/images/splash-icon.png',
-					imageWidth: 200,
-					resizeMode: 'contain',
-					backgroundColor: '#000',
+					image: './assets/images/lightSplash.png',
+					resizeMode: 'cover',
+					backgroundColor: '#ECECEA',
+					dark: {
+						image: './assets/images/darkSplash.png',
+						backgroundColor: '#0A0A12',
+					},
 					preventAutoHide: true,
 				},
 			],

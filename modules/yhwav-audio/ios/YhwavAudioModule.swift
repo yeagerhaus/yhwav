@@ -2,7 +2,6 @@ import AVFoundation
 import Accelerate
 import ExpoModulesCore
 import MediaPlayer
-import MediaToolbox
 import UIKit
 
 // MARK: - Records (JS → Swift)
@@ -24,6 +23,8 @@ struct TrackRecord: Record {
 	@Field var artist: String?
 	@Field var artwork: String?
 	@Field var duration: Double?
+	/// Original Plex `/library/parts/...` URL when `url` is a transcode URL (used if transcode file is truncated).
+	@Field var directUrl: String?
 }
 
 struct PlaybackStateRecord: Record {
@@ -120,8 +121,6 @@ final class AudioDSPState {
 	}
 
 	/// Apply all DSP effects to the audio buffer in-place.
-	/// Handles both interleaved (single buffer, mNumberChannels > 1) and
-	/// non-interleaved/planar (multiple buffers, mNumberChannels == 1 each).
 	func processAudio(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
 		let list = UnsafeMutableAudioBufferListPointer(bufferList)
 		let bufferCount = list.count
@@ -147,11 +146,9 @@ final class AudioDSPState {
 		}
 	}
 
-	/// Non-interleaved (planar): each buffer is a separate channel.
 	private func processNonInterleaved(list: UnsafeMutableAudioBufferListPointer, bufferCount: Int, frameCount: Int,
 		eqOn: Bool, coeffs: [[Double]], gainLinear: Float, normalize: Bool, mono: Bool) {
 
-		// 1. EQ: apply biquad cascade to each channel independently
 		if eqOn && !coeffs.isEmpty {
 			for ch in 0..<bufferCount {
 				guard let mData = list[ch].mData else { continue }
@@ -160,7 +157,6 @@ final class AudioDSPState {
 			}
 		}
 
-		// 2. Output gain
 		if gainLinear != 1.0 {
 			var g = gainLinear
 			for ch in 0..<bufferCount {
@@ -170,7 +166,6 @@ final class AudioDSPState {
 			}
 		}
 
-		// 3. Peak normalization / limiter: find global peak across all channels
 		if normalize {
 			var globalPeak: Float = 0
 			for ch in 0..<bufferCount {
@@ -190,7 +185,6 @@ final class AudioDSPState {
 			}
 		}
 
-		// 4. Mono downmix: average all channels, write result to each
 		if mono && bufferCount >= 2 {
 			var avg = [Float](repeating: 0, count: frameCount)
 			for ch in 0..<bufferCount {
@@ -210,7 +204,6 @@ final class AudioDSPState {
 		}
 	}
 
-	/// Interleaved: single buffer with samples as LRLRLR...
 	private func processInterleaved(list: UnsafeMutableAudioBufferListPointer, frameCount: Int,
 		eqOn: Bool, coeffs: [[Double]], gainLinear: Float, normalize: Bool, mono: Bool) {
 		guard let mData = list[0].mData else { return }
@@ -219,18 +212,15 @@ final class AudioDSPState {
 		guard totalSamples > 0 else { return }
 		let samples = mData.assumingMemoryBound(to: Float.self)
 
-		// 1. EQ (deinterleave → process per channel → reinterleave)
 		if eqOn && !coeffs.isEmpty {
 			applyEQInterleaved(samples: samples, frameCount: frameCount, channelCount: channelCount, coefficients: coeffs)
 		}
 
-		// 2. Output gain
 		if gainLinear != 1.0 {
 			var g = gainLinear
 			vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(totalSamples))
 		}
 
-		// 3. Peak normalization / limiter
 		if normalize {
 			var peak: Float = 0
 			vDSP_maxmgv(samples, 1, &peak, vDSP_Length(totalSamples))
@@ -240,7 +230,6 @@ final class AudioDSPState {
 			}
 		}
 
-		// 4. Mono downmix
 		if mono && channelCount >= 2 {
 			for f in 0..<frameCount {
 				let idx = f * channelCount
@@ -252,7 +241,6 @@ final class AudioDSPState {
 		}
 	}
 
-	/// Apply EQ biquad cascade to a single non-interleaved channel buffer.
 	private func applyEQSingleChannel(samples: UnsafeMutablePointer<Float>, frameCount: Int, channelIndex: Int, coefficients: [[Double]]) {
 		os_unfair_lock_lock(lock)
 		let useRight = channelIndex > 0
@@ -283,7 +271,6 @@ final class AudioDSPState {
 		os_unfair_lock_unlock(lock)
 	}
 
-	/// Apply EQ to interleaved audio by deinterleaving, processing each channel, and reinterleaving.
 	private func applyEQInterleaved(samples: UnsafeMutablePointer<Float>, frameCount: Int, channelCount: Int, coefficients: [[Double]]) {
 		os_unfair_lock_lock(lock)
 		guard _biquadDelaysL.count == coefficients.count else {
@@ -327,7 +314,6 @@ final class AudioDSPState {
 		os_unfair_lock_unlock(lock)
 	}
 
-	/// Direct-form II transposed biquad filter (single section).
 	private static func applyBiquad(_ c: [Double], delay: UnsafeMutablePointer<Double>, data: inout [Double], count: Int) {
 		let b0 = c[0], b1 = c[1], b2 = c[2], a1 = c[3], a2 = c[4]
 		var z1 = delay[0], z2 = delay[1]
@@ -344,8 +330,6 @@ final class AudioDSPState {
 		delay[1] = z2
 	}
 
-	/// Peaking EQ biquad coefficients (Audio EQ Cookbook by Robert Bristow-Johnson).
-	/// Returns [b0/a0, b1/a0, b2/a0, a1/a0, a2/a0].
 	private static func peakingEQCoefficients(frequency: Float, gainDb: Float, q: Float, sampleRate: Float) -> [Double] {
 		let A = Double(powf(10.0, gainDb / 40.0))
 		let w0 = 2.0 * Double.pi * Double(frequency) / Double(sampleRate)
@@ -367,24 +351,20 @@ final class AudioDSPState {
 // MARK: - Module
 
 public final class YhwavAudioModule: Module {
-	fileprivate var queuePlayer: AVQueuePlayer?
+	fileprivate var enginePlayer: AudioEnginePlayer?
+	private var fileCache: AudioFileCache?
 	private var trackMetadata: [String: TrackRecord] = [:]
 	private var trackOrder: [String] = []
 	private var progressTimer: Timer?
 	private var progressUpdateInterval: TimeInterval = 0.5
 	private var repeatMode: Int = 2 // 0=Off, 1=Track, 2=Queue
-	private var volume: Float = 1.0
-	fileprivate var rate: Float = 1.0
-	private var currentItemObservation: NSKeyValueObservation?
-	private var itemDidEndObserver: NSObjectProtocol?
 	private var isInitialized = false
-	private var suppressTrackChangeEvents = false
-
-	// Playback state for JS: "playing" | "paused" | "buffering" | "ready" | "loading" | "stopped" | "error"
+	private var lastTrackEndTimestamp: Double = 0
+	private var lastPlaybackErrorEmitTime: Double = 0
+	private var lastEmittedTrackIndex: Int = -1
+	private var lastEmittedTrackTime: Double = 0
 	private var lastEmittedState: String = "stopped"
-
-	// Audio processing tap: item we attached the tap to, so we can clear when switching
-	private weak var itemWithAudioTap: AVPlayerItem?
+	private var suppressTrackChangeEvents = false
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -421,11 +401,12 @@ public final class YhwavAudioModule: Module {
 		AsyncFunction("setupPlayer") { (options: SetupOptions?) in
 			guard !self.isInitialized else { return }
 			self.configureAudioSession()
-			self.queuePlayer = AVQueuePlayer()
-			self.queuePlayer?.volume = self.volume
-			self.queuePlayer?.rate = self.rate
-			self.observePlayerStatus()
-			self.setupAudioTapForCurrentItem()
+			let cache = AudioFileCache()
+			self.fileCache = cache
+			let player = AudioEnginePlayer(fileCache: cache)
+			player.delegate = self
+			player.setup()
+			self.enginePlayer = player
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
 		}
@@ -440,24 +421,14 @@ public final class YhwavAudioModule: Module {
 		}
 
 		AsyncFunction("add") { (tracks: [TrackRecord], insertAfterIndex: Int?) in
-			guard self.queuePlayer != nil else { return }
+			guard self.enginePlayer != nil else { return }
 			DispatchQueue.main.sync {
-				guard let player = self.queuePlayer else { return }
 				let afterIdx = insertAfterIndex ?? (self.trackOrder.isEmpty ? -1 : self.trackOrder.count - 1)
-				var insertAfter: AVPlayerItem?
-				if afterIdx >= 0, afterIdx < self.trackOrder.count {
-					let refId = self.trackOrder[afterIdx]
-					insertAfter = player.items().first { $0.associatedTrackId() == refId }
-				}
-				if insertAfter == nil, !player.items().isEmpty {
-					insertAfter = player.items().last
-				}
+				let wasEmpty = self.trackOrder.isEmpty
+				print("YhwavAudio: add \(tracks.count) tracks (wasEmpty=\(wasEmpty), afterIdx=\(afterIdx))")
+
 				for track in tracks {
-					let item = self.createPlayerItem(url: track.url)
-					item.setAssociatedTrack(track)
 					self.trackMetadata[track.id] = track
-					player.insert(item, after: insertAfter)
-					insertAfter = item
 				}
 				if self.trackOrder.isEmpty {
 					self.trackOrder = tracks.map(\.id)
@@ -468,58 +439,51 @@ public final class YhwavAudioModule: Module {
 					let tail = Array(self.trackOrder.dropFirst(afterIdx + 1))
 					self.trackOrder = head + tracks.map(\.id) + tail
 				}
-				self.startProgressTimerIfNeeded()
+
+				self.predownloadNext()
 			}
 		}
 
 		AsyncFunction("reset") {
 			DispatchQueue.main.sync {
+				print("YhwavAudio: reset (had \(self.trackOrder.count) tracks)")
 				self.stopProgressTimer()
-				self.teardownAudioTap()
-				self.queuePlayer?.removeAllItems()
+				self.enginePlayer?.clearScheduled()
 				self.trackMetadata.removeAll()
 				self.trackOrder.removeAll()
+				self.lastTrackEndTimestamp = 0
+				self.lastPlaybackErrorEmitTime = 0
+				self.lastEmittedTrackIndex = -1
+				self.lastEmittedTrackTime = 0
 				self.lastEmittedState = "stopped"
+				self.fileCache?.clearAll()
 				AudioDSPState.shared.resetFilterState()
 			}
 		}
 
 		AsyncFunction("remove") { (indices: [Int]) in
-			guard self.queuePlayer != nil else { return }
+			guard self.enginePlayer != nil else { return }
 			DispatchQueue.main.sync {
-				guard let player = self.queuePlayer else { return }
-				let allItems = player.items()
 				for idx in indices.sorted(by: >) where idx >= 0 && idx < self.trackOrder.count {
 					let id = self.trackOrder[idx]
-					if let item = allItems.first(where: { $0.associatedTrackId() == id }) {
-						player.remove(item)
-					}
 					self.trackOrder.remove(at: idx)
 					self.trackMetadata.removeValue(forKey: id)
 				}
+				self.rescheduleNextIfNeeded()
 			}
 		}
 
 		AsyncFunction("removeUpcomingTracks") {
-			guard self.queuePlayer != nil else { return }
+			guard self.enginePlayer != nil else { return }
 			DispatchQueue.main.sync {
-				guard let player = self.queuePlayer else { return }
-				let current = player.currentItem
-				let items = player.items()
-				var foundCurrent = false
-				for item in items {
-					if item === current {
-						foundCurrent = true
-						continue
-					}
-					if foundCurrent {
-						player.remove(item)
-						if let id = item.associatedTrackId() {
-							self.trackOrder.removeAll { $0 == id }
-							self.trackMetadata.removeValue(forKey: id)
-						}
-					}
+				let currentIdx = self.currentActiveTrackIndex()
+				guard currentIdx >= 0 else { return }
+
+				let idsToRemove = Array(self.trackOrder.dropFirst(currentIdx + 1))
+				for id in idsToRemove {
+					self.trackMetadata.removeValue(forKey: id)
 				}
+				self.trackOrder = Array(self.trackOrder.prefix(currentIdx + 1))
 			}
 		}
 
@@ -531,74 +495,65 @@ public final class YhwavAudioModule: Module {
 			DispatchQueue.main.sync {
 				let id = self.trackOrder.remove(at: fromIndex)
 				self.trackOrder.insert(id, at: toIndex)
-				let currentIdx = self.currentActiveTrackIndex()
-				let wasPlaying = self.queuePlayer?.timeControlStatus == .playing
-				self.suppressTrackChangeEvents = true
-				self.rebuildQueueFromOrder(makeCurrentIndex: currentIdx >= 0 ? currentIdx : nil)
-				self.suppressTrackChangeEvents = false
-				if wasPlaying { self.queuePlayer?.rate = self.rate }
+				self.rescheduleNextIfNeeded()
 			}
 		}
 
 		AsyncFunction("skip") { (index: Int) in
-			guard let player = self.queuePlayer, index >= 0, index < self.trackOrder.count else { return }
-			DispatchQueue.main.sync {
-				let currentIdx = self.currentActiveTrackIndex()
-				self.suppressTrackChangeEvents = true
+			guard let engine = self.enginePlayer, index >= 0, index < self.trackOrder.count else { return }
+			let currentIdx = self.currentActiveTrackIndex()
+			let targetId = self.trackOrder[index]
+			print("YhwavAudio: skip idx=\(currentIdx)→\(index) (trackId=\(targetId)), queueSize=\(self.trackOrder.count)")
 
-				if currentIdx >= 0 && index - currentIdx == 1 {
-					// One step forward: advance without rebuild — no audio cut, preserves preload
-					player.advanceToNextItem()
-				} else {
-					// Backward, multi-step, or unknown current: full rebuild
-					self.rebuildQueueFromOrder(makeCurrentIndex: index)
+			guard let track = self.trackMetadata[targetId],
+				  let url = URL(string: track.url) else { return }
+
+			var keepPrefetch: Set<String> = [targetId]
+			if index + 1 < self.trackOrder.count {
+				keepPrefetch.insert(self.trackOrder[index + 1])
+			}
+			self.fileCache?.cancelDownloads(exceptTrackIds: keepPrefetch)
+
+			Task {
+				do {
+					try await engine.play(
+						url: url,
+						trackId: targetId,
+						expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+						fallbackURL: self.fallbackDirectURL(for: track)
+					)
+					await MainActor.run {
+						self.emitActiveTrackChanged(index: index)
+						self.startProgressTimerIfNeeded()
+						self.scheduleNextTrack(afterIndex: index)
+					}
+				} catch {
+					print("YhwavAudio: skip failed: \(error.localizedDescription)")
+					await MainActor.run {
+						self.sendEvent("PlaybackError", ["error": error.localizedDescription, "trackId": targetId])
+					}
 				}
-
-				player.rate = self.rate
-				self.suppressTrackChangeEvents = false
-				self.emitActiveTrackChanged(index: index)
-				self.startProgressTimerIfNeeded()
 			}
 		}
 
 		AsyncFunction("play") {
-			self.queuePlayer?.rate = self.rate
-			DispatchQueue.main.async {
-				self.startProgressTimerIfNeeded()
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performPlayAndSync()
 		}
 
 		AsyncFunction("pause") {
-			self.queuePlayer?.pause()
-			self.stopProgressTimer()
-			DispatchQueue.main.async {
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performPauseAndSync()
 		}
 
 		AsyncFunction("seekTo") { (position: Double) in
-			let cm = CMTime(seconds: position, preferredTimescale: 600)
-			let tol = CMTime(seconds: 0.5, preferredTimescale: 600)
-			self.queuePlayer?.seek(to: cm, toleranceBefore: tol, toleranceAfter: tol)
-			DispatchQueue.main.async {
-				self.emitProgressUpdate()
-				self.syncNowPlaying()
-			}
+			self.performSeekAndSync(position)
 		}
 
 		AsyncFunction("setVolume") { (value: Float) in
-			self.volume = max(0, min(1, value))
-			self.queuePlayer?.volume = self.volume
+			self.enginePlayer?.volume = max(0, min(1, value))
 		}
 
 		AsyncFunction("setRate") { (value: Float) in
-			self.rate = max(0.5, min(2.0, value))
-			if self.queuePlayer?.timeControlStatus == .playing {
-				self.queuePlayer?.rate = self.rate
-			}
+			self.enginePlayer?.rate = max(0.5, min(2.0, value))
 			DispatchQueue.main.async { self.syncNowPlaying() }
 		}
 
@@ -664,11 +619,9 @@ public final class YhwavAudioModule: Module {
 
 		// MARK: - Search
 
-		AsyncFunction("prewarmURL") { (urlString: String) in
+		AsyncFunction("prewarmURL") { (urlString: String, trackId: String) in
 			guard let url = URL(string: urlString) else { return }
-			var request = URLRequest(url: url)
-			request.setValue("bytes=0-262143", forHTTPHeaderField: "Range")
-			URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
+			self.fileCache?.predownload(url: url, trackId: trackId)
 		}
 
 		// MARK: - Search
@@ -717,6 +670,19 @@ public final class YhwavAudioModule: Module {
 		}
 	}
 
+	// MARK: - Track playback helpers
+
+	/// JS sends Plex `duration` in milliseconds.
+	private func expectedDurationSeconds(for track: TrackRecord) -> Double? {
+		guard let d = track.duration, d > 0 else { return nil }
+		return d / 1000.0
+	}
+
+	private func fallbackDirectURL(for track: TrackRecord) -> URL? {
+		guard let s = track.directUrl, !s.isEmpty, s != track.url, let u = URL(string: s) else { return nil }
+		return u
+	}
+
 	// MARK: - Audio session
 
 	private func configureAudioSession() {
@@ -728,76 +694,86 @@ public final class YhwavAudioModule: Module {
 		}
 	}
 
-	// MARK: - Player item
+	// MARK: - Scheduling helpers
 
-	private func createPlayerItem(url: String) -> AVPlayerItem {
-		guard let u = URL(string: url) else {
-			return AVPlayerItem(asset: AVAsset())
-		}
-		let asset = AVURLAsset(url: u)
-		let item = AVPlayerItem(asset: asset)
-		return item
-	}
+	private func scheduleNextTrack(afterIndex idx: Int) {
+		guard let engine = enginePlayer else { return }
+		let nextIdx = idx + 1
+		guard nextIdx < trackOrder.count else { return }
+		let nextId = trackOrder[nextIdx]
+		guard let track = trackMetadata[nextId],
+			  let url = URL(string: track.url) else { return }
 
-	// MARK: - Observers
-
-	private func observePlayerStatus() {
-		guard let player = queuePlayer else { return }
-
-		currentItemObservation = player.observe(\.currentItem, options: [.new]) { [weak self] _, _ in
-			DispatchQueue.main.async {
-				self?.setupAudioTapForCurrentItem()
-				self?.emitActiveTrackChangedFromCurrentItem()
+		Task {
+			do {
+				try await engine.scheduleNext(
+					url: url,
+					trackId: nextId,
+					expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+					fallbackURL: self.fallbackDirectURL(for: track)
+				)
+			} catch {
+				print("YhwavAudio: failed to schedule next: \(error)")
 			}
 		}
 
-		itemDidEndObserver = NotificationCenter.default.addObserver(
-			forName: .AVPlayerItemDidPlayToEndTime,
-			object: player,
-			queue: .main
-		) { [weak self] notification in
-			self?.playerItemDidReachEnd(notification)
+		predownloadAhead(fromIndex: nextIdx + 1)
+	}
+
+	private func predownloadNext() {
+		guard let engine = enginePlayer, engine.currentTrackId != nil else { return }
+		let currentIdx = currentActiveTrackIndex()
+		guard currentIdx >= 0 else { return }
+		let nextIdx = currentIdx + 1
+		guard nextIdx < trackOrder.count else { return }
+		let nextId = trackOrder[nextIdx]
+		guard let track = trackMetadata[nextId],
+			  let url = URL(string: track.url) else { return }
+		fileCache?.predownload(url: url, trackId: nextId)
+	}
+
+	private func predownloadAhead(fromIndex startIdx: Int, count: Int = 2) {
+		for i in 0..<count {
+			let idx = startIdx + i
+			guard idx < trackOrder.count else { return }
+			let id = trackOrder[idx]
+			guard let track = trackMetadata[id],
+				  let url = URL(string: track.url) else { continue }
+			fileCache?.predownload(url: url, trackId: id)
 		}
 	}
 
-	private func playerItemDidReachEnd(_ notification: Notification) {
-		guard let item = notification.object as? AVPlayerItem else { return }
-		AudioDSPState.shared.resetFilterState()
-		if repeatMode == 1 {
-			if let id = item.associatedTrackId(), let idx = trackOrder.firstIndex(of: id) {
-				rebuildQueueFromOrder(makeCurrentIndex: idx)
-				queuePlayer?.rate = rate
-			}
-			return
-		}
-		if repeatMode == 2, !trackOrder.isEmpty {
-			if queuePlayer?.items().count == 1 {
-				rebuildQueueFromOrder(makeCurrentIndex: 0)
-				queuePlayer?.rate = rate
-				return
-			}
-		}
-		DispatchQueue.main.async { [weak self] in
-			self?.checkQueueEnded()
-		}
+	private func rescheduleNextIfNeeded() {
+		let currentIdx = currentActiveTrackIndex()
+		guard currentIdx >= 0 else { return }
+		scheduleNextTrack(afterIndex: currentIdx)
 	}
 
-	private func checkQueueEnded() {
-		guard let player = queuePlayer else { return }
-		if player.currentItem == nil {
-			sendEvent("PlaybackQueueEnded", [:])
-		}
+	// MARK: - Track index
+
+	fileprivate func currentActiveTrackIndex() -> Int {
+		guard let trackId = enginePlayer?.currentTrackId,
+			  let idx = trackOrder.firstIndex(of: trackId) else { return -1 }
+		return idx
 	}
 
-	private func emitActiveTrackChangedFromCurrentItem() {
-		guard !suppressTrackChangeEvents else { return }
-		let idx = currentActiveTrackIndex()
-		guard idx >= 0 else { return }
-		emitActiveTrackChanged(index: idx)
-	}
+	// MARK: - Track change events
 
 	private func emitActiveTrackChanged(index: Int) {
-		sendEvent("PlaybackActiveTrackChanged", ["index": index])
+		let now = Date().timeIntervalSince1970 * 1000
+		if index == lastEmittedTrackIndex && (now - lastEmittedTrackTime) < 300 {
+			return
+		}
+		lastEmittedTrackIndex = index
+		lastEmittedTrackTime = now
+
+		let trackId = (index >= 0 && index < trackOrder.count) ? trackOrder[index] : "?"
+		print("YhwavAudio: emitActiveTrackChanged idx=\(index) trackId=\(trackId)")
+		var payload: [String: Any] = ["index": index]
+		if lastTrackEndTimestamp > 0 {
+			payload["previousTrackEndedAt"] = lastTrackEndTimestamp
+		}
+		sendEvent("PlaybackActiveTrackChanged", payload)
 		syncNowPlaying()
 	}
 
@@ -810,7 +786,7 @@ public final class YhwavAudioModule: Module {
 			return
 		}
 		progressTimer = Timer(timeInterval: progressUpdateInterval, repeats: true) { [weak self] _ in
-			self?.tickProgress()
+			self?.emitProgressUpdate()
 		}
 		RunLoop.main.add(progressTimer!, forMode: .common)
 	}
@@ -818,10 +794,6 @@ public final class YhwavAudioModule: Module {
 	private func stopProgressTimer() {
 		progressTimer?.invalidate()
 		progressTimer = nil
-	}
-
-	private func tickProgress() {
-		emitProgressUpdate()
 	}
 
 	private func emitProgressUpdate() {
@@ -849,185 +821,173 @@ public final class YhwavAudioModule: Module {
 	// MARK: - State
 
 	private func currentPlaybackState() -> (state: String, position: Double, duration: Double) {
-		guard let player = queuePlayer else {
+		guard let engine = enginePlayer else {
 			return ("stopped", 0, 0)
 		}
-		guard let item = player.currentItem else {
+		guard engine.currentTrackId != nil else {
 			return ("stopped", 0, 0)
 		}
-		let pos = CMTimeGetSeconds(player.currentTime())
-		let dur = item.duration.seconds
+		let pos = engine.currentPosition
+		var dur = engine.currentDuration
+		if !dur.isFinite || dur <= 0 {
+			let idx = currentActiveTrackIndex()
+			if idx >= 0, idx < trackOrder.count,
+			   let meta = trackMetadata[trackOrder[idx]], let md = meta.duration, md > 0 {
+				dur = md
+			}
+		}
 		let validPos = pos.isFinite && pos >= 0 ? pos : 0
 		let validDur = dur.isFinite && dur >= 0 ? dur : 0
 
-		switch player.timeControlStatus {
-		case .playing:
+		if engine.isPlaying {
 			return ("playing", validPos, validDur)
-		case .paused:
+		} else {
 			return ("paused", validPos, validDur)
-		case .waitingToPlayAtSpecifiedRate:
-			return ("buffering", validPos, validDur)
-	@unknown default:
-		return ("ready", validPos, validDur)
 		}
 	}
 
-	private func rebuildQueueFromOrder(makeCurrentIndex: Int? = nil) {
-		guard let player = queuePlayer else { return }
-		player.removeAllItems()
-		let startIdx = max(makeCurrentIndex ?? 0, 0)
-		for i in startIdx..<trackOrder.count {
-			guard let track = trackMetadata[trackOrder[i]] else { continue }
-			let item = createPlayerItem(url: track.url)
-			item.setAssociatedTrack(track)
-			player.insert(item, after: player.items().last)
+	// MARK: - Play / pause / seek (bridge + remote control)
+
+	/// Same behavior as the JS `play` bridge: resume engine, run progress timer + Now Playing on the main thread.
+	fileprivate func performPlayAndSync() {
+		enginePlayer?.resume()
+		DispatchQueue.main.async {
+			self.startProgressTimerIfNeeded()
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
 		}
 	}
 
-	private func currentActiveTrackIndex() -> Int {
-		guard let player = queuePlayer,
-		      let current = player.currentItem,
-		      let id = current.associatedTrackId(),
-		      let idx = trackOrder.firstIndex(of: id) else { return -1 }
-		return idx
-	}
-
-	// MARK: - Audio processing tap (DSP + level metering)
-
-	private func setupAudioTapForCurrentItem() {
-		guard let player = queuePlayer, let item = player.currentItem else {
-			teardownAudioTap()
-			return
-		}
-		if item === itemWithAudioTap { return }
-		teardownAudioTap()
-		itemWithAudioTap = item
-		AudioDSPState.shared.resetFilterState()
-		let asset = item.asset
-		asset.loadValuesAsynchronously(forKeys: ["tracks"]) { [weak self] in
-			guard let self = self else { return }
-			var error: NSError?
-			guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else { return }
-			guard let track = asset.tracks(withMediaType: .audio).first else { return }
-			DispatchQueue.main.async {
-				self.attachAudioTap(to: item, track: track)
-			}
+	/// Same behavior as the JS `pause` bridge: stop audio immediately, then timer + Now Playing on main.
+	fileprivate func performPauseAndSync() {
+		enginePlayer?.pause()
+		DispatchQueue.main.async {
+			self.stopProgressTimer()
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
 		}
 	}
 
-	private func teardownAudioTap() {
-		itemWithAudioTap?.audioMix = nil
-		itemWithAudioTap = nil
-	}
-
-	private func attachAudioTap(to item: AVPlayerItem, track: AVAssetTrack) {
-		guard item === itemWithAudioTap else { return }
-		let context = AudioTapContext(module: self)
-		var callbacks = MTAudioProcessingTapCallbacks(
-			version: kMTAudioProcessingTapCallbacksVersion_0,
-			clientInfo: Unmanaged.passRetained(context).toOpaque(),
-			init: { _, clientInfo, tapStorageOut in
-				tapStorageOut.pointee = clientInfo
-			},
-			finalize: { tap in
-				let ptr = MTAudioProcessingTapGetStorage(tap)
-				Unmanaged<AudioTapContext>.fromOpaque(ptr).release()
-			},
-			prepare: { _, _, _ in },
-			unprepare: { _ in },
-			process: { tap, numberFrames, _, bufferListInOut, numberFramesOut, flagsOut in
-				guard noErr == MTAudioProcessingTapGetSourceAudio(tap, numberFrames, bufferListInOut, flagsOut, nil, numberFramesOut) else { return }
-
-				// Apply DSP effects (EQ, gain, normalization, mono)
-				AudioDSPState.shared.processAudio(bufferListInOut, frameCount: UInt32(numberFrames))
-
-				// Level metering (runs after DSP so visualizer reflects processed output)
-				let ptr = MTAudioProcessingTapGetStorage(tap)
-				let ctx = Unmanaged<AudioTapContext>.fromOpaque(ptr).takeUnretainedValue()
-				let levels = AudioTapContext.computeLevels(bufferListInOut, frameCount: UInt32(numberFrames), bandCount: 5)
-				ctx.reportLevels(levels)
-			}
-		)
-		var tap: MTAudioProcessingTap?
-		guard MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PreEffects, &tap) == noErr,
-		      let tapUnwrapped = tap else {
-			return
+	fileprivate func performSeekAndSync(_ position: Double) {
+		enginePlayer?.seek(to: position)
+		DispatchQueue.main.async {
+			self.emitProgressUpdate()
+			self.syncNowPlaying()
 		}
-		let params = AVMutableAudioMixInputParameters(track: track)
-		params.audioTapProcessor = tapUnwrapped
-		let mix = AVMutableAudioMix()
-		mix.inputParameters = [params]
-		item.audioMix = mix
 	}
 
 	deinit {
 		stopProgressTimer()
-		teardownAudioTap()
-		currentItemObservation?.invalidate()
-		if let obs = itemDidEndObserver {
-			NotificationCenter.default.removeObserver(obs)
-		}
+		enginePlayer?.teardown()
 	}
 }
 
-// MARK: - Audio tap context (DSP + level metering)
+// MARK: - AudioEnginePlayerDelegate
 
-private final class AudioTapContext {
-	weak var module: YhwavAudioModule?
-	private var lastSendTime: CFTimeInterval = 0
-	private let minInterval: CFTimeInterval = 0.06
-	private let lock = NSLock()
+extension YhwavAudioModule: AudioEnginePlayerDelegate {
+	func enginePlayer(_ player: AudioEnginePlayer, didFinishTrack trackId: String) {
+		lastTrackEndTimestamp = Date().timeIntervalSince1970 * 1000
 
-	init(module: YhwavAudioModule) {
-		self.module = module
-	}
+		guard let finishedIdx = trackOrder.firstIndex(of: trackId) else { return }
 
-	func reportLevels(_ levels: [Float]) {
-		lock.lock()
-		let now = CACurrentMediaTime()
-		guard now - lastSendTime >= minInterval else { lock.unlock(); return }
-		lastSendTime = now
-		lock.unlock()
-		guard let mod = module else { return }
-		let levelsCopy = levels
-		DispatchQueue.main.async {
-			mod.sendEvent("AudioLevelsUpdated", ["levels": levelsCopy])
+		if repeatMode == 1 {
+			print("YhwavAudio: didFinishTrack \(trackId) → repeat track")
+			guard let track = trackMetadata[trackId],
+				  let url = URL(string: track.url) else { return }
+			Task {
+				do {
+					try await player.play(
+						url: url,
+						trackId: trackId,
+						expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+						fallbackURL: self.fallbackDirectURL(for: track)
+					)
+					await MainActor.run {
+						self.emitActiveTrackChanged(index: finishedIdx)
+						self.scheduleNextTrack(afterIndex: finishedIdx)
+					}
+				} catch {
+					print("YhwavAudio: repeat track failed: \(error.localizedDescription)")
+					await MainActor.run {
+						self.sendEvent("PlaybackError", ["error": error.localizedDescription, "trackId": trackId])
+					}
+				}
+			}
+			return
+		}
+
+		let nextIdx = finishedIdx + 1
+		if nextIdx < trackOrder.count {
+			let nextId = trackOrder[nextIdx]
+			print("YhwavAudio: didFinishTrack \(trackId) → advancing to idx=\(nextIdx) trackId=\(nextId)")
+
+			if player.currentTrackId == nextId {
+				emitActiveTrackChanged(index: nextIdx)
+				scheduleNextTrack(afterIndex: nextIdx)
+			} else {
+				advanceToTrack(at: nextIdx, player: player)
+			}
+		} else if repeatMode == 2 && !trackOrder.isEmpty {
+			print("YhwavAudio: didFinishTrack \(trackId) → repeat queue from idx=0")
+			advanceToTrack(at: 0, player: player)
+		} else {
+			print("YhwavAudio: didFinishTrack \(trackId) → queue ended")
+			stopProgressTimer()
+			sendEvent("PlaybackQueueEnded", [:])
 		}
 	}
 
-	static func computeLevels(_ bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32, bandCount: Int) -> [Float] {
-		let list = UnsafeMutableAudioBufferListPointer(bufferList)
-		guard let first = list.first, let mData = first.mData else { return (0..<bandCount).map { _ in Float(0) } }
-		let channelCount = Int(first.mNumberChannels)
-		let frameLength = Int(frameCount) * channelCount
-		let stride = channelCount
-		let samplesRaw = mData.assumingMemoryBound(to: Float.self)
-		let samples = UnsafePointer(samplesRaw)
-		var bands = [Float](repeating: 0, count: bandCount)
-		let bandFrames = max(1, frameLength / bandCount)
-		for b in 0..<bandCount {
-			let start = b * bandFrames
-			let count = min(bandFrames, frameLength - start)
-			guard count > 0 else { continue }
-			var rms: Float = 0
-			vDSP_rmsqv(samples.advanced(by: start), stride, &rms, vDSP_Length(count))
-			bands[b] = min(1, max(0, rms * 4))
+	/// Try to play the track at `startIdx`; on failure, walk forward trying subsequent tracks.
+	private func advanceToTrack(at startIdx: Int, player: AudioEnginePlayer, attempt: Int = 0) {
+		let maxSkips = min(3, trackOrder.count)
+		let idx = startIdx + attempt
+		guard idx < trackOrder.count, attempt < maxSkips else {
+			print("YhwavAudio: all advancement attempts failed")
+			sendEvent("PlaybackError", ["error": "Failed to load tracks", "trackId": trackOrder[startIdx]])
+			return
 		}
-		return bands
+
+		let targetId = trackOrder[idx]
+		guard let track = trackMetadata[targetId],
+			  let url = URL(string: track.url) else {
+			advanceToTrack(at: startIdx, player: player, attempt: attempt + 1)
+			return
+		}
+
+		Task {
+			do {
+				try await player.play(
+					url: url,
+					trackId: targetId,
+					expectedDurationSeconds: self.expectedDurationSeconds(for: track),
+					fallbackURL: self.fallbackDirectURL(for: track)
+				)
+				await MainActor.run {
+					self.emitActiveTrackChanged(index: idx)
+					self.scheduleNextTrack(afterIndex: idx)
+				}
+			} catch {
+				print("YhwavAudio: advance to idx=\(idx) trackId=\(targetId) failed: \(error.localizedDescription)")
+				await MainActor.run {
+					self.advanceToTrack(at: startIdx, player: player, attempt: attempt + 1)
+				}
+			}
+		}
 	}
-}
 
-// MARK: - AVPlayerItem track association
-
-private let associatedTrackIdKey = UnsafeRawPointer(bitPattern: "yhwav_track_id".hashValue)!
-
-extension AVPlayerItem {
-	func setAssociatedTrack(_ track: TrackRecord) {
-		objc_setAssociatedObject(self, associatedTrackIdKey, track.id, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+	func enginePlayer(_ player: AudioEnginePlayer, didEncounterError error: String, trackId: String) {
+		let now = Date().timeIntervalSince1970 * 1000
+		guard now - lastPlaybackErrorEmitTime > 500 else { return }
+		lastPlaybackErrorEmitTime = now
+		print("YhwavAudio: didEncounterError trackId=\(trackId): \(error)")
+		sendEvent("PlaybackError", [
+			"error": error,
+			"trackId": trackId
+		])
 	}
 
-	func associatedTrackId() -> String? {
-		objc_getAssociatedObject(self, associatedTrackIdKey) as? String
+	func enginePlayer(_ player: AudioEnginePlayer, didUpdateLevels levels: [Float]) {
+		sendEvent("AudioLevelsUpdated", ["levels": levels])
 	}
 }
 
@@ -1045,40 +1005,53 @@ private final class NowPlayingManager {
 
 	func setCapabilities(_ caps: [String]) {
 		capabilities = Set(caps)
+		applyRemoteCommandEnabledFlags()
+	}
+
+	private func applyRemoteCommandEnabledFlags() {
+		let center = MPRemoteCommandCenter.shared()
+		center.playCommand.isEnabled = capabilities.contains("Play")
+		center.pauseCommand.isEnabled = capabilities.contains("Pause")
+		center.nextTrackCommand.isEnabled = capabilities.contains("SkipToNext")
+		center.previousTrackCommand.isEnabled = capabilities.contains("SkipToPrevious")
+		center.changePlaybackPositionCommand.isEnabled = capabilities.contains("SeekTo")
 	}
 
 	func setupRemoteCommands() {
 		let center = MPRemoteCommandCenter.shared()
-		center.playCommand.isEnabled = capabilities.contains("Play")
+		center.playCommand.removeTarget(nil)
+		center.pauseCommand.removeTarget(nil)
+		center.nextTrackCommand.removeTarget(nil)
+		center.previousTrackCommand.removeTarget(nil)
+		center.changePlaybackPositionCommand.removeTarget(nil)
+
+		applyRemoteCommandEnabledFlags()
+
 		center.playCommand.addTarget { [weak self] _ in
-			self?.module?.sendEvent("RemotePlay", [:])
-			if let mod = self?.module {
-				mod.queuePlayer?.rate = mod.rate
-			}
+			guard let mod = self?.module else { return .commandFailed }
+			mod.performPlayAndSync()
+			mod.sendEvent("RemotePlay", [:])
 			return .success
 		}
-		center.pauseCommand.isEnabled = capabilities.contains("Pause")
 		center.pauseCommand.addTarget { [weak self] _ in
-			self?.module?.sendEvent("RemotePause", [:])
-			self?.module?.queuePlayer?.pause()
+			guard let mod = self?.module else { return .commandFailed }
+			mod.performPauseAndSync()
+			mod.sendEvent("RemotePause", [:])
 			return .success
 		}
-		center.nextTrackCommand.isEnabled = capabilities.contains("SkipToNext")
 		center.nextTrackCommand.addTarget { [weak self] _ in
 			self?.module?.sendEvent("RemoteNext", [:])
-			// JS handler will call skipToNext
 			return .success
 		}
-		center.previousTrackCommand.isEnabled = capabilities.contains("SkipToPrevious")
 		center.previousTrackCommand.addTarget { [weak self] _ in
 			self?.module?.sendEvent("RemotePrevious", [:])
 			return .success
 		}
-		center.changePlaybackPositionCommand.isEnabled = capabilities.contains("SeekTo")
 		center.changePlaybackPositionCommand.addTarget { [weak self] event in
 			guard let e = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-			self?.module?.sendEvent("RemoteSeek", ["position": e.positionTime])
-			self?.module?.queuePlayer?.seek(to: CMTime(seconds: e.positionTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+			guard let mod = self?.module else { return .commandFailed }
+			mod.sendEvent("RemoteSeek", ["position": e.positionTime])
+			mod.performSeekAndSync(e.positionTime)
 			return .success
 		}
 	}
@@ -1118,9 +1091,8 @@ private final class NowPlayingManager {
 		if let dur = duration, dur > 0 {
 			info[MPMediaItemPropertyPlaybackDuration] = dur
 		}
-		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(module?.rate ?? 1.0) : 0.0
+		info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? Double(module?.enginePlayer?.rate ?? 1.0) : 0.0
 		let current = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 		MPNowPlayingInfoCenter.default().nowPlayingInfo = current.merging(info) { _, new in new }
 	}
 }
-

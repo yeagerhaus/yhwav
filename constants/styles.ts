@@ -34,13 +34,13 @@ export type ThemeColors = {
 
 const Colors: { light: ThemeColors; dark: ThemeColors } = {
 	light: {
-		background: '#ffffff',
+		background: '#f0ede8',
 		text: '#11181C',
 		textSecondary: '#626875',
 		textMuted: '#888888',
-		textInvert: '#ffffff',
+		textInvert: '#f0ede8',
 		brand: '#7f62f5',
-		surface: '#ffffff',
+		surface: '#f0ede8',
 		surfaceSecondary: '#fafbfc',
 		surfaceTertiary: '#e2e6ed',
 		surfaceElevated: '#f5f5f5',

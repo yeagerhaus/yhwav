@@ -25,6 +25,7 @@ import { usePlaybackSettingsStore } from '@/hooks/usePlaybackSettingsStore';
 import { usePodcastDownloadsStore } from '@/hooks/usePodcastDownloadsStore';
 import { usePodcastProgressStore } from '@/hooks/usePodcastProgressStore';
 import { usePodcastStore } from '@/hooks/usePodcastStore';
+import { initNetworkPlaybackRoute, refreshNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import { rehydrateLibraryStore } from '@/utils';
 import '@/utils/background-fetch-task';
 import { hasSeenNotificationPrompt } from '@/app/notification-prompt';
@@ -150,6 +151,8 @@ export default function RootLayout() {
 		hydratePlaybackSettings();
 	}, [hydrateAppearance, hydrateDevSettings, hydrateOfflineMode, hydratePlaybackSettings]);
 
+	useEffect(() => initNetworkPlaybackRoute(), []);
+
 	const hydratePodcast = usePodcastStore((s) => s.hydrate);
 	const hydratePodcastProgress = usePodcastProgressStore((s) => s.hydrate);
 	const hydratePodcastDownloads = usePodcastDownloadsStore((s) => s.hydrate);
@@ -216,8 +219,11 @@ export default function RootLayout() {
 		init();
 
 		const appStateSub = AppState.addEventListener('change', (state) => {
-			if (state === 'active' && plexAuthReady.current) {
-				plexClient.refreshConnectionIfNeeded().catch(() => {});
+			if (state === 'active') {
+				refreshNetworkPlaybackRoute().catch(() => {});
+				if (plexAuthReady.current) {
+					plexClient.refreshConnectionIfNeeded().catch(() => {});
+				}
 			}
 		});
 

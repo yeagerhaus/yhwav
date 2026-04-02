@@ -1,6 +1,9 @@
 import React from 'react';
+import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
+import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
+import { getCachedNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer, {
 	Capability,
 	Event,
@@ -14,6 +17,7 @@ import TrackPlayer, {
 import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
+import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 import { queueScrobble } from '@/utils/scrobble-queue';
 
 // Storage keys
@@ -189,7 +193,6 @@ async function extractArtworkColor(song: Song): Promise<string> {
 // Cached lazy-require accessors (avoids repeated require() per call in hot paths)
 let _downloadsStore: typeof import('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore | undefined;
 let _playbackSettingsStore: typeof import('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore | undefined;
-let _playbackSettingsBitrates: any;
 let _progressStore: typeof import('@/hooks/usePlaybackProgressStore').usePlaybackProgressStore | undefined;
 
 function getDownloadsStore() {
@@ -200,11 +203,9 @@ function getDownloadsStore() {
 }
 function getPlaybackSettingsStore() {
 	if (!_playbackSettingsStore) {
-		const mod = require('@/hooks/usePlaybackSettingsStore');
-		_playbackSettingsStore = mod.usePlaybackSettingsStore;
-		_playbackSettingsBitrates = mod.STREAMING_QUALITY_BITRATES;
+		_playbackSettingsStore = require('@/hooks/usePlaybackSettingsStore').usePlaybackSettingsStore;
 	}
-	return { store: _playbackSettingsStore!, bitrates: _playbackSettingsBitrates };
+	return _playbackSettingsStore!;
 }
 function getProgressStore() {
 	if (!_progressStore) {
@@ -216,25 +217,37 @@ function getProgressStore() {
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
 	const localUri = song.localUri || getDownloadsStore().getState().getLocalUri(song.id);
+	if (__DEV__ && !localUri) {
+		console.log(`[songToTrack] No localUri for ${song.id}, using remote URL`);
+	}
 	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}
 
-	// Apply streaming quality bitrate limit for Plex streams (not local files, not podcasts)
-	let finalUrl = url ?? song.uri ?? '';
+	const referenceUrl = url ?? song.uri ?? '';
+	let finalUrl = referenceUrl;
+	let directUrl: string | undefined;
 	if (!localUri && song.source !== 'podcast' && finalUrl.includes('X-Plex-Token')) {
-		const { store, bitrates } = getPlaybackSettingsStore();
-		const quality = store.getState().streamingQuality;
-		const bitrate = bitrates[quality];
+		const ps = getPlaybackSettingsStore().getState();
+		const bitrate = getStreamingPlaybackBitrateKbps(
+			ps.streamingBitrateWifi,
+			ps.streamingBitrateCellular,
+			ps.streamingTranscodeCapKbps,
+			getCachedNetworkPlaybackRoute(),
+		);
 		if (bitrate !== null) {
-			finalUrl = `${finalUrl}&maxAudioBitrate=${bitrate}`;
+			const built = buildPlexStreamUrl(song, referenceUrl, bitrate);
+			finalUrl = built.url;
+			directUrl = built.directUrl;
+			console.log(`[songToTrack] Plex remote stream ${song.id} @ ${bitrate} kbps`);
 		}
 	}
 
 	return {
 		id: song.id.toString(),
 		url: finalUrl,
+		...(directUrl ? { directUrl } : {}),
 		title: song.title,
 		artist: song.artist,
 		artwork: song.artworkUrl || song.artwork,
@@ -496,13 +509,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				} catch {}
 			}
 
+			// Defer native queue load until after transitions/animations so a quick "open album" tap
+			// does not reset() a restore that already started a download (avoids spurious "cancelled").
+			await new Promise<void>((resolve) => {
+				InteractionManager.runAfterInteractions(() => resolve());
+			});
+
 			await TrackPlayer.add(queue.map(songToTrack));
 
-			const trackIndex = queue.findIndex((s) => s.id === currentSong!.id);
-			if (trackIndex !== -1) {
-				await TrackPlayer.skip(trackIndex);
-				if (position > 0) await TrackPlayer.seekTo(position);
-			}
+			const trackIndex = Math.max(
+				0,
+				queue.findIndex((s) => s.id === currentSong!.id),
+			);
+			await TrackPlayer.skip(trackIndex);
+			if (position > 0) await TrackPlayer.seekTo(position);
 			// Always pause regardless of trackIndex — prevents auto-play on reload
 			await TrackPlayer.pause();
 
@@ -603,9 +623,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
 
 						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-						if (trackIndex !== -1 && (queueToUse.length > 1 || trackIndex > 0)) {
-							await TrackPlayer.skip(trackIndex);
-						}
+						await TrackPlayer.skip(Math.max(0, trackIndex));
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -614,6 +632,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
 						set({ queue: [song], originalQueue: [song] });
+						await TrackPlayer.skip(0);
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					}
@@ -1051,7 +1070,7 @@ export function useTrackPlayerSync() {
 								const track = songToTrack(nextSong);
 								const { YhwavAudioModule } = require('@/modules/yhwav-audio/src');
 								if (YhwavAudioModule?.prewarmURL) {
-									YhwavAudioModule.prewarmURL(track.url);
+									YhwavAudioModule.prewarmURL(track.url, nextSong.id);
 								} else {
 									fetch(track.url, { headers: { Range: 'bytes=0-262143' } }).catch(() => {});
 								}
@@ -1093,9 +1112,12 @@ export function useTrackPlayerSync() {
 				if (!isNaturalAdvance) return;
 
 				const previousSong = state.currentSong;
-				const gapMs = Date.now() - lastProgressTimestamp;
+				const now = Date.now();
+				const nativeGapMs = event.previousTrackEndedAt ? now - event.previousTrackEndedAt : null;
+				const jsGapMs = now - lastProgressTimestamp;
 				if (__DEV__) {
-					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapMs.toFixed(0)}ms gap)`);
+					const gapLabel = nativeGapMs != null ? `${nativeGapMs.toFixed(0)}ms native` : `${jsGapMs.toFixed(0)}ms js`;
+					console.log(`🎵 Natural advance: ${previousSong?.id ?? '?'} → ${newCurrentSong.id} (${gapLabel})`);
 				}
 				if (previousSong) scrobbleSong(previousSong);
 
@@ -1103,6 +1125,11 @@ export function useTrackPlayerSync() {
 				prewarmedSongId = null;
 
 				state._setCurrentSong(newCurrentSong);
+
+				// Reset progress bar immediately so it doesn't flash the old track's position
+				const progressStore = getProgressStore().getState();
+				progressStore.setPosition(0);
+				progressStore.setDuration(newCurrentSong.duration ?? 0);
 
 				// Persist & extract color asynchronously
 				saveCurrentSong(newCurrentSong);
@@ -1112,9 +1139,6 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackError) {
-				console.warn('Playback error (will retry):', event);
-
-				// Retry the current track once instead of nuking the player state
 				const now = Date.now();
 				const canRetry = now - lastErrorRetryAt > 3000;
 
@@ -1132,9 +1156,23 @@ export function useTrackPlayerSync() {
 						}
 					}
 				} else if (!canRetry) {
-					// Retry already attempted recently — just pause, don't destroy state
-					console.warn('Playback error after recent retry, pausing');
-					useAudioStore.setState({ isPlaying: false });
+					console.warn('Playback error after recent retry, skipping to next');
+					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const nextIndex = trackIndex + 1;
+					if (nextIndex < state.queue.length) {
+						try {
+							lastErrorRetryAt = now;
+							const nextSong = state.queue[nextIndex];
+							state._setCurrentSong(nextSong);
+							await TrackPlayer.skip(nextIndex);
+							await TrackPlayer.play();
+							console.log(`✅ Skipped failed track → ${nextSong.id}`);
+						} catch {
+							useAudioStore.setState({ isPlaying: false });
+						}
+					} else {
+						useAudioStore.setState({ isPlaying: false });
+					}
 				}
 			}
 

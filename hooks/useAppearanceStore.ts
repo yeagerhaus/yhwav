@@ -37,7 +37,7 @@ interface AppearanceState {
 export const DEFAULT_BRAND_COLOR = DEFAULT_BRAND;
 
 export const useAppearanceStore = create<AppearanceState>((set, _get) => ({
-	showPodcastsTab: true,
+	showPodcastsTab: false,
 	showMusicTab: true,
 	brandColor: null,
 	useBlurInsteadOfGlass: false,
@@ -69,7 +69,7 @@ export const useAppearanceStore = create<AppearanceState>((set, _get) => ({
 			if (raw) {
 				const parsed: StoredAppearance = JSON.parse(raw);
 				set({
-					showPodcastsTab: parsed.showPodcastsTab ?? true,
+					showPodcastsTab: parsed.showPodcastsTab ?? false,
 					showMusicTab: parsed.showMusicTab ?? true,
 					brandColor: parsed.brandColor ?? null,
 					useBlurInsteadOfGlass: parsed.useBlurInsteadOfGlass ?? false,
