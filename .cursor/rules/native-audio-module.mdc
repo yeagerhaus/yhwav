@@ -1,42 +1,50 @@
 ---
-description: Native audio module (YhwavAudioModule) API and event contract; iOS only; AVQueuePlayer
-globs: "**/playerAdapter.ts"
+description: Native audio module (YhwavAudioModule) API and event contract; iOS only; AVAudioEngine / AudioEnginePlayer
+globs:
+  - "**/playerAdapter.ts"
+  - "**/useAudioStore.ts"
+  - "modules/yhwav-audio/ios/**/*.swift"
 alwaysApply: false
 ---
 
 # Native audio module contract (iOS)
 
-Apply when editing native audio code, the JS adapter (lib/playerAdapter.ts), or any code that assumes how the player or events work.
+Apply when editing native audio code, the JS adapter (`lib/playerAdapter.ts`), or code that assumes how the player or events work.
 
 ## Platform
 
 - Playback is implemented only on **iOS** (`modules/yhwav-audio`).
-- The adapter checks `isAvailable()` and uses the module only on iOS; no Android implementation in this module.
+- The adapter checks `isAvailable()` and uses the module only on iOS; there is no Android implementation in this module.
 
 ## Player
 
-- `AVQueuePlayer` in `YhwavAudioModule.swift`.
-- Queue is tracked via `trackOrder` (ids) and `trackMetadata`; `skip(index)` rebuilds/repositions the queue.
+- Core implementation is **`AudioEnginePlayer`** (`AudioEnginePlayer.swift`): **AVAudioEngine** with two **AVAudioPlayerNode** decks for crossfades, plus time-pitch and optional DSP (EQ / normalization / mono) on the audio graph.
+- `YhwavAudioModule` owns the engine player, track list metadata, and bridge methods used by `TrackPlayer` in JS.
+- Tracks carry `id`, `url`, optional **`directUrl`** (original Plex part URL when `url` is a transcode), and optional **`crossfadeDisabled`** (e.g. podcasts — use gapless-style handoff without Sweet Fades overlap).
+
+## Crossfades (Sweet Fades)
+
+- **`setCrossfadeConfig`** (from `usePlaybackSettingsStore`) enables/disables crossfades and sets default/min/max duration and manual-skip fade behavior.
+- While playing, JS may call **`setNextCrossfadeDuration`** when the next track is known (see `useTrackPlayerSync` in `useAudioStore`: adaptive duration from `computeCrossfadeDuration` + loudness, or fixed seconds from settings). Native uses that overlap when ramping between decks.
 
 ## Events
 
 Native sends: `PlaybackProgressUpdated`, `PlaybackQueueEnded`, `PlaybackActiveTrackChanged`, `RemotePlay`/`RemotePause`/`RemoteNext`/`RemotePrevious`/`RemoteSeek`, `AudioLevelsUpdated`.
 
-- **PlaybackError** is declared but never emitted in the current native code; do not rely on it.
+- **PlaybackError** is declared but may not be emitted consistently; do not rely on it as the only error path.
 
 ## Buffering
 
-- There is no separate "Buffering" event.
-- Buffering is reported as `state === "buffering"` when `timeControlStatus == .waitingToPlayAtSpecifiedRate` inside `getPlaybackState()`.
-- JS gets this via `usePlaybackState()` (subscribes to progress and calls `getPlaybackState()`).
+- There is no separate "Buffering" event type.
+- Buffering is reported as `state === "buffering"` when appropriate inside **`getPlaybackState()`** (e.g. time control waiting).
+- JS receives this via `usePlaybackState()` (progress-driven refresh).
 
-## Gapless
+## Gapless and prewarm
 
-- Gapless behavior comes from AVQueuePlayer (next item already in queue).
-- No explicit preload in the active native module.
-- JS prewarm (Range fetch on next track URL when &lt; 45s left) is in useAudioStore only.
+- Tight transitions are handled by scheduling the next file on the engine and/or crossfade ramps (not legacy AVQueuePlayer gapless alone).
+- JS **prewarm**: when near the end of a track, `useAudioStore` resolves the next URL via **`songToTrack(nextSong)`** (same quality rules as playback) and calls native **`prewarmURL`** when available, else a Range fetch — keeps cache behavior aligned with actual playback URLs.
 
 ## Bridge
 
-- All `TrackPlayer.*` methods in `lib/playerAdapter.ts` map directly to the native module.
+- `TrackPlayer.*` in `lib/playerAdapter.ts` maps to the native module.
 - `useTrackPlayerEvents` maps native event names to internal `Event.*` and passes through `index`, `position`, `duration` where applicable.

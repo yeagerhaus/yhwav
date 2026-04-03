@@ -10,20 +10,23 @@ Apply when editing download stores, playback URL resolution, or offline behavior
 
 ## URL resolution
 
-In `songToTrack(song)` (useAudioStore):
+In **`songToTrack(song)`** (`hooks/useAudioStore.ts`):
 
 - `localUri = song.localUri || useMusicDownloadsStore.getState().getLocalUri(song.id)`.
-- Then `url = localUri || (song.uri if non-empty)`.
-- Local always wins when available; Plex bitrate is applied only when not local and not podcast.
+- `url = localUri || (song.uri if non-empty)`.
+- Local always wins when available. Plex music bitrate / `buildPlexStreamUrl` applies only when **not** local and **not** podcast (see `plex-streaming-urls` rule).
+
+## Download bitrates
+
+- Music downloads use **`downloadBitrateKbps`** from playback settings and **`buildPlexStreamUrl`** in `useMusicDownloadsStore` when fetching the file.
 
 ## Podcasts
 
-- Episodes get `localUri` or stream URL at call sites (`toPlayableSong` in types/podcast, feed/episode screens, PodcastEpisodeItem).
-- Resume: downloaded episodes use `usePodcastDownloadsStore.getState().getResumeAt(song.id)`; streamed use progress store.
+- Episodes get `localUri` or stream URL at call sites (`toPlayableSong` in types/podcast, feed/episode screens, `PodcastEpisodeItem`).
+- Resume: downloaded episodes use `usePodcastDownloadsStore.getState().getResumeAt(song.id)`; streamed use the progress store.
 - Progress is saved to both progress store and (when downloaded) `updateResumeAt`.
 
 ## Offline
 
 - `useOfflineModeStore` and `useOfflineFilteredLibrary` restrict library UI to downloaded content.
-- Playback code does not check offline mode; it only uses the URL from `songToTrack`.
-- When offline mode is on, only local URLs are surfaced via the filtered library.
+- Playback does not branch on “offline mode”; it uses whatever URL `songToTrack` resolves. With offline mode on, the filtered library should only surface items with local playability.

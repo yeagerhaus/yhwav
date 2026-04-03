@@ -1,29 +1,37 @@
 ---
-description: Plex stream URLs and quality; where token and maxAudioBitrate are applied for playback
-globs: "**/useAudioStore.ts"
+description: Plex stream URLs and quality; token, bitrate caps, transcode directUrl; where applied for playback
+globs:
+  - "**/useAudioStore.ts"
+  - "**/plex-stream-url.ts"
+  - "**/usePlaybackSettingsStore.ts"
 alwaysApply: false
 ---
 
 # Plex streaming and track URL construction
 
-Apply when editing URL construction for playback, streaming quality, or Plex API/client.
+Apply when editing URL construction for playback, streaming quality, transcodes, or the Plex client.
 
 ## Song.uri
 
 - Set in `utils/plex-client.ts` (`formatTrack`): direct stream URL with `X-Plex-Token`.
-- No bitrate param at Plex client level.
+- Bitrate / transcode shaping is **not** finalized at the Plex client only; playback uses `buildPlexStreamUrl` when a cap applies.
 
-## Quality
+## Quality and network
 
-- `hooks/usePlaybackSettingsStore.ts` defines `streamingQuality` and `STREAMING_QUALITY_BITRATES`.
-- Applied **only** in `songToTrack(song)` in `hooks/useAudioStore.ts`: if URL is not local and not podcast and contains `X-Plex-Token`, append `&maxAudioBitrate=${bitrate}` to get the `url` passed to the native player.
+- `hooks/usePlaybackSettingsStore.ts` holds **Wi‑Fi** and **cellular** bitrate choices (null = Original) and optional **`streamingTranscodeCapKbps`**.
+- **`getStreamingPlaybackBitrateKbps(...)`** combines those with the current route (`lib/networkPlaybackRoute` cache) to pick the effective max kbps.
 
-## Single place
+## Single place for playback URLs
 
-- All playback URLs for the player go through `songToTrack()`.
-- Do not add quality or token logic in the native module or adapter; keep it in `songToTrack`.
+- In **`songToTrack(song)`** in `hooks/useAudioStore.ts`:
+  - Local file wins: `song.localUri` or `useMusicDownloadsStore.getState().getLocalUri(song.id)`.
+  - For **remote** Plex music (not podcast) URLs containing `X-Plex-Token`, if the effective bitrate is not null, use **`buildPlexStreamUrl(song, referenceUrl, bitrate)`** from `utils/plex-stream-url.ts` for `url` and optional **`directUrl`** on the track record.
+- Do not duplicate this logic in the native module; the adapter receives final `url` / `directUrl`.
+
+## Podcasts
+
+- Podcast episodes are not bitrate-capped via this path in `songToTrack` (`song.source === 'podcast'` skips the Plex music bitrate branch). They may still set `crossfadeDisabled` on the track.
 
 ## Prewarm
 
-- The next-track prewarm in useAudioStore uses `nextSong.uri` (no `maxAudioBitrate`).
-- Prewarm URL may differ from the quality-limited playback URL; acceptable for cache warming.
+- Next-track prewarm uses **`songToTrack(nextSong)`**, so prewarm URLs match playback quality (unlike a raw `nextSong.uri` without caps).

@@ -1,0 +1,40 @@
+---
+description: Adaptive Sweet Fades — computeCrossfadeDuration, effectiveLoudnessData, when JS pushes overlap to native
+globs:
+  - "**/crossfadeAlgorithm.ts"
+  - "**/useAudioStore.ts"
+  - "**/usePlaybackSettingsStore.ts"
+alwaysApply: false
+---
+
+# Adaptive crossfade (Sweet Fades)
+
+Apply when changing crossfade length logic, loudness metadata on `Song`, or download-side loudness snapshots.
+
+## Algorithm
+
+- **`lib/crossfadeAlgorithm.ts`** — `computeCrossfadeDuration(outgoing, incoming, config)` implements Plexamp-style overlap from **both** tracks’ `LoudnessData`.
+- If **either** outgoing or incoming loudness is missing, returns **`config.defaultDuration`** (the user’s fixed seconds from settings).
+- Otherwise combines **average LRA** (`lra`), **loudness delta** between tracks (wider gap → longer overlap, capped), and a **peak factor** on the outgoing track (`peak < 0.7` bumps duration). Result is clamped to **`minDuration`..`maxDuration`** (typically 1–12 s in the progress sync path).
+
+## Loudness source (`effectiveLoudnessData`)
+
+- Defined in **`hooks/useAudioStore.ts`** (not exported).
+- **Order:** use `song.loudnessData` when present; else **`useMusicDownloadsStore.getState().downloads[song.id]?.loudnessData`** (snapshot taken when the file was downloaded).
+- Streaming tracks without Plex stream loudness in the `Song` object won’t adapt unless the download store has a row for that id.
+
+## When overlap is sent to native
+
+- Inside **`useTrackPlayerSync`** (progress handler): only when **`crossfadeEnabled`**, current song is **not** a podcast, **repeat mode ≠ track**, `duration > 0`, and **&lt; 90 s** remain on the current item.
+- **`nextSong`** comes from **`getNextQueueSongForCrossfade`** (respects queue + repeat).
+- If **`crossfadeAdaptiveEnabled`**: `sec = computeCrossfadeDuration(effectiveLoudnessData(current), effectiveLoudnessData(next), { defaultDuration: crossfadeDurationSec, minDuration: 1, maxDuration: 12 })`.
+- If adaptive is off: `sec = crossfadeDurationSec`.
+- **`TrackPlayer.setNextCrossfadeDuration(sec)`** — only when the signature `currentId|nextId|sec` changed (`lastCrossfadeSignature`) to avoid spamming native.
+
+## Settings
+
+- Toggles and duration live in **`usePlaybackSettingsStore`** (`crossfadeEnabled`, `crossfadeAdaptiveEnabled`, `crossfadeDurationSec`). Enabling crossfade also pushes **`setCrossfadeConfig`** to native (see `native-audio-module` rule).
+
+## Plex / types
+
+- **`LoudnessData`** is in **`types/song.ts`** (`loudness`, `gain`, `peak`, `lra`, album fields). Populated from Plex when stream analysis is parsed (**`utils/plex-client.ts`** `parseLoudnessData`).

@@ -1,0 +1,32 @@
+---
+description: CarPlay integration — react-native-carplay, scene delegates, when lists refresh
+globs:
+  - "**/carplay.ts"
+  - "**/_layout.tsx"
+  - "ios/Rite/PhoneSceneDelegate.swift"
+  - "ios/Rite/CarPlaySceneDelegate.swift"
+alwaysApply: false
+---
+
+# CarPlay
+
+Apply when changing in-car UI, scene setup, or how CarPlay lists relate to app state.
+
+## JS entry
+
+- **`lib/carplay.ts`** — `setupCarPlay()` / `teardownCarPlay()` register connect/disconnect handlers, build **TabBarTemplate** (Recently Played + Playlists), push playlist detail templates, enable now playing, and **subscribe to Zustand** so lists refresh when library/audio state changes.
+- Wired from **`app/_layout.tsx`** after app readiness (mirroring teardown on unmount).
+
+## Native iOS
+
+- **`ios/Rite/CarPlaySceneDelegate.swift`** — `CPTemplateApplicationSceneDelegate`; on connect calls `RNCarPlay.connect(with:window:)`, on disconnect `RNCarPlay.disconnect()`.
+- **`ios/Rite/PhoneSceneDelegate.swift`** — Ensures a normal **phone** window scene exists when the app also declares a CarPlay scene in `UIApplicationSceneManifest` (without this, the phone UI may not get a window scene).
+- **`AppDelegate`** uses the phone scene delegate for the main window; CarPlay remains on `CarPlaySceneDelegate` via Info.plist.
+
+## Dependencies
+
+- Package: **`react-native-carplay`**. Artwork URLs for list rows should be **http/https** only; local `file://` art is skipped in list items (see `artworkUrlForCarPlay`).
+
+## Playback
+
+- Item selection resolves tracks through the same stores as the phone app (e.g. `playSound` from `useAudioStore`); do not duplicate queue logic inside CarPlay templates beyond calling existing actions.
