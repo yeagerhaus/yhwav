@@ -1,7 +1,6 @@
-import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect } from 'react';
-import { Alert, Pressable, StyleSheet } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { DefaultStyles } from '@/constants/styles';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
@@ -110,7 +109,7 @@ export function AddToPlaylistModal() {
 					</Text>
 				</Pressable>
 
-				<FlashList
+				<FlatList
 					data={audioPlaylists}
 					keyExtractor={(item) => item.id}
 					renderItem={({ item }) => (
@@ -118,8 +117,7 @@ export function AddToPlaylistModal() {
 							style={[DefaultStyles.row, DefaultStyles.listRowBorder, styles.rowBorder]}
 							onPress={() => handleSelect(item.ratingKey)}
 						>
-							<SymbolView name='music.note.list' size={22} tintColor={colors.iconMuted} />
-							<Text type='body' colorVariant='primaryInvert' style={styles.playlistName} numberOfLines={1}>
+							<Text type='body' colorVariant='primary' style={styles.playlistName} numberOfLines={1}>
 								{item.title}
 							</Text>
 							<Text type='bodySM' colorVariant='secondary' style={styles.trackCount}>
@@ -128,6 +126,7 @@ export function AddToPlaylistModal() {
 						</Pressable>
 					)}
 					contentContainerStyle={styles.list}
+					style={styles.listContainer}
 				/>
 			</Animated.View>
 		</Animated.View>
@@ -173,6 +172,9 @@ const styles = StyleSheet.create({
 	newPlaylistText: {
 		fontSize: 16,
 		fontWeight: '600',
+	},
+	listContainer: {
+		maxHeight: 320,
 	},
 	list: {
 		paddingHorizontal: 20,
