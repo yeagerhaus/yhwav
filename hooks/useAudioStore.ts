@@ -16,7 +16,7 @@ import TrackPlayer, {
 	useTrackPlayerEvents,
 } from '@/lib/playerAdapter';
 import { storage } from '@/lib/storage';
-import type { Song } from '@/types';
+import type { LoudnessData, Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 import { queueScrobble } from '@/utils/scrobble-queue';
@@ -214,6 +214,13 @@ function getDownloadsStore() {
 		_downloadsStore = require('@/hooks/useMusicDownloadsStore').useMusicDownloadsStore;
 	}
 	return _downloadsStore!;
+}
+
+/** Prefer `Song.loudnessData`; fall back to value stored when the track was downloaded. */
+function effectiveLoudnessData(song: Song | null | undefined): LoudnessData | undefined {
+	if (!song) return undefined;
+	if (song.loudnessData) return song.loudnessData;
+	return getDownloadsStore().getState().downloads[song.id]?.loudnessData;
 }
 function getPlaybackSettingsStore() {
 	if (!_playbackSettingsStore) {
@@ -1091,7 +1098,11 @@ export function useTrackPlayerSync() {
 							maxDuration: 12,
 						};
 						const sec = pbs.crossfadeAdaptiveEnabled
-							? computeCrossfadeDuration(state.currentSong.loudnessData, nextSong.loudnessData, baseConfig)
+							? computeCrossfadeDuration(
+									effectiveLoudnessData(state.currentSong),
+									effectiveLoudnessData(nextSong),
+									baseConfig,
+								)
 							: pbs.crossfadeDurationSec;
 						const sig = `${state.currentSong.id}|${nextSong.id}|${sec.toFixed(2)}`;
 						if (sig !== lastCrossfadeSignature) {

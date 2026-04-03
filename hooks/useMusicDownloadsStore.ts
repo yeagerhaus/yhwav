@@ -5,7 +5,7 @@ import { storage } from '@/lib/storage';
 import type { Album } from '@/types/album';
 import type { Artist } from '@/types/artist';
 import type { Playlist } from '@/types/playlist';
-import type { Song } from '@/types/song';
+import type { LoudnessData, Song } from '@/types/song';
 import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
 
 const STORAGE_KEY = 'MUSIC_DOWNLOADS';
@@ -36,6 +36,8 @@ export interface MusicDownload {
 	artistKey?: string;
 	artworkUrl?: string;
 	downloadedAt: number;
+	/** Snapshotted at download time for adaptive crossfade when offline or library lacks stream metadata. */
+	loudnessData?: LoudnessData;
 }
 
 export interface DownloadedPlaylist {
@@ -151,6 +153,7 @@ async function processQueue(
 					artistKey: song.artistKey,
 					artworkUrl: song.artworkUrl,
 					downloadedAt: Date.now(),
+					...(song.loudnessData ? { loudnessData: song.loudnessData } : {}),
 				};
 
 				const next = { ...get().downloads, [song.id]: entry };
