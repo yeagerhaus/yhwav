@@ -1,6 +1,7 @@
 import CarPlay
 
-class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
+/// Connects the CarPlay template scene to react-native-carplay (`RNCarPlay`).
+final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
 	func templateApplicationScene(
 		_ templateApplicationScene: CPTemplateApplicationScene,
 		didConnect interfaceController: CPInterfaceController,

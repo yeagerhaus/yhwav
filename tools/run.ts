@@ -29,6 +29,9 @@ async function main(): Promise<void> {
 			console.log(
 				'   Tip: if the URL shows the wrong IP (e.g. 172.20.10.x on hotspot), set REACT_NATIVE_PACKAGER_HOSTNAME in .env to your Mac’s Wi‑Fi IP.',
 			);
+			console.log(
+				'   Tip: iOS Simulator stuck on a black screen with no logs? LAN URLs sometimes fail; use EXPO_METRO_HOST=localhost or `bun run start:sim`.',
+			);
 		}
 
 		execSync(`bunx expo start --dev-client --host ${host}${clear}`, {

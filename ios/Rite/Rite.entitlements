@@ -4,11 +4,7 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
-	<!--
-	  CARPLAY_EXPERIMENT (temporary): entitlement removed to test Metro / blank-screen.
-	  Restore for CarPlay:
-	    <key>com.apple.developer.carplay-audio</key>
-	    <true/>
-	-->
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
 </dict>
 </plist>
