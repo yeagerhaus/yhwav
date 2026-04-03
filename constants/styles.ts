@@ -33,13 +33,13 @@ export type ThemeColors = {
 
 const Colors: { light: ThemeColors; dark: ThemeColors } = {
 	light: {
-		background: '#f0ede8',
-		text: '#11181C',
+		background: '#F0EDE8',
+		text: '#0F1217',
 		textSecondary: '#626875',
 		textMuted: '#888888',
-		textInvert: '#f0ede8',
+		textInvert: '#F0EDE8',
 		brand: '#7f62f5',
-		surface: '#f0ede8',
+		surface: '#F0EDE8',
 		surfaceSecondary: '#fafbfc',
 		surfaceTertiary: '#e2e6ed',
 		surfaceElevated: '#f5f5f5',
@@ -61,8 +61,8 @@ const Colors: { light: ThemeColors; dark: ThemeColors } = {
 		placeholder: 'rgba(0, 0, 0, 0.5)',
 	},
 	dark: {
-		background: '#080808',
-		text: '#ECEDEE',
+		background: '#0F1217',
+		text: '#F0EDE8',
 		textSecondary: '#626875',
 		textMuted: '#888888',
 		textInvert: '#080808',

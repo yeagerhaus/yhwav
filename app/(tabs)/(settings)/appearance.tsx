@@ -153,7 +153,7 @@ export default function AppearanceScreen() {
 
 				<SwitchRow
 					label='Frosted glass layout'
-					description='Replace liquid glass (nav, mini player, back button) with the frosted glass layout. Use if you prefer blur or if glass tints look inconsistent with the tab bar.'
+					description='Replace liquid glass (mini player, navigation buttons) with frosted glass blur.'
 					value={useBlurInsteadOfGlass}
 					onValueChange={setUseBlurInsteadOfGlass}
 				/>

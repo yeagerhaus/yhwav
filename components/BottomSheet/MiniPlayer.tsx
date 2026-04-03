@@ -53,9 +53,9 @@ export function MiniPlayer() {
 					useGlass
 					style={{
 						...styles.content,
-						marginHorizontal: useBlurInsteadOfGlass ? 0 : 22,
-						borderRadius: useBlurInsteadOfGlass ? 0 : 100,
-						marginBottom: useBlurInsteadOfGlass ? -10 : 0,
+						marginHorizontal: 22,
+						borderRadius: 100,
+						marginBottom: 0,
 					}}
 				>
 					<MiniPlayerContent />

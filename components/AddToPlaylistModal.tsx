@@ -94,7 +94,7 @@ export function AddToPlaylistModal() {
 			<Pressable style={styles.backdropTouch} onPress={animatedClose} />
 			<Animated.View style={[themed.sheet, sheetStyle]}>
 				<Div style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
-				<Text type='h3' colorVariant='primaryInvert' style={styles.title}>
+				<Text type='h3' colorVariant='primary' style={styles.title}>
 					Add to Playlist
 				</Text>
 				{label ? (

@@ -248,7 +248,7 @@ export default function EpisodeDetailScreen() {
 						</Pressable>
 					</Div>
 					<ContextMenu items={menuItems} style={styles.menuButton}>
-						<SymbolView name='ellipsis' size={18} tintColor={isDark ? '#fff' : '#333'} />
+						<SymbolView name='ellipsis' size={20} tintColor='#999' />
 					</ContextMenu>
 				</Div>
 

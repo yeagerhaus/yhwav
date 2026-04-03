@@ -1,4 +1,4 @@
-import { FlatList, type StyleProp, View, type ViewStyle } from 'react-native';
+import { FlatList, Pressable, type StyleProp, View, type ViewStyle } from 'react-native';
 import { Div } from './Div';
 import { SkeletonCard } from './SkeletonCard';
 import { Text } from './Text';
@@ -13,16 +13,24 @@ interface HomeSectionProps<T> {
 	style?: StyleProp<ViewStyle>;
 	isLoading?: boolean;
 	itemSize?: number;
+	onSeeAll?: () => void;
 }
 
-export function HomeSection<T>({ title, data, renderItem, keyExtractor, style, isLoading, itemSize = 175 }: HomeSectionProps<T>) {
+export function HomeSection<T>({ title, data, renderItem, keyExtractor, style, isLoading, itemSize = 175, onSeeAll }: HomeSectionProps<T>) {
 	if (data.length === 0 && !isLoading) return null;
 
 	return (
 		<Div transparent style={style} display='flex' gap={16}>
-			<Text type='h2' style={{ paddingHorizontal: 16 }}>
-				{title}
-			</Text>
+			<Div transparent style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 }}>
+				<Text type='h2'>{title}</Text>
+				{onSeeAll && (
+					<Pressable onPress={onSeeAll}>
+						<Text type='bodySM' colorVariant='brand'>
+							See All
+						</Text>
+					</Pressable>
+				)}
+			</Div>
 			{data.length > 0 ? (
 				<FlatList
 					horizontal
