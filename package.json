@@ -3,7 +3,10 @@
 	"main": "expo-router/entry",
 	"version": "0.1",
 	"scripts": {
-		"start": "tsx ./tools/run.ts ",
+		"start": "tsx ./tools/run.ts",
+		"start:quick": "SKIP_BUN_INSTALL=1 tsx ./tools/run.ts",
+		"start:tunnel": "EXPO_METRO_HOST=tunnel SKIP_BUN_INSTALL=1 tsx ./tools/run.ts",
+		"start:sim": "EXPO_METRO_HOST=localhost SKIP_BUN_INSTALL=1 bunx expo start --dev-client --host localhost",
 		"web": "expo start --web",
 		"prep": "bun install && npx pod-install",
 		"kill": "lsof -ti:8081 | xargs kill -9",

@@ -25,6 +25,17 @@ struct TrackRecord: Record {
 	@Field var duration: Double?
 	/// Original Plex `/library/parts/...` URL when `url` is a transcode URL (used if transcode file is truncated).
 	@Field var directUrl: String?
+	/// When true, transition to this track uses gapless scheduling (e.g. podcasts) even if Sweet Fades is on.
+	@Field var crossfadeDisabled: Bool?
+}
+
+struct CrossfadeConfigRecord: Record {
+	@Field var enabled: Bool = false
+	@Field var defaultDuration: Double = 4.0
+	@Field var minDuration: Double = 1.0
+	@Field var maxDuration: Double = 8.0
+	@Field var fadeInOnManualSkip: Bool = true
+	@Field var manualSkipFadeDuration: Double = 0.5
 }
 
 struct PlaybackStateRecord: Record {
@@ -365,6 +376,7 @@ public final class YhwavAudioModule: Module {
 	private var lastEmittedTrackTime: Double = 0
 	private var lastEmittedState: String = "stopped"
 	private var suppressTrackChangeEvents = false
+	private var crossfadeUserEnabled = false
 
 	private lazy var nowPlayingManager = NowPlayingManager(module: self)
 
@@ -406,6 +418,7 @@ public final class YhwavAudioModule: Module {
 			let player = AudioEnginePlayer(fileCache: cache)
 			player.delegate = self
 			player.setup()
+			player.crossfadeEnabled = self.crossfadeUserEnabled
 			self.enginePlayer = player
 			self.nowPlayingManager.setupRemoteCommands()
 			self.isInitialized = true
@@ -484,6 +497,7 @@ public final class YhwavAudioModule: Module {
 					self.trackMetadata.removeValue(forKey: id)
 				}
 				self.trackOrder = Array(self.trackOrder.prefix(currentIdx + 1))
+				self.enginePlayer?.clearCrossfadeIdle()
 			}
 		}
 
@@ -587,6 +601,19 @@ public final class YhwavAudioModule: Module {
 
 		AsyncFunction("setMonoAudioEnabled") { (enabled: Bool) in
 			AudioDSPState.shared.setMonoEnabled(enabled)
+		}
+
+		AsyncFunction("setCrossfadeConfig") { (config: CrossfadeConfigRecord) in
+			self.crossfadeUserEnabled = config.enabled
+			self.enginePlayer?.crossfadeEnabled = config.enabled
+			if config.defaultDuration > 0 {
+				self.enginePlayer?.nextCrossfadeDuration = config.defaultDuration
+			}
+		}
+
+		AsyncFunction("setNextCrossfadeDuration") { (seconds: Double) in
+			let clamped = max(0.1, min(30.0, seconds))
+			self.enginePlayer?.nextCrossfadeDuration = clamped
 		}
 
 		Function("getPlaybackState") { () -> PlaybackStateRecord in
@@ -704,13 +731,16 @@ public final class YhwavAudioModule: Module {
 		guard let track = trackMetadata[nextId],
 			  let url = URL(string: track.url) else { return }
 
+		let forceGapless = track.crossfadeDisabled == true
+
 		Task {
 			do {
 				try await engine.scheduleNext(
 					url: url,
 					trackId: nextId,
 					expectedDurationSeconds: self.expectedDurationSeconds(for: track),
-					fallbackURL: self.fallbackDirectURL(for: track)
+					fallbackURL: self.fallbackDirectURL(for: track),
+					forceGapless: forceGapless
 				)
 			} catch {
 				print("YhwavAudio: failed to schedule next: \(error)")
@@ -797,6 +827,7 @@ public final class YhwavAudioModule: Module {
 	}
 
 	private func emitProgressUpdate() {
+		self.enginePlayer?.tickCrossfadeIfNeeded()
 		let (state, position, duration) = currentPlaybackState()
 		if state != lastEmittedState {
 			lastEmittedState = state

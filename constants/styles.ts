@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 
 import type { BorderRadiusType, ButtonStyle, PaddingType } from '@/types';
-import { isWeb } from './API';
 
 export type ThemeColors = {
 	background: string;
@@ -202,7 +201,7 @@ const DefaultStyles = StyleSheet.create({
 	scrollContainer: {
 		flexGrow: 1,
 		flexDirection: 'column',
-		paddingBottom: isWeb ? 0 : 50,
+		paddingBottom: 50,
 	},
 	row: {
 		flexDirection: 'row',

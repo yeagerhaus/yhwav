@@ -21,12 +21,17 @@ public class AppDelegate: ExpoAppDelegate {
     reactNativeFactory = factory
     bindReactNativeFactory(factory)
 
+    // Must exist before `super.application` — expo-dev-client's ExpoDevLauncherAppDelegateSubscriber
+    // fatalErrors if there is no key window at didFinishLaunching (PhoneSceneDelegate runs too late).
+    // CarPlay still uses CarPlaySceneDelegate via Info.plist; phone UI stays on this window.
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
     factory.startReactNative(
       withModuleName: "main",
       in: window,
-      launchOptions: launchOptions)
+      launchOptions: launchOptions
+    )
+    window?.makeKeyAndVisible()
 #endif
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)

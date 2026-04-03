@@ -13,12 +13,9 @@
 		4F9EAFA255ECC854491F7E4C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 46C758B7BCDA3AC023E2AFC2 /* PrivacyInfo.xcprivacy */; };
 		53994A9FBEEB8684583669F2 /* libPods-Rite.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E5E4205DD37BDBEAB26F1CEA /* libPods-Rite.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		CA000000000000000000000A /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA000000000000000000000B /* CarPlaySceneDelegate.swift */; };
-		E7BFC3B55B8637D6D1BCF965 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 973DF22213096A2780923FB2 /* ExpoModulesProvider.swift */; };
-		EDB60C9D2E05BF9000397F81 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9C2E05BF9000397F81 /* MediaPlayer.framework */; };
-		EDB60C9F2E05BF9400397F81 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60C9E2E05BF9400397F81 /* AVFoundation.framework */; };
-		EDB60CA32E05BFA100397F81 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDB60CA22E05BFA100397F81 /* AudioToolbox.framework */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F11748542D0307B40044C1D9 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748522D0307B40044C1D9 /* CarPlaySceneDelegate.swift */; };
+		F11748582D0307B40044C1D9 /* PhoneSceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748562D0307B40044C1D9 /* PhoneSceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +32,8 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Rite/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Rite-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Rite-Bridging-Header.h"; path = "Rite/Rite-Bridging-Header.h"; sourceTree = "<group>"; };
+		F11748522D0307B40044C1D9 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CarPlaySceneDelegate.swift; path = Rite/CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
+		F11748562D0307B40044C1D9 /* PhoneSceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PhoneSceneDelegate.swift; path = Rite/PhoneSceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,7 +52,8 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-				CA000000000000000000000B /* CarPlaySceneDelegate.swift */,
+				F11748522D0307B40044C1D9 /* CarPlaySceneDelegate.swift */,
+				F11748562D0307B40044C1D9 /* PhoneSceneDelegate.swift */,
 				F11748442D0722820044C1D9 /* Rite-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -343,8 +343,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				CA000000000000000000000A /* CarPlaySceneDelegate.swift in Sources */,
-				E7BFC3B55B8637D6D1BCF965 /* ExpoModulesProvider.swift in Sources */,
+				F11748542D0307B40044C1D9 /* CarPlaySceneDelegate.swift in Sources */,
+				F11748582D0307B40044C1D9 /* PhoneSceneDelegate.swift in Sources */,
 				27202C89DB386F3279D4C989 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -475,7 +475,10 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -531,7 +534,10 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;

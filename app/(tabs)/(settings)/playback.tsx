@@ -169,6 +169,12 @@ export default function PlaybackScreen() {
 		setStreamingBitrateCellular,
 		setStreamingTranscodeCapKbps,
 		setDownloadBitrateKbps,
+		crossfadeEnabled,
+		crossfadeDurationSec,
+		crossfadeAdaptiveEnabled,
+		setCrossfadeEnabled,
+		setCrossfadeDurationSec,
+		setCrossfadeAdaptiveEnabled,
 	} = usePlaybackSettingsStore();
 
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -352,6 +358,64 @@ export default function PlaybackScreen() {
 						value={monoAudioEnabled}
 						onValueChange={setMonoAudioEnabled}
 					/>
+				</Div>
+
+				{/* Sweet Fades */}
+				<Div transparent style={DefaultStyles.section}>
+					<Text type='h3' style={DefaultStyles.sectionTitle}>
+						Sweet Fades
+					</Text>
+					<Text style={[DefaultStyles.sectionDescription, { marginBottom: 12 }]}>
+						Crossfade between tracks. With Adaptive on, overlap length uses Plex loudness data when available; otherwise it uses
+						the duration below.
+					</Text>
+
+					<SwitchRow
+						label='Sweet Fades'
+						description='Blend the end of one track into the start of the next.'
+						value={crossfadeEnabled}
+						onValueChange={setCrossfadeEnabled}
+					/>
+
+					{crossfadeEnabled && (
+						<>
+							<View style={[styles.divider, { backgroundColor: colors.surfaceTertiary }]} />
+							<SwitchRow
+								label='Adaptive'
+								description='Use per-track loudness from your Plex library when both tracks have it.'
+								value={crossfadeAdaptiveEnabled}
+								onValueChange={setCrossfadeAdaptiveEnabled}
+							/>
+							<Text type='label' colorVariant='muted' style={{ marginTop: 12, marginBottom: 8 }}>
+								{crossfadeAdaptiveEnabled ? 'Fallback duration (seconds)' : 'Crossfade duration (seconds)'}
+							</Text>
+							<Div transparent style={styles.gainRow}>
+								<Text type='bodyXS' colorVariant='muted'>
+									1
+								</Text>
+								<Div transparent style={{ flex: 1, marginHorizontal: 8 }}>
+									<Slider
+										minimumValue={1}
+										maximumValue={12}
+										step={0.5}
+										value={crossfadeDurationSec}
+										onValueChange={setCrossfadeDurationSec}
+										minimumTrackTintColor={colors.brand}
+										maximumTrackTintColor={colors.surfaceTertiary}
+										thumbTintColor={colors.brand}
+									/>
+								</Div>
+								<Text type='bodyXS' colorVariant='muted'>
+									12
+								</Text>
+							</Div>
+							<Div transparent style={{ alignItems: 'center', marginTop: 4 }}>
+								<Text type='body' colorVariant='muted'>
+									{crossfadeDurationSec.toFixed(1)} s
+								</Text>
+							</Div>
+						</>
+					)}
 				</Div>
 			</ScrollView>
 		</Main>

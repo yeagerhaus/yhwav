@@ -9,21 +9,30 @@ let recentlyPlayedList: ListTemplate | null = null;
 let playlistsList: ListTemplate | null = null;
 let storeUnsubscribers: (() => void)[] = [];
 
+function artworkUrlForCarPlay(url: string | undefined): string | undefined {
+	if (!url || typeof url !== 'string') return undefined;
+	const t = url.trim();
+	if (t.startsWith('http://') || t.startsWith('https://')) return t;
+	return undefined;
+}
+
 function songToListItem(song: Song): ListItem {
-	return {
+	const imgUrl = artworkUrlForCarPlay(song.artworkUrl || song.artwork);
+	const base: ListItem = {
 		text: song.title,
 		detailText: song.artist,
-		imgUrl: null,
 	};
+	return imgUrl ? ({ ...base, imgUrl } as unknown as ListItem) : base;
 }
 
 function playlistToListItem(playlist: Playlist): ListItem {
-	return {
+	const imgUrl = artworkUrlForCarPlay(playlist.artworkUrl || playlist.artwork);
+	const base: ListItem = {
 		text: playlist.title,
 		detailText: playlist.leafCount ? `${playlist.leafCount} tracks` : undefined,
 		showsDisclosureIndicator: true,
-		imgUrl: null,
 	};
+	return imgUrl ? ({ ...base, imgUrl } as unknown as ListItem) : base;
 }
 
 function buildRecentlyPlayedTemplate(songs: Song[]): ListTemplate {
@@ -86,7 +95,7 @@ function onConnect() {
 	playlistsList = buildPlaylistsTemplate(playlists);
 
 	const tabBar = new TabBarTemplate({
-		title: 'yhwav',
+		title: 'Rite',
 		templates: [recentlyPlayedList, playlistsList],
 		onTemplateSelect() {},
 	});

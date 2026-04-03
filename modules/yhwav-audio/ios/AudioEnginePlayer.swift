@@ -1,6 +1,7 @@
 import AVFoundation
 import Accelerate
 import AudioToolbox
+import QuartzCore
 
 // MARK: - Delegate
 
@@ -37,7 +38,7 @@ final class YhwavDSPUnit: AUAudioUnit {
 	private var _maxFrames: AUAudioFrameCount = 4096
 
 	override init(componentDescription: AudioComponentDescription, options: AudioComponentInstantiationOptions = []) throws {
-		try super.init(componentDescription: componentDescription, options: options)
+		try super.init(componentDescription: componentDescription, options: [])
 		let defaultFormat = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
 		inputBus = try AUAudioUnitBus(format: defaultFormat)
 		_inputBusArray = AUAudioUnitBusArray(audioUnit: self, busType: .input, busses: [inputBus])
@@ -68,31 +69,58 @@ final class AudioEnginePlayer {
 	weak var delegate: AudioEnginePlayerDelegate?
 
 	private var engine: AVAudioEngine!
-	private var playerNode: AVAudioPlayerNode!
+	private var deckA: AVAudioPlayerNode!
+	private var deckB: AVAudioPlayerNode!
+	private var mixerNode: AVAudioMixerNode!
 	private var timePitchNode: AVAudioUnitTimePitch!
 	private var dspNode: AVAudioUnit?
 	private let fileCache: AudioFileCache
+
+	/// When false, only deck A is used (deck B silent). When true, A/B alternate for crossfades.
+	var crossfadeEnabled: Bool = false {
+		didSet {
+			if !crossfadeEnabled {
+				cancelCrossfadeRamp()
+				crossfadeInProgress = false
+				crossfadeIdleReady = false
+				crossfadeIdleFile = nil
+				crossfadeIdleTrackId = nil
+				idleNode.stop()
+				idleNode.volume = 0
+				activeNode.volume = _volume
+			}
+		}
+	}
+
+	/// JS-computed overlap length for the upcoming transition.
+	var nextCrossfadeDuration: TimeInterval = 4.0
 
 	private(set) var currentTrackId: String?
 	private var currentFile: AVAudioFile?
 	private var currentFrameOffset: AVAudioFramePosition = 0
 	private var playerTimeBaseOffset: AVAudioFramePosition = 0
 
-	private var nextTrackId: String?
 	private var nextFile: AVAudioFile?
+	private var nextTrackId: String?
 	private var isNextScheduled = false
+
+	private var activeDeckIsA: Bool = true
+	private var crossfadeIdleFile: AVAudioFile?
+	private var crossfadeIdleTrackId: String?
+	private var crossfadeIdleReady: Bool = false
+	private var crossfadeInProgress: Bool = false
+	private var crossfadeRampLink: CADisplayLink?
+	private var crossfadeRampStartTime: CFTimeInterval = 0
+	private var crossfadeRampDurationActive: TimeInterval = 0
+	private var crossfadeOutgoingIsA: Bool = true
+	private var finishedTrackIdForRamp: String?
 
 	private var _isPlaying = false
 	private var _volume: Float = 1.0
 	private var _rate: Float = 1.0
 
-	/// Monotonically increasing generation counter. Each call to play() or seek()
-	/// increments this; completion handlers captured with an older generation are ignored.
 	private var playGeneration: UInt64 = 0
-
 	private var trackEndWallTime: Double = 0
-
-	/// When `lastRenderTime` / `playerTime` is invalid (common around pause/resume), avoid reporting 0 and collapsing the UI progress.
 	private var cachedPlaybackSeconds: Double = 0
 
 	private var interruptionObserver: NSObjectProtocol?
@@ -101,6 +129,9 @@ final class AudioEnginePlayer {
 	init(fileCache: AudioFileCache) {
 		self.fileCache = fileCache
 	}
+
+	private var activeNode: AVAudioPlayerNode { activeDeckIsA ? deckA : deckB }
+	private var idleNode: AVAudioPlayerNode { activeDeckIsA ? deckB : deckA }
 
 	// MARK: - Engine lifecycle
 
@@ -111,10 +142,14 @@ final class AudioEnginePlayer {
 		}
 
 		engine = AVAudioEngine()
-		playerNode = AVAudioPlayerNode()
+		deckA = AVAudioPlayerNode()
+		deckB = AVAudioPlayerNode()
+		mixerNode = AVAudioMixerNode()
 		timePitchNode = AVAudioUnitTimePitch()
 
-		engine.attach(playerNode)
+		engine.attach(deckA)
+		engine.attach(deckB)
+		engine.attach(mixerNode)
 		engine.attach(timePitchNode)
 
 		let format = engine.mainMixerNode.outputFormat(forBus: 0)
@@ -134,15 +169,22 @@ final class AudioEnginePlayer {
 		if let unit = createdUnit {
 			dspNode = unit
 			engine.attach(unit)
-			engine.connect(playerNode, to: timePitchNode, format: format)
+			engine.connect(deckA, to: mixerNode, format: format)
+			engine.connect(deckB, to: mixerNode, format: format)
+			engine.connect(mixerNode, to: timePitchNode, format: format)
 			engine.connect(timePitchNode, to: unit, format: format)
 			engine.connect(unit, to: engine.mainMixerNode, format: format)
-			print("YhwavAudio: engine setup format=\(format.sampleRate)Hz/\(format.channelCount)ch (with DSP)")
+			print("YhwavAudio: engine setup dual-deck+mixer+DSP format=\(format.sampleRate)Hz/\(format.channelCount)ch")
 		} else {
-			engine.connect(playerNode, to: timePitchNode, format: format)
+			engine.connect(deckA, to: mixerNode, format: format)
+			engine.connect(deckB, to: mixerNode, format: format)
+			engine.connect(mixerNode, to: timePitchNode, format: format)
 			engine.connect(timePitchNode, to: engine.mainMixerNode, format: format)
-			print("YhwavAudio: engine setup format=\(format.sampleRate)Hz/\(format.channelCount)ch (no DSP)")
+			print("YhwavAudio: engine setup dual-deck+mixer (no DSP) format=\(format.sampleRate)Hz/\(format.channelCount)ch")
 		}
+
+		deckB.volume = 0
+		deckA.volume = _volume
 
 		installLevelTap()
 		observeInterruptions()
@@ -156,21 +198,27 @@ final class AudioEnginePlayer {
 
 	func teardown() {
 		print("YhwavAudio: engine teardown")
+		cancelCrossfadeRamp()
 		playGeneration &+= 1
 		stopLevelTap()
 		removeInterruptionObservers()
 
-		playerNode?.stop()
+		deckA?.stop()
+		deckB?.stop()
 		engine?.stop()
 
 		if let e = engine {
-			if let pn = playerNode { e.detach(pn) }
-			if let tp = timePitchNode { e.detach(tp) }
-			if let dn = dspNode { e.detach(dn) }
+			if let n = deckA { e.detach(n) }
+			if let n = deckB { e.detach(n) }
+			if let n = mixerNode { e.detach(n) }
+			if let n = timePitchNode { e.detach(n) }
+			if let n = dspNode { e.detach(n) }
 		}
 
 		engine = nil
-		playerNode = nil
+		deckA = nil
+		deckB = nil
+		mixerNode = nil
 		timePitchNode = nil
 		dspNode = nil
 		currentFile = nil
@@ -180,8 +228,25 @@ final class AudioEnginePlayer {
 		nextFile = nil
 		nextTrackId = nil
 		isNextScheduled = false
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
+		crossfadeIdleReady = false
+		crossfadeInProgress = false
+		activeDeckIsA = true
 		_isPlaying = false
 		cachedPlaybackSeconds = 0
+	}
+
+	// MARK: - Crossfade tick (from module progress timer)
+
+	func tickCrossfadeIfNeeded() {
+		guard crossfadeEnabled, _isPlaying, !crossfadeInProgress, crossfadeIdleReady else { return }
+		let dur = currentDuration
+		guard dur > 0, nextCrossfadeDuration > 0 else { return }
+		let remaining = dur - currentPosition
+		if remaining <= nextCrossfadeDuration {
+			beginCrossfadeRamp()
+		}
 	}
 
 	// MARK: - Playback
@@ -203,15 +268,24 @@ final class AudioEnginePlayer {
 	}
 
 	func play(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil) async throws {
-		guard let playerNode = playerNode, let engine = engine else { return }
+		guard let deckA = deckA, let engine = engine else { return }
 
 		playGeneration &+= 1
 		let gen = playGeneration
 
-		playerNode.stop()
+		cancelCrossfadeRamp()
+		crossfadeInProgress = false
+		crossfadeIdleReady = false
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
+		deckA.stop()
+		deckB.stop()
 		isNextScheduled = false
 		nextFile = nil
 		nextTrackId = nil
+		activeDeckIsA = true
+		deckA.volume = _volume
+		deckB.volume = 0
 
 		print("YhwavAudio: play trackId=\(trackId)")
 
@@ -244,20 +318,23 @@ final class AudioEnginePlayer {
 		let duration = Double(file.length) / file.processingFormat.sampleRate
 		print("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s frames=\(frameCount) (current)")
 
-		playerNode.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+		deckA.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 			DispatchQueue.main.async {
 				self?.handleTrackCompletion(trackId: trackId, generation: gen)
 			}
 		}
 
-		playerNode.play()
+		deckA.play()
 		_isPlaying = true
 		timePitchNode.rate = _rate
-		playerNode.volume = _volume
+
+		DispatchQueue.main.async { [weak self] in
+			self?.tickCrossfadeIfNeeded()
+		}
 	}
 
-	func scheduleNext(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil) async throws {
-		guard playerNode != nil else { return }
+	func scheduleNext(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil, forceGapless: Bool = false) async throws {
+		guard deckA != nil else { return }
 		let gen = playGeneration
 
 		let file: AVAudioFile
@@ -273,14 +350,39 @@ final class AudioEnginePlayer {
 			return
 		}
 
+		if crossfadeEnabled && !forceGapless {
+			let idle = idleNode
+			idle.stop()
+			crossfadeIdleFile = file
+			crossfadeIdleTrackId = trackId
+			let dur = Double(file.length) / file.processingFormat.sampleRate
+			print("YhwavAudio: crossfade preload trackId=\(trackId) duration=\(String(format: "%.1f", dur))s on idle deck")
+
+			idle.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+				DispatchQueue.main.async {
+					self?.handleTrackCompletion(trackId: trackId, generation: gen)
+				}
+			}
+			crossfadeIdleReady = true
+			isNextScheduled = false
+			nextFile = nil
+			nextTrackId = nil
+
+			DispatchQueue.main.async { [weak self] in
+				self?.tickCrossfadeIfNeeded()
+			}
+			return
+		}
+
 		nextFile = file
 		nextTrackId = trackId
 
 		let frameCount = AVAudioFrameCount(file.length)
 		let duration = Double(file.length) / file.processingFormat.sampleRate
-		print("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s frames=\(frameCount) (next)")
+		print("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s frames=\(frameCount) (next gapless)")
 
-		playerNode.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+		let node = activeNode
+		node.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 			DispatchQueue.main.async {
 				self?.handleTrackCompletion(trackId: trackId, generation: gen)
 			}
@@ -288,9 +390,18 @@ final class AudioEnginePlayer {
 		isNextScheduled = true
 	}
 
+	func clearCrossfadeIdle() {
+		crossfadeIdleReady = false
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
+		idleNode.stop()
+	}
+
 	func clearScheduled() {
+		cancelCrossfadeRamp()
 		playGeneration &+= 1
-		playerNode?.stop()
+		deckA.stop()
+		deckB.stop()
 		currentFile = nil
 		currentTrackId = nil
 		currentFrameOffset = 0
@@ -298,19 +409,28 @@ final class AudioEnginePlayer {
 		nextFile = nil
 		nextTrackId = nil
 		isNextScheduled = false
+		crossfadeIdleReady = false
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
+		crossfadeInProgress = false
+		activeDeckIsA = true
 		_isPlaying = false
 		trackEndWallTime = 0
 		cachedPlaybackSeconds = 0
+		deckA.volume = _volume
+		deckB.volume = 0
 	}
 
 	func pause() {
 		print("YhwavAudio: pause")
-		playerNode?.pause()
+		deckA.pause()
+		deckB.pause()
 		_isPlaying = false
+		cancelCrossfadeRamp()
 	}
 
 	func resume() {
-		guard let playerNode = playerNode else { return }
+		guard let deckA = deckA else { return }
 		print("YhwavAudio: resume")
 
 		if let engine = engine, !engine.isRunning {
@@ -320,12 +440,23 @@ final class AudioEnginePlayer {
 			}
 		}
 
-		playerNode.play()
+		if crossfadeInProgress {
+			deckA.play()
+			deckB.play()
+		} else {
+			activeNode.play()
+		}
 		_isPlaying = true
 	}
 
 	func seek(to seconds: Double) {
-		guard let file = currentFile, let playerNode = playerNode, let trackId = currentTrackId else { return }
+		guard let file = currentFile, let deckA = deckA, let deckB = deckB, let trackId = currentTrackId else { return }
+
+		cancelCrossfadeRamp()
+		crossfadeInProgress = false
+		crossfadeIdleReady = false
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
 
 		playGeneration &+= 1
 		let gen = playGeneration
@@ -340,20 +471,25 @@ final class AudioEnginePlayer {
 		cachedPlaybackSeconds = Double(clampedFrame) / sampleRate
 
 		let wasPlaying = _isPlaying
-		playerNode.stop()
+		deckA.stop()
+		deckB.stop()
 		isNextScheduled = false
+		nextFile = nil
+		nextTrackId = nil
 
 		currentFrameOffset = clampedFrame
 		playerTimeBaseOffset = 0
 
-		playerNode.scheduleSegment(file, startingFrame: clampedFrame, frameCount: remainingFrames, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+		let node = activeNode
+		node.scheduleSegment(file, startingFrame: clampedFrame, frameCount: remainingFrames, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 			DispatchQueue.main.async {
 				self?.handleTrackCompletion(trackId: trackId, generation: gen)
 			}
 		}
 
-		if let nf = nextFile, let nid = nextTrackId {
-			playerNode.scheduleFile(nf, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+		if !crossfadeEnabled, let nf = nextFile, let nid = nextTrackId {
+			let chainNode = activeNode
+			chainNode.scheduleFile(nf, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 				DispatchQueue.main.async {
 					self?.handleTrackCompletion(trackId: nid, generation: gen)
 				}
@@ -361,8 +497,11 @@ final class AudioEnginePlayer {
 			isNextScheduled = true
 		}
 
+		deckA.volume = activeDeckIsA ? _volume : 0
+		deckB.volume = activeDeckIsA ? 0 : _volume
+
 		if wasPlaying {
-			playerNode.play()
+			node.play()
 		}
 	}
 
@@ -376,10 +515,10 @@ final class AudioEnginePlayer {
 			return 0
 		}
 		let dur = Double(file.length) / file.processingFormat.sampleRate
-		guard let playerNode = playerNode,
-			  let nodeTime = playerNode.lastRenderTime,
+		let node = activeNode
+		guard let nodeTime = node.lastRenderTime,
 			  nodeTime.isSampleTimeValid,
-			  let playerTime = playerNode.playerTime(forNodeTime: nodeTime) else {
+			  let playerTime = node.playerTime(forNodeTime: nodeTime) else {
 			return max(0, min(cachedPlaybackSeconds, dur))
 		}
 		let frames = playerTime.sampleTime - playerTimeBaseOffset + currentFrameOffset
@@ -398,7 +537,11 @@ final class AudioEnginePlayer {
 		get { _volume }
 		set {
 			_volume = max(0, min(1, newValue))
-			playerNode?.volume = _volume
+			if crossfadeInProgress {
+				return
+			}
+			activeNode.volume = _volume
+			idleNode.volume = 0
 			print("YhwavAudio: volume=\(_volume)")
 		}
 	}
@@ -412,21 +555,141 @@ final class AudioEnginePlayer {
 		}
 	}
 
-	// MARK: - Track completion
+	// MARK: - Crossfade ramp
+
+	private func beginCrossfadeRamp() {
+		guard crossfadeEnabled, crossfadeIdleReady, let idleId = crossfadeIdleTrackId, !crossfadeInProgress else { return }
+		guard let outgoing = currentTrackId else { return }
+
+		crossfadeInProgress = true
+		crossfadeOutgoingIsA = activeDeckIsA
+		finishedTrackIdForRamp = outgoing
+		crossfadeRampDurationActive = max(0.1, nextCrossfadeDuration)
+
+		let inc = idleNode
+		let out = activeNode
+
+		inc.volume = 0
+		out.volume = _volume
+		inc.play()
+
+		crossfadeRampStartTime = CACurrentMediaTime()
+		cancelCrossfadeRamp()
+
+		let link = CADisplayLink(target: CrossfadeRampProxy.shared, selector: #selector(CrossfadeRampProxy.tick))
+		CrossfadeRampProxy.shared.player = self
+		link.add(to: .main, forMode: .common)
+		crossfadeRampLink = link
+		print("YhwavAudio: crossfade ramp start \(outgoing) → \(idleId) over \(crossfadeRampDurationActive)s")
+	}
+
+	fileprivate func crossfadeRampStep() {
+		guard crossfadeInProgress, crossfadeRampLink != nil else { return }
+		let t = (CACurrentMediaTime() - crossfadeRampStartTime) / crossfadeRampDurationActive
+		if t >= 1.0 {
+			finishCrossfadeRamp()
+			return
+		}
+		let s = Float(t)
+		let outVol = sqrtf(1.0 - s) * _volume
+		let inVol = sqrtf(s) * _volume
+		if crossfadeOutgoingIsA {
+			deckA.volume = outVol
+			deckB.volume = inVol
+		} else {
+			deckB.volume = outVol
+			deckA.volume = inVol
+		}
+	}
+
+	private func finishCrossfadeRamp() {
+		cancelCrossfadeRamp()
+
+		guard let finishedId = finishedTrackIdForRamp, let idleFile = crossfadeIdleFile, let idleId = crossfadeIdleTrackId else {
+			crossfadeInProgress = false
+			return
+		}
+
+		let outgoingWasA = crossfadeOutgoingIsA
+		if outgoingWasA {
+			deckA.stop()
+			deckA.volume = 0
+			deckB.volume = _volume
+		} else {
+			deckB.stop()
+			deckB.volume = 0
+			deckA.volume = _volume
+		}
+
+		activeDeckIsA = !activeDeckIsA
+		currentFile = idleFile
+		currentTrackId = idleId
+		currentFrameOffset = 0
+		playerTimeBaseOffset = 0
+		cachedPlaybackSeconds = 0
+
+		crossfadeIdleFile = nil
+		crossfadeIdleTrackId = nil
+		crossfadeIdleReady = false
+		crossfadeInProgress = false
+		finishedTrackIdForRamp = nil
+		isNextScheduled = false
+		nextFile = nil
+		nextTrackId = nil
+
+		let now = Date().timeIntervalSince1970 * 1000
+		trackEndWallTime = now
+		delegate?.enginePlayer(self, didFinishTrack: finishedId)
+	}
+
+	private func cancelCrossfadeRamp() {
+		crossfadeRampLink?.invalidate()
+		crossfadeRampLink = nil
+		CrossfadeRampProxy.shared.player = nil
+	}
+
+	// MARK: - Track completion (gapless + crossfade fallback)
 
 	private func handleTrackCompletion(trackId: String, generation: UInt64) {
 		guard generation == playGeneration else { return }
 		guard trackId == currentTrackId else { return }
 
+		if crossfadeInProgress {
+			return
+		}
+
 		let now = Date().timeIntervalSince1970 * 1000
 
-		if isNextScheduled, let nid = nextTrackId, let nf = nextFile {
+		if crossfadeEnabled, crossfadeIdleReady, let nf = crossfadeIdleFile, let nid = crossfadeIdleTrackId {
+			print("YhwavAudio: active ended with crossfade idle preloaded → \(nid)")
+			activeNode.stop()
+			activeDeckIsA.toggle()
+			currentFile = nf
+			currentTrackId = nid
+			currentFrameOffset = 0
+			playerTimeBaseOffset = 0
+			cachedPlaybackSeconds = 0
+			crossfadeIdleFile = nil
+			crossfadeIdleTrackId = nil
+			crossfadeIdleReady = false
+			deckA.volume = activeDeckIsA ? _volume : 0
+			deckB.volume = activeDeckIsA ? 0 : _volume
+			if _isPlaying {
+				activeNode.play()
+			}
+			trackEndWallTime = now
+			delegate?.enginePlayer(self, didFinishTrack: trackId)
+			return
+		}
+
+		if !crossfadeEnabled, isNextScheduled, let nid = nextTrackId, let nf = nextFile {
 			let gap = trackEndWallTime > 0 ? Int(now - trackEndWallTime) : 0
 			print("YhwavAudio: transition trackId=\(trackId) → \(nid) gap=\(gap)ms")
 
 			let previousFileLength = currentFile?.length ?? 0
-			if let pn = playerNode, let nt = pn.lastRenderTime, nt.isSampleTimeValid,
-			   let pt = pn.playerTime(forNodeTime: nt) {
+			let node = activeNode
+			if let nt = node.lastRenderTime, nt.isSampleTimeValid,
+			   let pt = node.playerTime(forNodeTime: nt) {
 				playerTimeBaseOffset = pt.sampleTime - currentFrameOffset
 			} else {
 				playerTimeBaseOffset += previousFileLength - currentFrameOffset
@@ -451,9 +714,9 @@ final class AudioEnginePlayer {
 	// MARK: - Format handling
 
 	private func reconnectIfNeeded(for file: AVAudioFile) {
-		guard let engine = engine, let playerNode = playerNode, let timePitchNode = timePitchNode else { return }
+		guard let engine = engine, let mixer = mixerNode, let timePitchNode = timePitchNode else { return }
 		let fileFormat = file.processingFormat
-		let currentFormat = playerNode.outputFormat(forBus: 0)
+		let currentFormat = deckA.outputFormat(forBus: 0)
 
 		let formatChanged = fileFormat.sampleRate != currentFormat.sampleRate || fileFormat.channelCount != currentFormat.channelCount
 		guard formatChanged else { return }
@@ -461,16 +724,22 @@ final class AudioEnginePlayer {
 		let wasRunning = engine.isRunning
 		if wasRunning { engine.stop() }
 
-		engine.disconnectNodeOutput(playerNode)
+		engine.disconnectNodeOutput(deckA)
+		engine.disconnectNodeOutput(deckB)
+		engine.disconnectNodeOutput(mixer)
 		engine.disconnectNodeOutput(timePitchNode)
 
 		if let dsp = dspNode {
 			engine.disconnectNodeOutput(dsp)
-			engine.connect(playerNode, to: timePitchNode, format: fileFormat)
+			engine.connect(deckA, to: mixer, format: fileFormat)
+			engine.connect(deckB, to: mixer, format: fileFormat)
+			engine.connect(mixer, to: timePitchNode, format: fileFormat)
 			engine.connect(timePitchNode, to: dsp, format: fileFormat)
 			engine.connect(dsp, to: engine.mainMixerNode, format: fileFormat)
 		} else {
-			engine.connect(playerNode, to: timePitchNode, format: fileFormat)
+			engine.connect(deckA, to: mixer, format: fileFormat)
+			engine.connect(deckB, to: mixer, format: fileFormat)
+			engine.connect(mixer, to: timePitchNode, format: fileFormat)
 			engine.connect(timePitchNode, to: engine.mainMixerNode, format: fileFormat)
 		}
 
@@ -583,5 +852,15 @@ final class AudioEnginePlayer {
 
 	deinit {
 		teardown()
+	}
+}
+
+// CADisplayLink needs a NSObject target
+private final class CrossfadeRampProxy: NSObject {
+	static let shared = CrossfadeRampProxy()
+	weak var player: AudioEnginePlayer?
+
+	@objc func tick() {
+		player?.crossfadeRampStep()
 	}
 }

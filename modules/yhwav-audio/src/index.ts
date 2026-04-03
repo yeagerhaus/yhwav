@@ -6,6 +6,7 @@ export const isAvailable = (): boolean => {
 };
 
 export {
+	type CrossfadeConfig,
 	default as YhwavAudioModule,
 	type PlaybackState,
 	type Track,
