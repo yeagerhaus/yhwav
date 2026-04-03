@@ -30,6 +30,7 @@ import { initNetworkPlaybackRoute, refreshNetworkPlaybackRoute } from '@/lib/net
 import { rehydrateLibraryStore } from '@/utils';
 import '@/utils/background-fetch-task';
 import { hasSeenNotificationPrompt } from '@/app/notification-prompt';
+import { SplashOverlay } from '@/components/Splash';
 import { registerBackgroundFetch } from '@/utils/background-fetch-task';
 import { refreshLibrary } from '@/utils/library-refresh';
 import { addNotificationResponseListener, setupNotificationHandler } from '@/utils/notifications';
@@ -255,7 +256,7 @@ export default function RootLayout() {
 					</RootScaleProvider>
 				</ThemeProvider>
 			</SafeAreaProvider>
-			{/* <SplashOverlay /> */}
+			<SplashOverlay />
 		</GestureHandlerRootView>
 	);
 }
