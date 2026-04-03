@@ -19,7 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* Rite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07F961A680F5B00A75B9A /* Rite..app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rite..app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Rite/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Rite/Info.plist; sourceTree = "<group>"; };
 		276817C8D2625532FBE6E60A /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Rite/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
@@ -115,7 +115,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* Rite.app */,
+				13B07F961A680F5B00A75B9A /* Rite..app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -159,7 +159,7 @@
 			);
 			name = Rite;
 			productName = Rite;
-			productReference = 13B07F961A680F5B00A75B9A /* Rite.app */;
+			productReference = 13B07F961A680F5B00A75B9A /* Rite..app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -380,7 +380,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yhprod.rite;
-				PRODUCT_NAME = Rite;
+				PRODUCT_NAME = Rite.;
 				SWIFT_OBJC_BRIDGING_HEADER = "Rite/Rite-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -412,7 +412,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.yhprod.rite;
-				PRODUCT_NAME = Rite;
+				PRODUCT_NAME = Rite.;
 				SWIFT_OBJC_BRIDGING_HEADER = "Rite/Rite-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -475,10 +475,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -534,10 +531,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;

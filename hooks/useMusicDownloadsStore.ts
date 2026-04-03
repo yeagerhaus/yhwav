@@ -142,7 +142,12 @@ async function processQueue(
 				const sourceUrl = song.uri || song.streamUrl || '';
 				const downloadBitrateKbps = usePlaybackSettingsStore.getState().downloadBitrateKbps;
 				const { url: downloadUrl } = buildPlexStreamUrl(song, sourceUrl, downloadBitrateKbps);
-				const { uri } = await FileSystem.downloadAsync(downloadUrl, localPath);
+				const downloadResumable = FileSystem.createDownloadResumable(downloadUrl, localPath, {
+					sessionType: FileSystem.FileSystemSessionType.BACKGROUND,
+				});
+				const result = await downloadResumable.downloadAsync();
+				if (!result?.uri) throw new Error('Download returned no URI');
+				const uri = result.uri;
 
 				const entry: MusicDownload = {
 					songId: song.id,

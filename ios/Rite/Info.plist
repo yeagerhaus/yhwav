@@ -118,6 +118,8 @@
 			</array>
 		</dict>
 	</dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>
