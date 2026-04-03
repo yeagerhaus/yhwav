@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Div, DynamicItem, HomeSection, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineFilteredLibrary } from '@/hooks/useOfflineFilteredLibrary';
 import { clearCacheAndReload } from '@/utils/cache';
 
-const ITEM_SIZE = 175;
+const ITEM_SIZE = 190;
 const SECTION_LIMIT = 15;
 
 const SECTIONS = [
@@ -15,7 +16,7 @@ const SECTIONS = [
 	{ title: 'Artists', icon: 'person.2.fill', route: '/(tabs)/(library)/(artists)' },
 	{ title: 'Albums', icon: 'square.stack.3d.up.fill', route: '/(tabs)/(library)/(albums)' },
 	{ title: 'Songs', icon: 'music.note', route: '/(tabs)/(library)/songs' },
-];
+] as const;
 
 export default function LibraryScreen() {
 	const colors = useColors();
@@ -55,7 +56,7 @@ export default function LibraryScreen() {
 
 	const renderRecentlyPlayed = useCallback(
 		(item: (typeof limitedRecentlyPlayed)[0]) => (
-			<DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} />
+			<DynamicItem type='largeSong' item={item} queue={limitedRecentlyPlayed} size={ITEM_SIZE} editorial />
 		),
 		[limitedRecentlyPlayed],
 	);
@@ -66,6 +67,7 @@ export default function LibraryScreen() {
 				type='album'
 				item={{ id: item.id, album: item.title, artwork: item.artwork, artist: item.artist }}
 				size={ITEM_SIZE}
+				editorial
 			/>
 		),
 		[recentlyAdded],
@@ -82,6 +84,7 @@ export default function LibraryScreen() {
 					count: item.leafCount ?? 0,
 				}}
 				size={ITEM_SIZE}
+				editorial
 			/>
 		),
 		[recentPlaylists],
@@ -90,15 +93,19 @@ export default function LibraryScreen() {
 	return (
 		<Main refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}>
 			<Div flex={1} style={{ paddingHorizontal: 16, marginBottom: 16 }} transparent>
-				<Text type='h3' style={{ marginBottom: 16 }}>
+				<Text type='bodySM' colorVariant='muted' style={{ marginBottom: 12 }}>
 					{Number(trackCount).toLocaleString()} {trackCount === 1 ? 'Song' : 'Songs'} in Library
 				</Text>
-				<FlatList
-					scrollEnabled={false}
-					data={SECTIONS}
-					keyExtractor={(item) => item.title}
-					renderItem={({ item }) => <DynamicItem item={item} type='list' onPress={() => router.push(item.route as any)} />}
-				/>
+				<View style={styles.sectionGrid}>
+					{SECTIONS.map((section) => (
+						<Pressable key={section.title} style={styles.sectionCard} onPress={() => router.push(section.route as any)}>
+							<Div useGlass style={styles.sectionCardInner}>
+								<SymbolView name={section.icon} size={28} type='hierarchical' tintColor={colors.text} />
+								<Text type='label'>{section.title}</Text>
+							</Div>
+						</Pressable>
+					))}
+				</View>
 			</Div>
 
 			{isEmpty ? (
@@ -119,6 +126,7 @@ export default function LibraryScreen() {
 						renderItem={renderRecentlyPlayed}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
+						onSeeAll={() => router.push('/(tabs)/(library)/songs' as any)}
 					/>
 
 					<HomeSection
@@ -128,6 +136,7 @@ export default function LibraryScreen() {
 						renderItem={renderRecentlyAdded}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
+						onSeeAll={() => router.push('/(tabs)/(library)/(albums)' as any)}
 					/>
 
 					<HomeSection
@@ -137,6 +146,7 @@ export default function LibraryScreen() {
 						renderItem={renderRecentPlaylists}
 						isLoading={isLoading}
 						itemSize={ITEM_SIZE}
+						onSeeAll={() => router.push('/(tabs)/(library)/(playlists)' as any)}
 					/>
 				</Div>
 			)}
@@ -145,6 +155,21 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
+	sectionGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	sectionCard: {
+		width: '48%',
+	},
+	sectionCardInner: {
+		borderRadius: 14,
+		paddingVertical: 18,
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+	},
 	emptyState: {
 		flex: 1,
 		alignItems: 'center',

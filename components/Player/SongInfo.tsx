@@ -140,7 +140,7 @@ export const SongInfo = React.memo(() => {
 						<Ionicons name='star-outline' size={18} color='#fff' />
 					</Pressable> */}
 						<ContextMenu items={menuItems} style={styles.iconButton}>
-							<SymbolView name='ellipsis' size={24} tintColor='#fff' />
+							<SymbolView name='ellipsis' size={20} tintColor='#999' />
 						</ContextMenu>
 					</Div>
 				</Div>

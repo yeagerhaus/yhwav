@@ -53,9 +53,9 @@ export function MiniPlayer() {
 					useGlass
 					style={{
 						...styles.content,
-						marginHorizontal: useBlurInsteadOfGlass ? 0 : 22,
-						borderRadius: useBlurInsteadOfGlass ? 0 : 100,
-						marginBottom: useBlurInsteadOfGlass ? -10 : 0,
+						marginHorizontal: 22,
+						borderRadius: 100,
+						marginBottom: 0,
 					}}
 				>
 					<MiniPlayerContent />
@@ -67,7 +67,7 @@ export function MiniPlayer() {
 
 // Extract the content into a separate component for reusability
 const MiniPlayerContent = React.memo(() => {
-	const colorScheme = useColorScheme();
+	const _colorScheme = useColorScheme();
 	const colors = useColors();
 	const currentSong = useAudioStore((state) => state.currentSong);
 	const isPlaying = useAudioStore((state) => state.isPlaying);
@@ -104,7 +104,7 @@ const MiniPlayerContent = React.memo(() => {
 		<Div
 			style={[
 				styles.miniPlayerContent,
-				{ paddingHorizontal: 0, backgroundColor: colorScheme === 'light' ? '#ffffffa4' : 'transparent' },
+				{ paddingHorizontal: 0, backgroundColor: 'transparent' }, // colorScheme === 'light' ? '#ffffffa4' : 'transparent' },
 			]}
 			gradients={gradients}
 			transparent

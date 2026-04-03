@@ -136,7 +136,7 @@ export default function PodcastFeedScreen() {
 							</Text>
 						</Div>
 						<ContextMenu items={feedMenuItems} style={feedStyles.menuButton}>
-							<SymbolView name='ellipsis' size={18} tintColor={isDark ? '#fff' : '#333'} />
+							<SymbolView name='ellipsis' size={20} tintColor='#999' />
 						</ContextMenu>
 					</Div>
 				</Div>

@@ -162,7 +162,7 @@ const SongItem = React.memo(
 									alignItems: 'center',
 								}}
 							>
-								<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+								<SymbolView name='ellipsis' size={20} tintColor='#999' />
 							</ContextMenu>
 						</Div>
 					</Div>
@@ -211,7 +211,7 @@ const SongItem = React.memo(
 								alignItems: 'center',
 							}}
 						>
-							<SymbolView name='ellipsis' size={18} tintColor='#fff' />
+							<SymbolView name='ellipsis' size={20} tintColor='#999' />
 						</ContextMenu>
 					</Div>
 				</Div>
