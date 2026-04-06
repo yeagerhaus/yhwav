@@ -12,7 +12,6 @@ const SPLASH_BACKDROP = {
 	dark: '#0A0A12',
 } as const;
 
-const FADE_IN_MS = 1200;
 const FADE_OUT_MS = 500;
 
 export function SplashOverlay() {
@@ -20,22 +19,12 @@ export function SplashOverlay() {
 	const colorScheme = useColorScheme();
 	const isDark = colorScheme === 'dark';
 
-	const enterOpacity = useRef(new Animated.Value(0)).current;
 	const exitOpacity = useRef(new Animated.Value(1)).current;
 	const [visible, setVisible] = useState(true);
 
 	useEffect(() => {
 		ExpoSplashScreen.hideAsync().catch(() => {});
 	}, []);
-
-	useEffect(() => {
-		enterOpacity.setValue(0);
-		Animated.timing(enterOpacity, {
-			toValue: 1,
-			duration: FADE_IN_MS,
-			useNativeDriver: true,
-		}).start();
-	}, [isDark, enterOpacity]);
 
 	useEffect(() => {
 		if (!hasInitialized) return;
@@ -52,11 +41,7 @@ export function SplashOverlay() {
 
 	return (
 		<Animated.View style={[styles.overlay, { opacity: exitOpacity, backgroundColor: backdrop }]}>
-			<Animated.Image
-				source={isDark ? darkSplash : lightSplash}
-				style={[styles.image, { opacity: enterOpacity }]}
-				resizeMode='cover'
-			/>
+			<Animated.Image source={isDark ? darkSplash : lightSplash} style={[styles.image]} resizeMode='cover' />
 		</Animated.View>
 	);
 }
