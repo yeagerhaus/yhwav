@@ -9,7 +9,7 @@ const darkSplash = require('../assets/images/darkSplash.png');
 /** Backing color while the image opacity fades in (matches splash PNG backgrounds). */
 const SPLASH_BACKDROP = {
 	light: '#F0EDE8',
-	dark: '#0A0A12',
+	dark: '#0F1217',
 } as const;
 
 const FADE_OUT_MS = 500;

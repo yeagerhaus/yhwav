@@ -107,6 +107,7 @@ interface AudioState {
 	getSleepTimerRemainingSeconds: () => number | null;
 
 	// Internal state management
+	_isRestoringPlayback: boolean;
 	_setIsPlaying: (isPlaying: boolean) => void;
 	_setCurrentSong: (song: Song | null) => void;
 	_setIsBuffering: (isBuffering: boolean) => void;
@@ -163,6 +164,8 @@ let lastErrorRetryAt = 0;
 let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
+let restoredPausedAt = 0; // set after a paused restore; suppresses spurious iOS RemotePlay
+const RESTORE_REMOTE_PLAY_SUPPRESS_MS = 3000;
 
 function scrobbleSong(song: Song) {
 	if (song.source === 'podcast') return;
@@ -365,6 +368,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	artworkBgColor: null,
 	currentPlaylistRatingKey: null,
 	sleepTimerEndsAt: null,
+	_isRestoringPlayback: false,
 
 	// Internal setters
 	_setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -539,16 +543,25 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				InteractionManager.runAfterInteractions(() => resolve());
 			});
 
-			await TrackPlayer.add(queue.map(songToTrack));
+			// Reset native player before loading — prevents stale queue from a previous
+			// JS session (e.g. Metro reload) causing duplicate tracks or wrong skip index.
+			// The flag suppresses the sync hook for the entire native operation.
+			set({ _isRestoringPlayback: true });
+			try {
+				await TrackPlayer.reset();
+				await TrackPlayer.add(queue.map(songToTrack));
 
-			const trackIndex = Math.max(
-				0,
-				queue.findIndex((s) => s.id === currentSong!.id),
-			);
-			await TrackPlayer.skip(trackIndex);
-			if (position > 0) await TrackPlayer.seekTo(position);
-			// Always pause regardless of trackIndex — prevents auto-play on reload
-			await TrackPlayer.pause();
+				const trackIndex = Math.max(
+					0,
+					queue.findIndex((s) => s.id === currentSong!.id),
+				);
+				await TrackPlayer.skip(trackIndex);
+				if (position > 0) await TrackPlayer.seekTo(position);
+				await TrackPlayer.pause();
+				restoredPausedAt = Date.now();
+			} finally {
+				set({ _isRestoringPlayback: false });
+			}
 
 			const color = await extractArtworkColor(currentSong);
 			set({ currentSong, queue, artworkBgColor: color, isPlaying: false });
@@ -704,6 +717,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Toggle play/pause
 	togglePlayPause: async () => {
+		restoredPausedAt = 0; // user explicitly interacting — lift restore suppression
 		try {
 			const playbackState = await TrackPlayer.getPlaybackState();
 			if (playbackState.state === State.Playing) {
@@ -1020,6 +1034,7 @@ export function useTrackPlayerSync() {
 	// Sync playing state - wrapped in useEffect to avoid setState during render
 	React.useEffect(() => {
 		const state = useAudioStore.getState();
+		if (state._isRestoringPlayback) return;
 
 		if (playbackState?.state === State.Playing && !state.isPlaying) {
 			state._setIsPlaying(true);
@@ -1194,6 +1209,9 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.PlaybackError) {
+				// Only retry if we were actually playing — never auto-play from a paused/restored state.
+				if (!state.isPlaying) return;
+
 				const now = Date.now();
 				const canRetry = now - lastErrorRetryAt > 3000;
 
@@ -1232,6 +1250,7 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.RemotePlay) {
+				if (Date.now() - restoredPausedAt < RESTORE_REMOTE_PLAY_SUPPRESS_MS) return;
 				await TrackPlayer.play();
 			}
 
