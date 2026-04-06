@@ -274,6 +274,7 @@ function songToTrack(song: Song) {
 		...(directUrl ? { directUrl } : {}),
 		title: song.title,
 		artist: song.artist,
+		album: song.album,
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
 		...(song.source === 'podcast' ? { crossfadeDisabled: true as const } : {}),

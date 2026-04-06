@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-carplay/ios/RNCarPlay.m b/node_modules/react-native-carplay/ios/RNCarPlay.m
+--- a/node_modules/react-native-carplay/ios/RNCarPlay.m
++++ b/node_modules/react-native-carplay/ios/RNCarPlay.m
+@@ -1377,7 +1377,10 @@
+ - (void)sendTemplateEventWithName:(CPTemplate *)template name:(NSString*)name json:(NSDictionary*)json {
+     NSMutableDictionary *body = [[NSMutableDictionary alloc] initWithDictionary:json];
+     NSDictionary *userInfo = [template userInfo];
+-    [body setObject:[userInfo objectForKey:@"templateId"] forKey:@"templateId"];
++    NSString *templateId = [userInfo objectForKey:@"templateId"];
++    if (templateId) {
++        [body setObject:templateId forKey:@"templateId"];
++    }
+     if (hasListeners) {
+         [self sendEventWithName:name body:body];
+     }

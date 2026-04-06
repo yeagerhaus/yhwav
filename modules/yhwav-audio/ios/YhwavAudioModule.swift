@@ -21,6 +21,7 @@ struct TrackRecord: Record {
 	@Field var url: String
 	@Field var title: String?
 	@Field var artist: String?
+	@Field var album: String?
 	@Field var artwork: String?
 	@Field var duration: Double?
 	/// Original Plex `/library/parts/...` URL when `url` is a transcode URL (used if transcode file is truncated).
@@ -1092,6 +1093,9 @@ private final class NowPlayingManager {
 		if let track = track {
 			info[MPMediaItemPropertyTitle] = track.title ?? ""
 			info[MPMediaItemPropertyArtist] = track.artist ?? ""
+			if let album = track.album, !album.isEmpty {
+				info[MPMediaItemPropertyAlbumTitle] = album
+			}
 			if let d = track.duration, d > 0 {
 				info[MPMediaItemPropertyPlaybackDuration] = d
 			}
