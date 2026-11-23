@@ -12,14 +12,30 @@ const THROTTLE_MS = 60_000;
 async function doRefresh() {
 	const { setTracks, setAlbums, setArtists, setPlaylists, setRecentlyPlayed, setHubs } = useLibraryStore.getState();
 
-	const [tracks, albums, artists, playlists, recentlyPlayedSongs, hubs] = await Promise.all([
+	// Settle independently so one slow/failed request (e.g. a huge track dump) doesn't drop the rest
+	const results = await Promise.allSettled([
 		fetchAllTracks(),
 		fetchAllAlbums(),
 		fetchAllArtists(),
 		fetchAllPlaylists(),
 		fetchRecentlyPlayed(15),
-		fetchSectionHubs().catch(() => []),
+		fetchSectionHubs(),
 	]);
+	const labels = ['tracks', 'albums', 'artists', 'playlists', 'recentlyPlayed', 'hubs'];
+	const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+	if (failures.length === results.length) throw failures[0].reason;
+	results.forEach((r, i) => {
+		if (r.status === 'rejected') console.warn(`Library refresh: ${labels[i]} failed:`, r.reason);
+	});
+	const settledValue = <T>(r: PromiseSettledResult<T>): T | [] => (r.status === 'fulfilled' ? r.value : []);
+	const [tracks, albums, artists, playlists, recentlyPlayedSongs, hubs] = [
+		settledValue(results[0]),
+		settledValue(results[1]),
+		settledValue(results[2]),
+		settledValue(results[3]),
+		settledValue(results[4]),
+		settledValue(results[5]),
+	];
 
 	if (tracks.length > 0) setTracks(tracks);
 	if (albums.length > 0) setAlbums(albums);
