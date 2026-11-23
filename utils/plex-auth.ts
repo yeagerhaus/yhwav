@@ -42,6 +42,7 @@ export class PlexAuthService {
 		servers: [],
 	};
 	private clientIdentifier: string | null = null;
+	private serverChangeListeners = new Set<() => void>();
 
 	private constructor() {
 		this.clientIdentifier = this.getOrCreateClientIdentifierFromStorage();
@@ -86,6 +87,26 @@ export class PlexAuthService {
 		const id = this.getOrCreateClientIdentifierFromStorage();
 		this.clientIdentifier = id;
 		return id;
+	}
+
+	/**
+	 * Subscribe to sign-in, sign-out, and selected-server changes. Returns an unsubscribe fn.
+	 */
+	onServerChange(listener: () => void): () => void {
+		this.serverChangeListeners.add(listener);
+		return () => {
+			this.serverChangeListeners.delete(listener);
+		};
+	}
+
+	private notifyServerChange(): void {
+		for (const listener of this.serverChangeListeners) {
+			try {
+				listener();
+			} catch (error) {
+				console.error('Server change listener failed:', error);
+			}
+		}
 	}
 
 	/**
@@ -301,6 +322,7 @@ export class PlexAuthService {
 
 			// Save to storage
 			this.saveAuthState();
+			this.notifyServerChange();
 
 			// console.log('✅ Login successful!');
 			console.log(`   User: ${userInfo.username}`);
@@ -386,6 +408,7 @@ export class PlexAuthService {
 		// Update selected server
 		this.authState.selectedServer = server;
 		this.saveAuthState();
+		this.notifyServerChange();
 
 		// console.log(`✅ Selected server: ${server.name}`);
 		return true;
@@ -405,12 +428,16 @@ export class PlexAuthService {
 				this.authState.servers = discoveryResult.servers;
 
 				// Update selected server to refreshed version (with connections), or pick a new one
+				const previousServerId = this.authState.selectedServer?.id;
 				if (this.authState.selectedServer) {
 					const refreshed = discoveryResult.servers.find((s) => s.id === this.authState.selectedServer?.id);
 					this.authState.selectedServer = refreshed || discoveryResult.recommendedServer;
 				}
 
 				this.saveAuthState();
+				if (this.authState.selectedServer?.id !== previousServerId) {
+					this.notifyServerChange();
+				}
 				return true;
 			}
 			return false;
@@ -461,6 +488,7 @@ export class PlexAuthService {
 		storage.remove('plex_servers_cache');
 
 		await plexDiscoveryService.clearCache();
+		this.notifyServerChange();
 
 		// console.log('✅ Logged out successfully');
 	}

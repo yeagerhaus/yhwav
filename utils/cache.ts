@@ -1,4 +1,3 @@
-import { InteractionManager } from 'react-native';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import { storage } from '@/lib/storage';
 import type { Album, Artist, HomeHub, Playlist, Song } from '@/types';
@@ -192,39 +191,12 @@ export async function clearCacheAndReload(): Promise<number> {
 	if (getIsOfflineMode()) {
 		return 0;
 	}
-	const {
-		fetchAllTracks,
-		fetchAllAlbums,
-		fetchAllArtists,
-		fetchAllPlaylists,
-		fetchRecentlyPlayed,
-		fetchSectionHubs,
-	} = require('@/utils/plex');
-	const store = getStore();
+	// Lazy require: library-refresh imports this module
+	const { refreshLibrary } = require('@/utils/library-refresh');
 
 	try {
-		const [tracks, albums, artists, playlists, recentlyPlayed, hubs] = await Promise.all([
-			fetchAllTracks(),
-			fetchAllAlbums(),
-			fetchAllArtists(),
-			fetchAllPlaylists(),
-			fetchRecentlyPlayed(15),
-			fetchSectionHubs().catch(() => []),
-		]);
-
-		const state = store.getState();
-		if (tracks.length > 0) state.setTracks(tracks);
-		if (albums.length > 0) state.setAlbums(albums);
-		if (artists.length > 0) state.setArtists(artists);
-		if (playlists.length > 0) state.setPlaylists(playlists);
-		if (recentlyPlayed.length > 0) state.setRecentlyPlayed(recentlyPlayed);
-		if (hubs.length > 0) state.setHubs(hubs);
-
-		InteractionManager.runAfterInteractions(() => {
-			saveLibraryToCache();
-		});
-
-		return tracks.length;
+		await refreshLibrary({ force: true });
+		return getStore().getState().tracks.length;
 	} catch (err) {
 		console.error('Failed to reload library:', err);
 		return 0;

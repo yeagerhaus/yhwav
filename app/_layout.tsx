@@ -220,6 +220,18 @@ export default function RootLayout() {
 		};
 
 		init();
+
+		// Signing in or switching servers from Settings: pull the library from the new server
+		const unsubscribeServerChange = plexAuthService.onServerChange(() => {
+			if (!plexAuthService.isAuthenticated() || !plexAuthService.getSelectedServer()) {
+				plexAuthReady.current = false;
+				return;
+			}
+			plexAuthReady.current = true;
+			initScrobbleQueue().catch(() => {});
+			refreshLibrary({ force: true }).catch((error) => console.error('Failed to fetch library after server change:', error));
+		});
+
 		const appStateSub = AppState.addEventListener('change', (state) => {
 			if (state === 'active') {
 				refreshNetworkPlaybackRoute().catch(() => {});
@@ -231,6 +243,7 @@ export default function RootLayout() {
 
 		return () => {
 			appStateSub.remove();
+			unsubscribeServerChange();
 			teardownCarPlay();
 		};
 	}, []);

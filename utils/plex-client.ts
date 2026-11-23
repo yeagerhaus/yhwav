@@ -23,6 +23,7 @@ const RETRY_CONFIG = {
 const TIMEOUT_CONFIG = {
 	connectTimeout: 15000, // 15 seconds
 	requestTimeout: 30000, // 30 seconds
+	libraryTimeout: 120000, // 2 minutes — full-section dumps (tracks/albums/artists) on large libraries
 };
 
 export interface PlexError extends Error {
@@ -44,6 +45,7 @@ export class PlexClient {
 	private baseURL: string = '';
 	private token: string | null = null;
 	private musicSectionId: string | null = null;
+	private musicSectionPromise: Promise<void> | null = null;
 	private initialized: boolean = false;
 	private initPromise: Promise<void> | null = null;
 
@@ -190,16 +192,27 @@ export class PlexClient {
 		this.baseURL = '';
 		this.token = null;
 		this.musicSectionId = null;
+		this.musicSectionPromise = null;
 	}
 
 	/**
-	 * Auto-discover music section ID from library
+	 * Auto-discover music section ID from library (deduped across concurrent callers)
 	 */
-	private async discoverMusicSection(): Promise<void> {
+	private discoverMusicSection(): Promise<void> {
+		if (!this.musicSectionPromise) {
+			this.musicSectionPromise = this._doDiscoverMusicSection().finally(() => {
+				this.musicSectionPromise = null;
+			});
+		}
+		return this.musicSectionPromise;
+	}
+
+	private async _doDiscoverMusicSection(): Promise<void> {
 		const sections = await this.getLibrarySections();
+		// Plex music libraries report type "artist"
 		const musicSection = sections.find((section: any) => section.type === 'artist' || section.type === 'music');
 		if (musicSection) {
-			this.musicSectionId = musicSection.key;
+			this.musicSectionId = String(musicSection.key);
 		} else {
 			throw new Error('No music section found in library');
 		}
@@ -255,10 +268,10 @@ export class PlexClient {
 	/**
 	 * Create an AbortController with timeout
 	 */
-	private createTimeoutController(timeout: number): AbortController {
+	private createTimeoutController(timeout: number): { controller: AbortController; clear: () => void } {
 		const controller = new AbortController();
-		setTimeout(() => controller.abort(), timeout);
-		return controller;
+		const timeoutId = setTimeout(() => controller.abort(), timeout);
+		return { controller, clear: () => clearTimeout(timeoutId) };
 	}
 
 	/**
@@ -340,9 +353,8 @@ export class PlexClient {
 		let triedHttpFallback = false;
 
 		for (let attempt = 0; attempt <= retries; attempt++) {
+			const { controller, clear: clearRequestTimeout } = this.createTimeoutController(timeout);
 			try {
-				const controller = this.createTimeoutController(timeout);
-
 				// For React Native, we need to handle SSL certificate issues differently
 				// The issue is that Plex's dynamic DNS certificates don't match the hostname
 				// Since CURL works with -k flag, we'll try the original URL first
@@ -435,6 +447,9 @@ export class PlexClient {
 
 				// Wait before retrying
 				await this.sleep(this.calculateRetryDelay(attempt));
+			} finally {
+				// Body is fully read by now — don't let a stale timer abort the next attempt or linger
+				clearRequestTimeout();
 			}
 		}
 
@@ -481,38 +496,56 @@ export class PlexClient {
 			throw new Error('Music section ID not found. Please ensure your library has a music section.');
 		}
 
-		// Optimize request: only fetch essential fields to reduce payload size
-		// This significantly speeds up large library fetches
-		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
-			type: '10', // 10 = track
-			sort: 'titleSort:asc',
-			includeFields:
-				'title,ratingKey,thumb,art,duration,index,parentIndex,parentRatingKey,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
-			// Loudness / ReplayGain live on Stream elements under Media → Part
-			includeStreamDetails: '1',
-		});
+		const sectionId = this.musicSectionId;
+		// Page through the section: with stream details, a single all-tracks response on a large
+		// library is hundreds of MB and blows past any sane timeout (and Hermes memory).
+		const PAGE_SIZE = 5000;
+		const CONCURRENCY = 3;
 
-		const data = response.data as any;
-		const rawTracks = data?.MediaContainer?.Metadata || [];
-		const tracksArray = Array.isArray(rawTracks) ? rawTracks : [rawTracks];
+		const fetchPage = async (start: number) => {
+			const response = await this.request(
+				`/library/sections/${sectionId}/all`,
+				{
+					type: '10', // 10 = track
+					sort: 'titleSort:asc',
+					// Only fetch essential fields to reduce payload size
+					includeFields:
+						'title,ratingKey,thumb,art,duration,index,parentIndex,parentRatingKey,grandparentTitle,parentTitle,grandparentKey,parentKey,Media',
+					// Loudness / ReplayGain live on Stream elements under Media → Part
+					includeStreamDetails: '1',
+					'X-Plex-Container-Start': String(start),
+					'X-Plex-Container-Size': String(PAGE_SIZE),
+				},
+				{ timeout: TIMEOUT_CONFIG.libraryTimeout },
+			);
+			const container = (response.data as any)?.MediaContainer;
+			const raw = container?.Metadata || [];
+			const tracks = (Array.isArray(raw) ? raw : [raw]).map((track: any) => this.formatTrack(track));
+			const totalSize = parseInt(container?.totalSize ?? '', 10);
+			return { tracks, totalSize: Number.isFinite(totalSize) ? totalSize : null };
+		};
 
-		// Process in batches, yielding between chunks so the JS thread
-		// can service UI events (scrolling, animations) during large fetches.
-		const BATCH_SIZE = 5000;
-		const results: Song[] = new Array(tracksArray.length);
+		const first = await fetchPage(0);
+		const pages: Song[][] = [first.tracks];
 
-		for (let i = 0; i < tracksArray.length; i += BATCH_SIZE) {
-			const end = Math.min(i + BATCH_SIZE, tracksArray.length);
-			for (let j = i; j < end; j++) {
-				results[j] = this.formatTrack(tracksArray[j]);
+		if (first.totalSize != null) {
+			// Known total: fetch the remaining pages with bounded concurrency, preserving order
+			const starts: number[] = [];
+			for (let start = PAGE_SIZE; start < first.totalSize; start += PAGE_SIZE) starts.push(start);
+			for (let i = 0; i < starts.length; i += CONCURRENCY) {
+				const batch = await Promise.all(starts.slice(i, i + CONCURRENCY).map(fetchPage));
+				for (const page of batch) pages.push(page.tracks);
 			}
-			// Yield to the event loop between batches
-			if (end < tracksArray.length) {
-				await new Promise<void>((r) => setTimeout(r, 0));
+		} else {
+			// Server didn't report totalSize: walk pages until a short one comes back
+			let last = first.tracks;
+			while (last.length === PAGE_SIZE) {
+				last = (await fetchPage(pages.length * PAGE_SIZE)).tracks;
+				pages.push(last);
 			}
 		}
 
-		return results;
+		return pages.flat();
 	}
 
 	/**
@@ -637,10 +670,14 @@ export class PlexClient {
 			throw new Error('Music section ID not found. Please ensure your library has a music section.');
 		}
 
-		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
-			type: '8', // 8 = artist
-			sort: 'titleSort:asc',
-		});
+		const response = await this.request(
+			`/library/sections/${this.musicSectionId}/all`,
+			{
+				type: '8', // 8 = artist
+				sort: 'titleSort:asc',
+			},
+			{ timeout: TIMEOUT_CONFIG.libraryTimeout },
+		);
 
 		const data = response.data as any;
 		const raw = data?.MediaContainer?.Metadata || [];
@@ -663,10 +700,14 @@ export class PlexClient {
 			throw new Error('Music section ID not found. Please ensure your library has a music section.');
 		}
 
-		const response = await this.request(`/library/sections/${this.musicSectionId}/all`, {
-			type: '9', // 9 = album
-			sort: 'titleSort:asc',
-		});
+		const response = await this.request(
+			`/library/sections/${this.musicSectionId}/all`,
+			{
+				type: '9', // 9 = album
+				sort: 'titleSort:asc',
+			},
+			{ timeout: TIMEOUT_CONFIG.libraryTimeout },
+		);
 
 		const data = response.data as any;
 		const raw = data?.MediaContainer?.Metadata || [];
@@ -1160,6 +1201,9 @@ export class PlexClient {
 
 // Create singleton instance (baseURL will be set during initialization)
 export const plexClient = new PlexClient();
+
+// Drop cached connection + music section whenever the account or server changes
+plexAuthService.onServerChange(() => plexClient.clearInitialization());
 
 // Export convenience functions for backward compatibility
 export const testPlexServer = () => plexClient.testConnectivity();
