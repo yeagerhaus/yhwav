@@ -19,6 +19,8 @@ interface PodcastProgressState {
 	getProgress: (episodeId: string) => EpisodeProgress | undefined;
 	/** Save progress for an episode (only called for episodes we've played). */
 	saveProgress: (episodeId: string, position: number, duration: number, completed?: boolean) => void;
+	/** Drop progress for every episode of a feed (episode ids are `${feedId}|…`). */
+	removeProgressForFeed: (feedId: string) => void;
 	/** Mark episode as fully played so we don't resume. Optionally pass duration (e.g. when marking as played without playback). */
 	markAsPlayed: (episodeId: string, duration?: number) => void;
 	/** Mark multiple episodes as played (e.g. when importing a feed you're already up to date on). */
@@ -59,6 +61,20 @@ export const usePodcastProgressStore = create<PodcastProgressState>((set, get) =
 	},
 
 	getProgress: (episodeId: string) => get().progressByEpisodeId[episodeId],
+
+	removeProgressForFeed: (feedId: string) => {
+		const prefix = `${feedId}|`;
+		const current = get().progressByEpisodeId;
+		const nextMap: typeof current = {};
+		let removed = false;
+		for (const [id, progress] of Object.entries(current)) {
+			if (id.startsWith(prefix)) removed = true;
+			else nextMap[id] = progress;
+		}
+		if (!removed) return;
+		set({ progressByEpisodeId: nextMap });
+		persistProgress(nextMap);
+	},
 
 	saveProgress: (episodeId: string, position: number, duration: number, completed?: boolean) => {
 		const { progressByEpisodeId } = get();

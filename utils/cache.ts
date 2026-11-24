@@ -1,6 +1,15 @@
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
-import { storage } from '@/lib/storage';
+import { storage as defaultStorage, getLibraryStorage } from '@/lib/storage';
 import type { Album, Artist, HomeHub, Playlist, Song } from '@/types';
+import {
+	mapAlbumUrls,
+	mapArtistUrls,
+	mapHubUrls,
+	mapPlaylistUrls,
+	mapSongUrls,
+	resolverForCurrentConnection,
+	toStoredPlexUrl,
+} from '@/utils/plex-url';
 
 let useLibraryStore: any;
 try {
@@ -15,6 +24,28 @@ const CACHE_RECENTLY_PLAYED = 'CACHE_RECENTLY_PLAYED';
 const CACHE_HUBS = 'CACHE_HUBS';
 const CACHE_LAST_FETCHED = 'CACHE_LAST_FETCHED';
 const LEGACY_LIBRARY_KEY = 'LIBRARY_STATE';
+const SPLIT_KEYS = [CACHE_TRACKS, CACHE_ALBUMS, CACHE_ARTISTS, CACHE_PLAYLISTS, CACHE_RECENTLY_PLAYED, CACHE_HUBS, CACHE_LAST_FETCHED];
+
+let migrated = false;
+
+/**
+ * The library cache lives in its own encrypted MMKV instance. On first use, move any cache keys that an
+ * older build wrote into the default instance, then delete them there.
+ */
+function cacheStorage() {
+	const store = getLibraryStorage();
+	if (store && !migrated) {
+		migrated = true;
+		for (const key of [...SPLIT_KEYS, LEGACY_LIBRARY_KEY]) {
+			const value = defaultStorage.getString(key);
+			if (value != null) {
+				if (!store.contains(key)) store.set(key, value);
+				defaultStorage.remove(key);
+			}
+		}
+	}
+	return store;
+}
 
 interface LibraryCachePayload {
 	tracks: Song[];
@@ -35,13 +66,17 @@ function getStore() {
 
 export function saveLibraryToCache() {
 	try {
+		const storage = cacheStorage();
+		if (!storage) return;
 		const state = getStore().getState();
-		storage.set(CACHE_TRACKS, JSON.stringify(state.tracks));
-		storage.set(CACHE_ALBUMS, JSON.stringify(state.albums));
-		storage.set(CACHE_ARTISTS, JSON.stringify(state.artists));
-		storage.set(CACHE_PLAYLISTS, JSON.stringify(state.playlists));
-		storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(state.recentlyPlayed));
-		storage.set(CACHE_HUBS, JSON.stringify(state.hubs));
+		// Persist host- and token-free URLs (plex:/path); they are re-resolved on load.
+		const strip = toStoredPlexUrl;
+		storage.set(CACHE_TRACKS, JSON.stringify(state.tracks.map((s: Song) => mapSongUrls(s, strip))));
+		storage.set(CACHE_ALBUMS, JSON.stringify(state.albums.map((a: Album) => mapAlbumUrls(a, strip))));
+		storage.set(CACHE_ARTISTS, JSON.stringify(state.artists.map((a: Artist) => mapArtistUrls(a, strip))));
+		storage.set(CACHE_PLAYLISTS, JSON.stringify(state.playlists.map((p: Playlist) => mapPlaylistUrls(p, strip))));
+		storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(state.recentlyPlayed.map((s: Song) => mapSongUrls(s, strip))));
+		storage.set(CACHE_HUBS, JSON.stringify(state.hubs.map((h: HomeHub) => mapHubUrls(h, strip))));
 		storage.set(CACHE_LAST_FETCHED, String(Date.now()));
 	} catch (err) {
 		console.error('Failed to save library state:', err);
@@ -50,6 +85,8 @@ export function saveLibraryToCache() {
 
 export function loadLibraryFromCache(): LibraryCachePayload | null {
 	try {
+		const storage = cacheStorage();
+		if (!storage) return null;
 		const tracksRaw = storage.getString(CACHE_TRACKS);
 
 		if (tracksRaw) {
@@ -128,6 +165,17 @@ export function rehydrateLibraryStore(): boolean {
 
 	const store = getStore();
 
+	// Resolve stored plex:/ URLs against the current connection. Legacy caches stored full URLs with an
+	// old host/token: normalizing through toStoredPlexUrl first re-bases those too.
+	const resolveStored = resolverForCurrentConnection();
+	const resolve = (url: string | undefined) => resolveStored(toStoredPlexUrl(url));
+	cached.tracks = cached.tracks.map((s) => mapSongUrls(s, resolve));
+	cached.albums = cached.albums.map((a) => mapAlbumUrls(a, resolve));
+	cached.artists = cached.artists.map((a) => mapArtistUrls(a, resolve));
+	cached.playlists = cached.playlists.map((p) => mapPlaylistUrls(p, resolve));
+	cached.recentlyPlayed = cached.recentlyPlayed.map((s) => mapSongUrls(s, resolve));
+	cached.hubs = (cached.hubs ?? []).map((h) => mapHubUrls(h, resolve));
+
 	const songsById: Record<string, Song> = {};
 	for (const song of cached.tracks) {
 		if (!song?.id) continue;
@@ -170,13 +218,8 @@ export function rehydrateLibraryStore(): boolean {
 
 export function clearLibraryCache() {
 	try {
-		storage.remove(CACHE_TRACKS);
-		storage.remove(CACHE_ALBUMS);
-		storage.remove(CACHE_ARTISTS);
-		storage.remove(CACHE_PLAYLISTS);
-		storage.remove(CACHE_RECENTLY_PLAYED);
-		storage.remove(CACHE_HUBS);
-		storage.remove(CACHE_LAST_FETCHED);
+		cacheStorage()?.clearAll();
+		for (const key of [...SPLIT_KEYS, LEGACY_LIBRARY_KEY]) defaultStorage.remove(key);
 	} catch (err) {
 		console.error('Failed to clear library cache:', err);
 	}

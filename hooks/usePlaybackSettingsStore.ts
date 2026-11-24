@@ -37,7 +37,6 @@ function crossfadeCurveToNative(curve: CrossfadeCurve): 0 | 1 | 2 | 3 {
 
 /** null = Original (no bitrate cap). */
 export const STREAMING_BITRATE_KBPS_OPTIONS = [null, 320, 192, 128, 96] as const;
-export type StreamingBitrateKbpsChoice = (typeof STREAMING_BITRATE_KBPS_OPTIONS)[number];
 
 function encodeBitrateStorage(v: number | null): string {
 	return v === null ? 'original' : String(v);
@@ -111,7 +110,6 @@ interface PlaybackSettingsState {
 	streamingBitrateCellular: number | null;
 	/** Optional ceiling on top of Wi‑Fi/cellular when Plex transcodes (null = no extra cap). */
 	streamingTranscodeCapKbps: number | null;
-	downloadBitrateKbps: number | null;
 
 	crossfadeEnabled: boolean;
 	/** Fixed overlap seconds when adaptive is off; also caps range for adaptive heuristic. */
@@ -132,7 +130,6 @@ interface PlaybackSettingsState {
 	setStreamingBitrateWifi: (kbps: number | null) => void;
 	setStreamingBitrateCellular: (kbps: number | null) => void;
 	setStreamingTranscodeCapKbps: (kbps: number | null) => void;
-	setDownloadBitrateKbps: (kbps: number | null) => void;
 	setCrossfadeEnabled: (enabled: boolean) => void;
 	setCrossfadeDurationSec: (seconds: number) => void;
 	setCrossfadeAdaptiveEnabled: (enabled: boolean) => void;
@@ -167,7 +164,6 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	streamingBitrateWifi: 128,
 	streamingBitrateCellular: 128,
 	streamingTranscodeCapKbps: null,
-	downloadBitrateKbps: 128,
 	crossfadeEnabled: false,
 	crossfadeDurationSec: 4,
 	crossfadeAdaptiveEnabled: true,
@@ -207,7 +203,6 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 			let streamingBitrateWifi: number | null;
 			let streamingBitrateCellular: number | null;
 			let streamingTranscodeCapKbps: number | null;
-			let downloadBitrateKbps: number | null;
 
 			if (!storage.contains(STORAGE_STREAM_BITRATE_WIFI)) {
 				const legacy = storage.getString(STORAGE_LEGACY_STREAMING_QUALITY);
@@ -228,11 +223,9 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 					streamingBitrateCellular = 128;
 				}
 				streamingTranscodeCapKbps = null;
-				downloadBitrateKbps = 128;
 				storage.set(STORAGE_STREAM_BITRATE_WIFI, encodeBitrateStorage(streamingBitrateWifi));
 				storage.set(STORAGE_STREAM_BITRATE_CELLULAR, encodeBitrateStorage(streamingBitrateCellular));
 				storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(null));
-				storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(128));
 			} else {
 				streamingBitrateWifi = decodeBitrateStorage(storage.getString(STORAGE_STREAM_BITRATE_WIFI));
 				streamingBitrateCellular = storage.contains(STORAGE_STREAM_BITRATE_CELLULAR)
@@ -247,13 +240,10 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 				if (!storage.contains(STORAGE_STREAM_TRANSCODE_CAP)) {
 					storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(null));
 				}
-				if (!storage.contains(STORAGE_DOWNLOAD_BITRATE)) {
-					downloadBitrateKbps = 128;
-					storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(128));
-				} else {
-					downloadBitrateKbps = decodeBitrateStorage(storage.getString(STORAGE_DOWNLOAD_BITRATE));
-				}
 			}
+
+			// The download-quality setting was removed (downloads always fetch the original file).
+			storage.remove(STORAGE_DOWNLOAD_BITRATE);
 
 			set({
 				hydrated: true,
@@ -266,7 +256,6 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 				streamingBitrateWifi,
 				streamingBitrateCellular,
 				streamingTranscodeCapKbps,
-				downloadBitrateKbps,
 				crossfadeEnabled,
 				crossfadeDurationSec: Number.isFinite(crossfadeDurationSec) ? crossfadeDurationSec : 4,
 				crossfadeAdaptiveEnabled,
@@ -360,11 +349,6 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsState>((set, get)
 	setStreamingTranscodeCapKbps: (kbps: number | null) => {
 		set({ streamingTranscodeCapKbps: kbps });
 		storage.set(STORAGE_STREAM_TRANSCODE_CAP, encodeBitrateStorage(kbps));
-	},
-
-	setDownloadBitrateKbps: (kbps: number | null) => {
-		set({ downloadBitrateKbps: kbps });
-		storage.set(STORAGE_DOWNLOAD_BITRATE, encodeBitrateStorage(kbps));
 	},
 
 	setCrossfadeEnabled: (enabled: boolean) => {

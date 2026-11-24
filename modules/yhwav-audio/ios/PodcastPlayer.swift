@@ -84,7 +84,7 @@ final class PodcastPlayer {
 		player.replaceCurrentItem(with: item)
 		player.volume = _volume
 
-		print("YhwavAudio: podcast play trackId=\(trackId) startAt=\(startAt.map { String(format: "%.1f", $0) } ?? "nil")")
+		yhLog("YhwavAudio: podcast play trackId=\(trackId) startAt=\(startAt.map { String(format: "%.1f", $0) } ?? "nil")")
 
 		statusObserver = item.observe(\.status, options: [.new, .initial]) { [weak self] observedItem, _ in
 			guard let self = self else { return }
@@ -93,7 +93,7 @@ final class PodcastPlayer {
 				self.applyPendingSeekAndStartIfNeeded()
 			case .failed:
 				let msg = observedItem.error?.localizedDescription ?? "Podcast failed to load"
-				print("YhwavAudio: podcast item failed trackId=\(trackId): \(msg)")
+				yhLog("YhwavAudio: podcast item failed trackId=\(trackId): \(msg)")
 				self.delegate?.podcastPlayer(self, didEncounterError: msg, trackId: trackId)
 			default:
 				break
@@ -104,7 +104,7 @@ final class PodcastPlayer {
 			forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
 		) { [weak self] _ in
 			guard let self = self, let tid = self.currentTrackId else { return }
-			print("YhwavAudio: podcast ended trackId=\(tid)")
+			yhLog("YhwavAudio: podcast ended trackId=\(tid)")
 			self.shouldBePlaying = false
 			self.delegate?.podcastPlayer(self, didFinishTrack: tid)
 		}
@@ -115,7 +115,7 @@ final class PodcastPlayer {
 			guard let self = self, let tid = self.currentTrackId else { return }
 			let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
 			let msg = err?.localizedDescription ?? "Podcast stalled"
-			print("YhwavAudio: podcast failed to play to end trackId=\(tid): \(msg)")
+			yhLog("YhwavAudio: podcast failed to play to end trackId=\(tid): \(msg)")
 			self.delegate?.podcastPlayer(self, didEncounterError: msg, trackId: tid)
 		}
 	}

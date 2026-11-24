@@ -1,7 +1,8 @@
 import { fetch } from 'expo/fetch';
-import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
+import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
+import { deleteSecret, getSecret, setSecret } from '@/lib/secureStorage';
 import { storage } from '@/lib/storage';
 import { type PlexServer, plexDiscoveryService } from './plex-discovery';
 import { buildPlexIdentityHeaders } from './plex-identity';
@@ -35,17 +36,27 @@ export interface PlexPinStatus {
 	code?: string;
 }
 
+/** Keychain key for the Plex token. The rest of the auth state lives in MMKV without the token. */
+const TOKEN_SECRET_KEY = 'plex_access_token';
+const AUTH_STATE_KEY = 'plex_auth_state';
+
+type UserInfoResult =
+	| { status: 'valid'; user: { username: string; email: string; avatarUrl?: string } }
+	| { status: 'invalid' }
+	| { status: 'unreachable' };
+
 export class PlexAuthService {
 	private static instance: PlexAuthService;
 	private authState: PlexAuthState = {
 		isAuthenticated: false,
 		servers: [],
 	};
-	private clientIdentifier: string | null = null;
 	private serverChangeListeners = new Set<() => void>();
 
 	private constructor() {
-		this.clientIdentifier = this.getOrCreateClientIdentifierFromStorage();
+		// Make the stored server/token available immediately (no network) so stores that hydrate before the
+		// root init runs can resolve cached Plex URLs.
+		this.loadStoredAuthState();
 	}
 
 	static getInstance(): PlexAuthService {
@@ -67,7 +78,6 @@ export class PlexAuthService {
 			}
 
 			const platform = Platform.OS;
-			const _deviceId = Device.modelId || 'unknown';
 			const timestamp = Date.now();
 			const random = Math.random().toString(36).substring(2, 10);
 			const identifier = `rite-${platform}-${timestamp}-${random}`;
@@ -84,9 +94,7 @@ export class PlexAuthService {
 	 * Stable Plex client id for this install (persisted). Use for all Plex API and PMS requests.
 	 */
 	getClientIdentifier(): string {
-		const id = this.getOrCreateClientIdentifierFromStorage();
-		this.clientIdentifier = id;
-		return id;
+		return this.getOrCreateClientIdentifierFromStorage();
 	}
 
 	/**
@@ -208,7 +216,12 @@ export class PlexAuthService {
 	/**
 	 * Login with PIN-based OAuth flow
 	 */
-	async loginWithPin(onPinReceived?: (pinCode: string) => void, onStatusUpdate?: (status: string) => void): Promise<PlexLoginResult> {
+	async loginWithPin(
+		onPinReceived?: (pinCode: string) => void,
+		onStatusUpdate?: (status: string) => void,
+		signal?: AbortSignal,
+	): Promise<PlexLoginResult> {
+		const cancelled: PlexLoginResult = { success: false, error: 'cancelled' };
 		try {
 			onStatusUpdate?.('Requesting PIN...');
 			const pinResult = await this.requestPlexPin();
@@ -220,6 +233,7 @@ export class PlexAuthService {
 				};
 			}
 
+			if (signal?.aborted) return cancelled;
 			onPinReceived?.(pinResult.pinCode);
 			onStatusUpdate?.('Opening browser for authorization...');
 
@@ -234,6 +248,8 @@ export class PlexAuthService {
 
 			for (let attempt = 0; attempt < maxAttempts; attempt++) {
 				await new Promise((resolve) => setTimeout(resolve, pollInterval));
+				// Stop polling plex.tv once the user has left the sign-in screen.
+				if (signal?.aborted) return cancelled;
 
 				const pinStatus = await this.pollPinStatus(pinResult.pinId);
 				if (pinStatus?.authToken) {
@@ -270,13 +286,20 @@ export class PlexAuthService {
 			console.log('🔐 Logging in with Plex token...');
 
 			// First, verify the token by getting user info
-			const userInfo = await this.getUserInfo(plexToken);
-			if (!userInfo) {
+			const userResult = await this.getUserInfo(plexToken);
+			if (userResult.status === 'invalid') {
 				return {
 					success: false,
 					error: 'Invalid Plex token. Please check your token and try again.',
 				};
 			}
+			if (userResult.status === 'unreachable') {
+				return {
+					success: false,
+					error: 'Could not reach plex.tv. Check your connection and try again.',
+				};
+			}
+			const userInfo = userResult.user;
 
 			// Discover available servers
 			const discoveryResult = await plexDiscoveryService.discoverServers(plexToken);
@@ -287,26 +310,25 @@ export class PlexAuthService {
 				};
 			}
 
-			// Test connection to recommended server (with authentication)
-			const recommendedServer = discoveryResult.recommendedServer;
-			if (recommendedServer) {
-				const isConnected = await plexDiscoveryService.testServerConnection(recommendedServer, plexToken);
-				if (!isConnected) {
-					console.warn('⚠️ Recommended server connection failed, trying other servers...');
-
-					// Try other servers
-					for (const server of discoveryResult.servers) {
-						if (server.id !== recommendedServer.id) {
-							const connected = await plexDiscoveryService.testServerConnection(server, plexToken);
-							if (connected) {
-								recommendedServer.id = server.id;
-								recommendedServer.uri = server.uri;
-								recommendedServer.serverId = server.serverId;
-								break;
-							}
-						}
+			// Pick a server that actually answers. Select the server object itself; never copy fields from one
+			// server onto another (that left duplicate ids and a wrong name/connection list).
+			let recommendedServer = discoveryResult.recommendedServer;
+			if (recommendedServer && !(await plexDiscoveryService.testServerConnection(recommendedServer, plexToken))) {
+				console.warn('⚠️ Recommended server connection failed, trying other servers...');
+				for (const server of discoveryResult.servers) {
+					if (server.id === recommendedServer.id) continue;
+					if (await plexDiscoveryService.testServerConnection(server, plexToken)) {
+						recommendedServer = server;
+						break;
 					}
 				}
+			}
+
+			// Signing into a different account without logging out: drop the previous account's data.
+			const previousUsername = this.authState.username;
+			if (this.authState.isAuthenticated && previousUsername && previousUsername !== userInfo.username) {
+				const { resetUserData } = require('@/utils/session-reset');
+				await resetUserData();
 			}
 
 			// Update auth state
@@ -343,48 +365,66 @@ export class PlexAuthService {
 	}
 
 	/**
-	 * Get user information from Plex API (username, email, avatar)
+	 * Get user information from Plex API (username, email, avatar).
+	 * Distinguishes a rejected token (401/403) from plex.tv being unreachable (network error / 5xx),
+	 * so callers only sign the user out when the token is actually invalid.
 	 */
-	private async getUserInfo(plexToken: string): Promise<{ username: string; email: string; avatarUrl?: string } | null> {
+	private async getUserInfo(plexToken: string): Promise<UserInfoResult> {
+		let response: Awaited<ReturnType<typeof fetch>>;
 		try {
-			const response = await fetch('https://plex.tv/api/v2/user', {
+			response = await fetch('https://plex.tv/api/v2/user', {
 				method: 'GET',
 				headers: {
 					'X-Plex-Token': plexToken,
 					Accept: 'application/json',
 				},
 			});
+		} catch (error) {
+			console.warn('Plex user check failed (unreachable):', error);
+			return { status: 'unreachable' };
+		}
 
-			if (!response.ok) {
-				return null;
-			}
+		if (response.status === 401 || response.status === 403) {
+			return { status: 'invalid' };
+		}
+		if (!response.ok) {
+			return { status: 'unreachable' };
+		}
 
+		try {
 			const data = await response.json();
 			let avatarUrl: string | undefined = data.thumb;
 
 			// /api/v2/user may not include thumb; /api/v2/home/user does
 			if (!avatarUrl) {
-				const homeRes = await fetch('https://plex.tv/api/v2/home/user', {
-					method: 'GET',
-					headers: {
-						'X-Plex-Token': plexToken,
-						Accept: 'application/json',
-					},
-				});
-				if (homeRes.ok) {
-					const homeData = await homeRes.json();
-					avatarUrl = homeData.thumb;
+				try {
+					const homeRes = await fetch('https://plex.tv/api/v2/home/user', {
+						method: 'GET',
+						headers: {
+							'X-Plex-Token': plexToken,
+							Accept: 'application/json',
+						},
+					});
+					if (homeRes.ok) {
+						const homeData = await homeRes.json();
+						avatarUrl = homeData.thumb;
+					}
+				} catch {
+					// Avatar is optional
 				}
 			}
 
 			return {
-				username: data.username,
-				email: data.email,
-				avatarUrl: avatarUrl ?? undefined,
+				status: 'valid',
+				user: {
+					username: data.username,
+					email: data.email,
+					avatarUrl: avatarUrl ?? undefined,
+				},
 			};
 		} catch (error) {
-			console.error('Failed to get user info:', error);
-			return null;
+			console.warn('Plex user check returned an unreadable response:', error);
+			return { status: 'unreachable' };
 		}
 	}
 
@@ -478,64 +518,105 @@ export class PlexAuthService {
 	/**
 	 * Logout and clear authentication state
 	 */
-	async logout(): Promise<void> {
+	async logout(options: { removeDownloads?: boolean } = {}): Promise<void> {
+		// Wipe account-scoped data first so nothing from this account outlives the session.
+		const { resetUserData } = require('@/utils/session-reset');
+		await resetUserData(options);
+
 		this.authState = {
 			isAuthenticated: false,
 			servers: [],
 		};
 
-		storage.remove('plex_auth_state');
+		storage.remove(AUTH_STATE_KEY);
 		storage.remove('plex_servers_cache');
+		await deleteSecret(TOKEN_SECRET_KEY);
 
-		await plexDiscoveryService.clearCache();
 		this.notifyServerChange();
 
 		// console.log('✅ Logged out successfully');
 	}
 
 	/**
-	 * Load authentication state from storage
+	 * Synchronously load the persisted auth state into memory (no network).
+	 * Returns true when a signed-in state with a token was found.
 	 */
-	async loadAuthState(): Promise<boolean> {
+	loadStoredAuthState(): boolean {
 		try {
-			const stored = storage.getString('plex_auth_state');
-			if (stored) {
-				const data = JSON.parse(stored);
-				this.authState = data;
+			const stored = storage.getString(AUTH_STATE_KEY);
+			if (!stored) return false;
+			const parsed: PlexAuthState = JSON.parse(stored);
 
-				// Verify the stored state is still valid
-				if (this.authState.accessToken) {
-					const userInfo = await this.getUserInfo(this.authState.accessToken);
-					if (userInfo) {
-						// Refresh username, email, avatar from API (e.g. avatar not in old stored state)
-						this.authState.username = userInfo.username;
-						this.authState.email = userInfo.email;
-						if (userInfo.avatarUrl) this.authState.avatarUrl = userInfo.avatarUrl;
-						this.saveAuthState();
-
-						// console.log('✅ Loaded authentication state from storage');
-
-						// If persisted server is missing connections (old format), refresh before proceeding
-						if (this.authState.selectedServer && !this.authState.selectedServer.connections?.length) {
-							console.log('🔄 Refreshing servers to populate connections...');
-							try {
-								await this.refreshServers();
-							} catch (err) {
-								console.warn('Server refresh failed:', err);
-							}
-						}
-
-						return true;
-					} else {
-						// Token is invalid, clear state
-						await this.logout();
-					}
+			let token = getSecret(TOKEN_SECRET_KEY) ?? undefined;
+			if (parsed.accessToken) {
+				// Legacy format kept the token in plaintext MMKV: move it to the Keychain and strip it.
+				if (!token) token = parsed.accessToken;
+				if (setSecret(TOKEN_SECRET_KEY, token)) {
+					const { accessToken: _legacy, ...rest } = parsed;
+					storage.set(AUTH_STATE_KEY, JSON.stringify(rest));
 				}
 			}
+
+			this.authState = { ...parsed, accessToken: token };
+			return !!this.authState.accessToken && this.authState.isAuthenticated;
 		} catch (error) {
-			console.error('Failed to load auth state:', error);
+			console.error('Failed to read stored auth state:', error);
+			return false;
 		}
-		return false;
+	}
+
+	/**
+	 * Verify the in-memory token against plex.tv. Only an explicit rejection (401/403) signs the user
+	 * out; if plex.tv is unreachable (no network, outage) or offline mode is on, the stored state is kept
+	 * so cached/downloaded music still works. Returns whether the user is still authenticated.
+	 */
+	async validateStoredAuth(): Promise<boolean> {
+		if (!this.authState.accessToken) return false;
+
+		// Offline mode: trust the stored state without contacting plex.tv
+		if (getIsOfflineMode()) return this.authState.isAuthenticated;
+
+		try {
+			const userResult = await this.getUserInfo(this.authState.accessToken);
+			if (userResult.status === 'invalid') {
+				console.warn('Stored Plex token was rejected; signing out');
+				await this.logout();
+				return false;
+			}
+			if (userResult.status === 'unreachable') {
+				return this.authState.isAuthenticated;
+			}
+
+			// Refresh username, email, avatar from API (e.g. avatar not in old stored state)
+			const userInfo = userResult.user;
+			this.authState.username = userInfo.username;
+			this.authState.email = userInfo.email;
+			if (userInfo.avatarUrl) this.authState.avatarUrl = userInfo.avatarUrl;
+			this.saveAuthState();
+
+			// If persisted server is missing connections (old format), refresh before proceeding
+			if (this.authState.selectedServer && !this.authState.selectedServer.connections?.length) {
+				console.log('🔄 Refreshing servers to populate connections...');
+				try {
+					await this.refreshServers();
+				} catch (err) {
+					console.warn('Server refresh failed:', err);
+				}
+			}
+
+			return true;
+		} catch (error) {
+			console.error('Failed to validate auth state:', error);
+			return this.authState.isAuthenticated;
+		}
+	}
+
+	/**
+	 * Load the persisted auth state and validate it against plex.tv.
+	 */
+	async loadAuthState(): Promise<boolean> {
+		if (!this.loadStoredAuthState()) return false;
+		return this.validateStoredAuth();
 	}
 
 	/**
@@ -543,18 +624,12 @@ export class PlexAuthService {
 	 */
 	private saveAuthState(): void {
 		try {
-			storage.set('plex_auth_state', JSON.stringify(this.authState));
+			const { accessToken, ...rest } = this.authState;
+			if (accessToken) setSecret(TOKEN_SECRET_KEY, accessToken);
+			// The token never goes into MMKV; it is stored in the Keychain only.
+			storage.set(AUTH_STATE_KEY, JSON.stringify(rest));
 		} catch (error) {
 			console.error('Failed to save auth state:', error);
-		}
-	}
-
-	/**
-	 * Update server configuration when a new server is selected
-	 */
-	async updateServerConfiguration(): Promise<void> {
-		if (this.authState.selectedServer) {
-			await plexDiscoveryService.updateServerConfiguration(this.authState.selectedServer);
 		}
 	}
 }

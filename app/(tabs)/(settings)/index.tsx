@@ -27,16 +27,16 @@ export default function SettingsScreen() {
 	const [authState, setAuthState] = useState(plexAuthService.getAuthState());
 	const [refreshing, setRefreshing] = useState(false);
 
+	// Pull-to-refresh re-validates the token against plex.tv (user-initiated).
 	const refreshAuthState = useCallback(async () => {
-		const loaded = await plexAuthService.loadAuthState();
-		if (loaded) {
-			setAuthState(plexAuthService.getAuthState());
-		}
+		await plexAuthService.validateStoredAuth();
+		setAuthState(plexAuthService.getAuthState());
 	}, []);
 
+	// On mount, just read the in-memory state (validated at app start).
 	useEffect(() => {
-		refreshAuthState();
-	}, [refreshAuthState]);
+		setAuthState(plexAuthService.getAuthState());
+	}, []);
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
@@ -50,9 +50,25 @@ export default function SettingsScreen() {
 			{
 				text: 'Logout',
 				style: 'destructive',
-				onPress: async () => {
-					await plexAuthService.logout();
-					setAuthState(plexAuthService.getAuthState());
+				onPress: () => {
+					// Library, queue and caches are always cleared; downloads only if the user wants.
+					Alert.alert('Remove downloads?', 'Also delete downloaded music and podcast episodes from this device?', [
+						{
+							text: 'Keep Downloads',
+							onPress: async () => {
+								await plexAuthService.logout();
+								setAuthState(plexAuthService.getAuthState());
+							},
+						},
+						{
+							text: 'Remove',
+							style: 'destructive',
+							onPress: async () => {
+								await plexAuthService.logout({ removeDownloads: true });
+								setAuthState(plexAuthService.getAuthState());
+							},
+						},
+					]);
 				},
 			},
 		]);
@@ -108,9 +124,13 @@ export default function SettingsScreen() {
 				<SettingsRow label='Appearance' icon='paintbrush' onPress={() => router.push('/(tabs)/(settings)/appearance')} />
 				<SettingsRow label='Playback' icon='waveform' onPress={() => router.push('/(tabs)/(settings)/playback')} />
 				<SettingsRow label='Storage & Data' icon='externaldrive' onPress={() => router.push('/(tabs)/(settings)/storage')} />
-				{/* {__DEV__ && ( */}
-				<SettingsRow label='Developer' icon='wrench.and.screwdriver' onPress={() => router.push('/(tabs)/(settings)/developer')} />
-				{/* )} */}
+				{__DEV__ && (
+					<SettingsRow
+						label='Developer'
+						icon='wrench.and.screwdriver'
+						onPress={() => router.push('/(tabs)/(settings)/developer')}
+					/>
+				)}
 			</Div>
 		</Main>
 	);

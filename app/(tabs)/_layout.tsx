@@ -4,7 +4,8 @@ import { useColors } from '@/hooks/useColors';
 
 export default function TabLayout() {
 	const colors = useColors();
-	const { showPodcastsTab, showMusicTab } = useAppearanceStore();
+	const showPodcastsTab = useAppearanceStore((s) => s.showPodcastsTab);
+	const showMusicTab = useAppearanceStore((s) => s.showMusicTab);
 
 	return (
 		<NativeTabs minimizeBehavior='onScrollDown' tintColor={colors.brand}>

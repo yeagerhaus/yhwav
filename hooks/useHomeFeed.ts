@@ -217,7 +217,7 @@ export function useHomeFeed(): HomeFeedItem[] {
 		// 5. Fallback filler (older servers with no hubs / thin feed): recent playlists.
 		if (items.length < MAX_ITEMS) {
 			const recentPlaylists = [...playlists]
-				.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null)
+				.filter((p) => p.playlistType === 'audio')
 				.sort((a, b) => (b.lastViewedAt ?? 0) - (a.lastViewedAt ?? 0))
 				.slice(0, MAX_ITEMS);
 			for (const pl of recentPlaylists) {

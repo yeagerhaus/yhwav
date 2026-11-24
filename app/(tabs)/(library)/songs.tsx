@@ -1,5 +1,5 @@
 import { FlashList } from '@shopify/flash-list';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { SkeletonList, SkeletonSongRow } from '@/components/Skeletons';
@@ -8,7 +8,6 @@ import { clearCacheAndReload } from '@/utils/cache';
 
 export default function SongsScreen() {
 	const { tracks } = useOfflineFilteredLibrary();
-	const [sortedSongs, setSortedSongs] = useState<typeof tracks>([]);
 	const [refreshing, setRefreshing] = useState(false);
 
 	const onRefresh = useCallback(async () => {
@@ -17,64 +16,9 @@ export default function SongsScreen() {
 		setRefreshing(false);
 	}, []);
 
-	// Defer sorting for large lists to prevent UI freeze - use chunked sorting
-	useEffect(() => {
-		if (tracks.length === 0) {
-			setSortedSongs([]);
-			return;
-		}
-
-		// For very large lists, sort in chunks to prevent blocking
-		if (tracks.length > 5000) {
-			// Use chunked sorting for massive libraries
-			const sortInChunks = () => {
-				const CHUNK_SIZE = 2000; // Smaller chunks
-				const sorted: typeof tracks = [];
-				let chunkIndex = 0;
-
-				const sortChunk = () => {
-					const start = chunkIndex * CHUNK_SIZE;
-					const end = Math.min(start + CHUNK_SIZE, tracks.length);
-					const chunk = tracks.slice(start, end);
-					const sortedChunk = chunk.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
-					sorted.push(...sortedChunk);
-
-					chunkIndex++;
-
-					if (end < tracks.length) {
-						// Update with what we have so far (no copy - use reference)
-						setSortedSongs(sorted);
-						// Longer delay for very large lists
-						setTimeout(sortChunk, tracks.length > 20000 ? 20 : 10);
-					} else {
-						// Final sort of all chunks together
-						// For huge lists, this might still be slow, so do it async
-						setTimeout(() => {
-							const finalSorted = sorted.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
-							setSortedSongs(finalSorted);
-						}, 0);
-					}
-				};
-
-				setTimeout(sortChunk, 0);
-			};
-
-			sortInChunks();
-		} else if (tracks.length > 1000) {
-			// Medium lists - sort asynchronously
-			const sortTimer = setTimeout(() => {
-				const sorted = [...tracks].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
-				setSortedSongs(sorted);
-			}, 0);
-			return () => clearTimeout(sortTimer);
-		} else {
-			// Small lists can be sorted synchronously
-			const sorted = [...tracks].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
-			setSortedSongs(sorted);
-		}
-	}, [tracks]);
-
-	const songs = sortedSongs;
+	// Plex already returns tracks sorted by titleSort (handles leading articles); offline filtering keeps
+	// that order, so no client-side sort is needed.
+	const songs = tracks;
 
 	const renderItem = useCallback(
 		({ item }: { item: (typeof songs)[0] }) => <DynamicItem item={item} type='song' queue={songs} />,

@@ -10,8 +10,6 @@ export * from './HeroCard';
 export * from './HomeSection';
 export * from './Main';
 export * from './MusicVisualizer';
-export * from './Overlay/OverlayContext';
-export * from './Overlay/OverlayProvider';
 export * from './PerformanceDebugger';
 export * from './SearchItem';
 export * from './Splash';

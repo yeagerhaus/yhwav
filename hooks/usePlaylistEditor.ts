@@ -2,6 +2,16 @@ import { useCallback, useRef, useState } from 'react';
 import type { Song } from '@/types/song';
 import { fetchPlaylistTracks, movePlaylistItem, removeFromPlaylist } from '@/utils/plex';
 
+/** Thrown when a save fails partway; carries the playlist as it now exists on the server. */
+export class PlaylistSaveError extends Error {
+	constructor(
+		readonly cause: unknown,
+		readonly freshTracks: Song[] | null,
+	) {
+		super('Some playlist changes could not be saved');
+	}
+}
+
 /**
  * @param ratingKey - Numeric playlist ID used for CRUD API calls (e.g. "12345")
  * @param playlistKey - Full key path used for fetching tracks (e.g. "/playlists/12345/items")
@@ -79,6 +89,17 @@ export function usePlaylistEditor(ratingKey: string, playlistKey: string) {
 			originalRef.current = [];
 
 			return freshTracks;
+		} catch (error) {
+			// A removal or move failed partway: what landed on the server no longer matches either the
+			// original or the edit. Re-sync from the server and leave edit mode so state can't drift.
+			let freshTracks: Song[] | null = null;
+			try {
+				freshTracks = await fetchPlaylistTracks(playlistKey);
+			} catch {}
+			setIsEditing(false);
+			setEditedTracks([]);
+			originalRef.current = [];
+			throw new PlaylistSaveError(error, freshTracks);
 		} finally {
 			setIsSaving(false);
 		}

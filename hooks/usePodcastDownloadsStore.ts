@@ -1,5 +1,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
+import {
+	downloadsDirUri,
+	findMissingDownloads,
+	prepareDownloadsDir,
+	toAbsoluteDownloadUri,
+	toRelativeDownloadPath,
+} from '@/lib/downloadPaths';
 import { storage } from '@/lib/storage';
 import type { PodcastDownload, PodcastEpisode, PodcastFeed } from '@/types/podcast';
 
@@ -43,8 +50,34 @@ interface PodcastDownloadsState {
 }
 
 function persistDownloads(downloads: Record<string, PodcastDownload>) {
-	const list = Object.values(downloads);
+	// Persist relative paths only; absolute container paths can change across reinstalls/updates.
+	const list = Object.values(downloads).map(({ localUri, ...rest }) => ({
+		...rest,
+		fileName: rest.fileName ?? toRelativeDownloadPath(localUri, 'podcasts'),
+	}));
 	storage.set(STORAGE_KEY, JSON.stringify(list));
+}
+
+/**
+ * Older builds kept a separate resume position on each download record (rewritten every few seconds
+ * during playback). Resume now lives only in the progress store; copy any newer legacy value over once.
+ */
+function migrateLegacyResumePositions(downloads: Record<string, PodcastDownload>): Record<string, PodcastDownload> | null {
+	const legacy = Object.values(downloads).filter((d) => d.resumeAt != null);
+	if (legacy.length === 0) return null;
+	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+	const progressStore = usePodcastProgressStore.getState();
+	for (const d of legacy) {
+		if ((d.resumeAt ?? 0) <= 10) continue;
+		const existing = progressStore.getProgress(d.episodeId);
+		if (!existing || (!existing.completed && existing.position < (d.resumeAt ?? 0))) {
+			progressStore.saveProgress(d.episodeId, d.resumeAt, existing?.duration || d.durationSeconds || 0);
+		}
+	}
+	const next = { ...downloads };
+	for (const d of legacy) next[d.episodeId] = { ...d, resumeAt: undefined };
+	persistDownloads(next);
+	return next;
 }
 
 /** Bounded parallelism so batch-downloading a feed doesn't open dozens of simultaneous connections. */
@@ -78,11 +111,31 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 			}
 			const list: PodcastDownload[] = JSON.parse(raw);
 			const downloads: Record<string, PodcastDownload> = {};
+			let hadLegacyRecords = false;
 			for (const d of list) {
-				const withId = d.id ? d : { ...d, id: d.episodeId };
-				downloads[d.episodeId] = withId;
+				if (!d.fileName) hadLegacyRecords = true;
+				const rel = d.fileName ?? toRelativeDownloadPath(d.localUri, 'podcasts');
+				downloads[d.episodeId] = { ...d, id: d.id ?? d.episodeId, fileName: rel, localUri: toAbsoluteDownloadUri(rel) };
 			}
-			set({ downloads, hydrated: true });
+			const migrated = migrateLegacyResumePositions(downloads);
+			set({ downloads: migrated ?? downloads, hydrated: true });
+			void (async () => {
+				// Exclude from backup, drop records whose file is gone, migrate legacy absolute paths.
+				await prepareDownloadsDir('podcasts');
+				const rels = Object.values(get().downloads).map((d) => d.fileName ?? toRelativeDownloadPath(d.localUri, 'podcasts'));
+				const missing = await findMissingDownloads(rels);
+				if (missing.size > 0) {
+					const next = { ...get().downloads };
+					for (const d of Object.values(next)) {
+						if (d.fileName && missing.has(d.fileName)) delete next[d.episodeId];
+					}
+					console.warn(`Dropped ${missing.size} podcast download record(s) with missing files`);
+					set({ downloads: next });
+					persistDownloads(next);
+				} else if (hadLegacyRecords) {
+					persistDownloads(get().downloads);
+				}
+			})();
 		} catch {
 			set({ hydrated: true });
 		}
@@ -99,7 +152,7 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 
 		return new Promise<void>((resolve, reject) => {
 			podcastDownloadQueue.push(async () => {
-				const dir = `${FileSystem.documentDirectory ?? ''}podcasts`;
+				const dir = downloadsDirUri('podcasts');
 				const ext = extensionFromUrl(episode.enclosureUrl);
 				const filename = `${safeSegment(episode.id)}${ext}`;
 				const localPath = `${dir}/${filename}`;
@@ -113,6 +166,7 @@ export const usePodcastDownloadsStore = create<PodcastDownloadsState>((set, get)
 						id: episode.id,
 						feedId: episode.feedId,
 						localUri: uri,
+						fileName: `podcasts/${filename}`,
 						title: episode.title,
 						showTitle: feed.title ?? feed.url ?? 'Show',
 						pubDate: episode.pubDate,

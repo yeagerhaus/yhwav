@@ -305,7 +305,7 @@ const PodcastEpisodeItem = React.memo(
 		prev.showTitle === next.showTitle &&
 		prev.listItem === next.listItem &&
 		prev.feed?.id === next.feed?.id &&
-		prev.queue?.length === next.queue?.length,
+		prev.queue === next.queue,
 );
 
 PodcastEpisodeItem.displayName = 'PodcastEpisodeItem';

@@ -1,8 +1,18 @@
-import 'dotenv/config';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ConfigContext, ExpoConfig } from '@expo/config';
+import { type ConfigPlugin, withEntitlementsPlist } from 'expo/config-plugins';
+
+/**
+ * The app only schedules local notifications, so it doesn't need the push (APNs) entitlement that the
+ * expo-notifications plugin adds. Strip it so prebuild doesn't re-introduce it.
+ */
+const withoutPushEntitlement: ConfigPlugin = (config) =>
+	withEntitlementsPlist(config, (mod) => {
+		delete mod.modResults['aps-environment'];
+		return mod;
+	});
 
 function getBaseVersion(): string {
 	const pkgPath = join(process.cwd(), 'package.json');
@@ -28,14 +38,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 	const commitCount = getCommitCount();
 	const version = `${baseVersion}.${commitCount}`;
 
-	return {
+	return withoutPushEntitlement({
 		...config,
 		name: 'Rite',
 		slug: 'rite',
 		version,
 		orientation: 'portrait',
 		icon: './assets/images/riteIcon.png',
-		scheme: 'myapp',
+		scheme: 'rite',
 		userInterfaceStyle: 'automatic',
 		backgroundColor: '#080808',
 		ios: {
@@ -44,17 +54,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 			backgroundColor: '#080808',
 			buildNumber: commitCount,
 			infoPlist: {
-				UIBackgroundModes: ['fetch', 'audio'],
+				UIBackgroundModes: ['audio', 'processing'],
+				NSLocalNetworkUsageDescription: 'Rite connects to Plex Media Servers on your local network to stream your music.',
 			},
 		},
 		android: {
 			...(typeof config.android === 'object' && config.android ? config.android : {}),
 			versionCode: Number.parseInt(commitCount, 10),
-		},
-		web: {
-			bundler: 'metro',
-			output: 'static',
-			favicon: './assets/images/favicon.png',
 		},
 		plugins: [
 			'expo-router',
@@ -76,6 +82,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 			'expo-image',
 			'expo-status-bar',
 			'expo-font',
+			'expo-secure-store',
+			'expo-background-task',
 		],
 		experiments: {
 			typedRoutes: true,
@@ -83,5 +91,5 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 		extra: {
 			...config.extra,
 		},
-	};
+	});
 };

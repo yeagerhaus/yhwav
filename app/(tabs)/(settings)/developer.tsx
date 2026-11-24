@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Redirect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet, Switch } from 'react-native';
 import { Div, Text } from '@/components';
@@ -16,7 +17,13 @@ const SCRUBBER_OPTIONS: { value: ScrubberStyle; label: string }[] = [
 	{ value: 'smooth', label: 'Smooth' },
 ];
 
+/** Developer tools are debug-only; release builds (or a deep link) are sent back to Settings. */
 export default function DeveloperScreen() {
+	if (!__DEV__) return <Redirect href='/(tabs)/(settings)' />;
+	return <DeveloperScreenContent />;
+}
+
+function DeveloperScreenContent() {
 	const colors = useColors();
 	const showPerformanceDebugger = useDevSettingsStore((state) => state.showPerformanceDebugger);
 	const setShowPerformanceDebugger = useDevSettingsStore((state) => state.setShowPerformanceDebugger);

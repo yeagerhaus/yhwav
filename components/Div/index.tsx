@@ -64,7 +64,7 @@ function GlassDiv({
 	...restProps
 }: Omit<DivProps, 'transparent' | 'useGlass'>) {
 	const colorScheme = useColorScheme() ?? 'dark';
-	const { useBlurInsteadOfGlass } = useAppearanceStore();
+	const useBlurInsteadOfGlass = useAppearanceStore((s) => s.useBlurInsteadOfGlass);
 	const systemTint: BlurViewProps['tint'] = colorScheme === 'dark' ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight';
 
 	const showGradient = gradients?.length && (!!useBlurInsteadOfGlass || showGradients);

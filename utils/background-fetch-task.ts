@@ -1,16 +1,18 @@
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import { storage } from '@/lib/storage';
+import { getLibraryStorage, storage } from '@/lib/storage';
 import type { PodcastEpisode } from '@/types';
-import { fetchAndParseFeed } from '@/utils/podcast-rss';
+import { capEpisodesForCache, fetchAndParseFeed } from '@/utils/podcast-rss';
 
-export const BACKGROUND_FETCH_TASK = 'background-episode-and-library-check';
+export const BACKGROUND_FETCH_TASK = 'background-refresh-task';
+/** Task name used with the deprecated expo-background-fetch; unregistered on upgrade. */
+const LEGACY_BACKGROUND_FETCH_TASK = 'background-episode-and-library-check';
+const OFFLINE_MODE_KEY = 'OFFLINE_MODE';
 
 const FEEDS_KEY = 'PODCAST_RSS_FEEDS';
 const EPISODES_CACHE_KEY = 'PODCAST_EPISODES_CACHE';
 const CACHE_RECENTLY_PLAYED = 'CACHE_RECENTLY_PLAYED';
-const AUTH_KEY = 'plex_auth_state';
 
 interface PersistedFeed {
 	id: string;
@@ -38,12 +40,19 @@ async function checkForNewEpisodes(): Promise<boolean> {
 
 	let foundNew = false;
 	const updatedEpisodes = { ...cachedEpisodes };
+	// Persist after every feed: the OS can kill a background task mid-run, and anything notified but not
+	// recorded as seen would be notified again next time.
+	const persistSeen = () => storage.set(EPISODES_CACHE_KEY, JSON.stringify(updatedEpisodes));
 
 	for (const feed of feeds) {
 		try {
 			const parsed = await fetchAndParseFeed(feed.url, feed.id);
-			const cachedIds = cachedIdSets[feed.id] ?? new Set<string>();
-			const newEpisodes = parsed.episodes.filter((ep) => !cachedIds.has(ep.id));
+			const cachedIds = cachedIdSets[feed.id];
+			// No cache entry yet (e.g. cache was cleared): seed it silently instead of notifying for every
+			// episode. Otherwise compare only the newest slice: the cache is capped, so older episodes
+			// beyond the cap must not look "new".
+			const candidates = capEpisodesForCache(parsed.episodes);
+			const newEpisodes = cachedIds ? candidates.filter((ep) => !cachedIds.has(ep.id)) : [];
 
 			if (newEpisodes.length > 0) {
 				foundNew = true;
@@ -62,24 +71,19 @@ async function checkForNewEpisodes(): Promise<boolean> {
 				}
 			}
 
-			updatedEpisodes[feed.id] = parsed.episodes;
+			updatedEpisodes[feed.id] = capEpisodesForCache(parsed.episodes);
+			persistSeen();
 		} catch {
 			// Skip feeds that fail -- don't block the rest
 		}
 	}
 
-	storage.set(EPISODES_CACHE_KEY, JSON.stringify(updatedEpisodes));
 	return foundNew;
 }
 
 async function refreshRecentlyPlayed(): Promise<boolean> {
 	try {
-		const authRaw = storage.getString(AUTH_KEY);
-		if (!authRaw) return false;
-
-		const authState = JSON.parse(authRaw);
-		if (!authState?.isAuthenticated || !authState?.accessToken) return false;
-
+		// Token lives in the Keychain; loadAuthState reads it (and keeps state if plex.tv is unreachable).
 		const { plexAuthService } = require('@/utils/plex-auth');
 		const loaded = await plexAuthService.loadAuthState();
 		if (!loaded) return false;
@@ -89,7 +93,13 @@ async function refreshRecentlyPlayed(): Promise<boolean> {
 
 		if (recentlyPlayed.length === 0) return false;
 
-		storage.set(CACHE_RECENTLY_PLAYED, JSON.stringify(recentlyPlayed));
+		const libraryStorage = getLibraryStorage();
+		if (!libraryStorage) return false;
+		const { mapSongUrls, toStoredPlexUrl } = require('@/utils/plex-url');
+		libraryStorage.set(
+			CACHE_RECENTLY_PLAYED,
+			JSON.stringify(recentlyPlayed.map((s: import('@/types').Song) => mapSongUrls(s, toStoredPlexUrl))),
+		);
 		return true;
 	} catch {
 		return false;
@@ -97,6 +107,8 @@ async function refreshRecentlyPlayed(): Promise<boolean> {
 }
 
 TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
+	// Respect offline mode (the store may not be hydrated in a headless launch; read storage directly).
+	if (storage.getString(OFFLINE_MODE_KEY) === '1') return BackgroundTask.BackgroundTaskResult.Success;
 	let hasNewData = false;
 
 	try {
@@ -113,16 +125,22 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async () => {
 		// Library refresh failed
 	}
 
-	return hasNewData ? BackgroundFetch.BackgroundFetchResult.NewData : BackgroundFetch.BackgroundFetchResult.NoData;
+	if (__DEV__ && hasNewData) console.log('Background refresh found new data');
+	return BackgroundTask.BackgroundTaskResult.Success;
 });
 
 export async function registerBackgroundFetch() {
+	// Drop the registration left by the old expo-background-fetch build.
+	try {
+		if (await TaskManager.isTaskRegisteredAsync(LEGACY_BACKGROUND_FETCH_TASK)) {
+			await TaskManager.unregisterTaskAsync(LEGACY_BACKGROUND_FETCH_TASK);
+		}
+	} catch {}
+
 	const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_FETCH_TASK);
 	if (isRegistered) return;
 
-	await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-		minimumInterval: 4 * 60 * 60, // 4 hours
-		stopOnTerminate: false,
-		startOnBoot: false,
+	await BackgroundTask.registerTaskAsync(BACKGROUND_FETCH_TASK, {
+		minimumInterval: 4 * 60, // minutes
 	});
 }

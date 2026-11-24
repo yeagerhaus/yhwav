@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme } from 'react-native';
+import Animated, {
+	cancelAnimation,
+	type SharedValue,
+	useAnimatedStyle,
+	useSharedValue,
+	withDelay,
+	withRepeat,
+	withSequence,
+	withTiming,
+} from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { isAvailable, YhwavAudioModule } from '@/modules/yhwav-audio';
 import { Div } from './Div';
@@ -34,43 +44,57 @@ function levelToScale(level: number): number {
 	return SCALE_MIN + curved * (SCALE_MAX - SCALE_MIN);
 }
 
+function Bar({ value, color }: { value: SharedValue<number>; color: string }) {
+	const style = useAnimatedStyle(() => ({ transform: [{ scaleY: value.value }] }));
+	return <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />;
+}
+
+/**
+ * Animated equalizer bars. Native audio levels drive Reanimated shared values on the UI thread; the
+ * native level tap only runs while this listener exists (see OnStartObserving in the audio module).
+ */
 export function MusicVisualizer({ isPlaying }: Props) {
 	const colors = useColors();
 	const theme = useColorScheme();
-	const animatedValues = useRef(new Array(BAR_COUNT).fill(0).map(() => new Animated.Value(SCALE_MIN))).current;
+	const s0 = useSharedValue(SCALE_MIN);
+	const s1 = useSharedValue(SCALE_MIN);
+	const s2 = useSharedValue(SCALE_MIN);
+	const s3 = useSharedValue(SCALE_MIN);
+	const s4 = useSharedValue(SCALE_MIN);
+	const bars = [s0, s1, s2, s3, s4];
+	const barsRef = useRef(bars);
+	barsRef.current = bars;
 	const [useNativeLevels, setUseNativeLevels] = useState(false);
+	const receivedNativeRef = useRef(false);
 	const refLevelRef = useRef(0.2);
-	const loopsRef = useRef<Animated.CompositeAnimation[]>([]);
-	const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	// Native audio levels on iOS
 	useEffect(() => {
 		if (!isPlaying || !isAvailable() || !YhwavAudioModule) return;
 
 		refLevelRef.current = 0.2;
+		receivedNativeRef.current = false;
 
 		const sub = YhwavAudioModule.addListener('AudioLevelsUpdated', (payload: unknown) => {
-			const event = payload as { levels?: number[] };
-			const levels = event?.levels;
+			const levels = (payload as { levels?: number[] })?.levels;
 			if (!Array.isArray(levels) || levels.length < BAR_COUNT) return;
 
-			setUseNativeLevels(true);
+			if (!receivedNativeRef.current) {
+				receivedNativeRef.current = true;
+				setUseNativeLevels(true);
+			}
 
-			const slice = levels.slice(0, BAR_COUNT);
-			const peak = Math.max(...slice);
+			let peak = 0;
+			for (let i = 0; i < BAR_COUNT; i++) peak = Math.max(peak, levels[i]);
 			let ref = refLevelRef.current;
 			ref = Math.max(ref * REF_DECAY, peak * REF_ATTACK);
 			ref = Math.max(ref, REF_FLOOR);
 			refLevelRef.current = ref;
 
-			const normalized = slice.map((l) => Math.min(1, l / ref));
-			normalized.forEach((level, i) => {
-				Animated.timing(animatedValues[i], {
-					toValue: levelToScale(level),
-					duration: NATIVE_SMOOTH_MS,
-					useNativeDriver: true,
-				}).start();
-			});
+			const values = barsRef.current;
+			for (let i = 0; i < BAR_COUNT; i++) {
+				values[i].value = withTiming(levelToScale(Math.min(1, levels[i] / ref)), { duration: NATIVE_SMOOTH_MS });
+			}
 		});
 
 		return () => {
@@ -81,46 +105,33 @@ export function MusicVisualizer({ isPlaying }: Props) {
 
 	// Fallback: organic staggered loops when native levels aren't available
 	useEffect(() => {
+		const values = barsRef.current;
 		const stopAll = () => {
-			loopsRef.current.forEach((l) => l.stop());
-			loopsRef.current = [];
-			timeoutsRef.current.forEach(clearTimeout);
-			timeoutsRef.current = [];
+			for (const v of values) cancelAnimation(v);
 		};
 
 		if (!isPlaying) {
 			stopAll();
-			animatedValues.forEach((v) => v.setValue(SCALE_MIN));
+			for (const v of values) v.value = SCALE_MIN;
 			return;
 		}
-
 		if (useNativeLevels) {
 			stopAll();
 			return;
 		}
 
-		stopAll();
-
-		loopsRef.current = animatedValues.map((value, i) => {
+		values.forEach((v, i) => {
 			const target = SCALE_MIN + BAR_FALLBACK_TARGETS[i] * (SCALE_MAX - SCALE_MIN);
-			const loop = Animated.loop(
-				Animated.sequence([
-					Animated.timing(value, {
-						toValue: target,
-						duration: BAR_DURATIONS[i] * 0.55,
-						useNativeDriver: true,
-					}),
-					Animated.timing(value, {
-						toValue: SCALE_MIN,
-						duration: BAR_DURATIONS[i] * 0.45,
-						useNativeDriver: true,
-					}),
-				]),
+			v.value = withDelay(
+				BAR_DELAYS[i],
+				withRepeat(
+					withSequence(
+						withTiming(target, { duration: BAR_DURATIONS[i] * 0.55 }),
+						withTiming(SCALE_MIN, { duration: BAR_DURATIONS[i] * 0.45 }),
+					),
+					-1,
+				),
 			);
-
-			const t = setTimeout(() => loop.start(), BAR_DELAYS[i]);
-			timeoutsRef.current.push(t);
-			return loop;
 		});
 
 		return stopAll;
@@ -132,8 +143,8 @@ export function MusicVisualizer({ isPlaying }: Props) {
 
 	return (
 		<Div style={[styles.container, { backgroundColor: bgColor }]}>
-			{animatedValues.map((value, index) => (
-				<Animated.View key={index} style={[styles.bar, { backgroundColor: colors.brand }, { transform: [{ scaleY: value }] }]} />
+			{bars.map((value, index) => (
+				<Bar key={index} value={value} color={colors.brand} />
 			))}
 		</Div>
 	);

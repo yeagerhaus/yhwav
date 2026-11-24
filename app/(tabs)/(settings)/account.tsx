@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Div, Text } from '@/components';
 import { Main } from '@/components/Main';
@@ -36,12 +36,13 @@ export default function AccountScreen() {
 	const [pinStatus, setPinStatus] = useState<string>('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
 
+	const pinAbortRef = useRef<AbortController | null>(null);
+
+	// Auth is loaded and validated at app start; re-read the in-memory state when this screen mounts.
+	// Leaving the screen cancels any in-progress PIN polling.
 	useEffect(() => {
-		plexAuthService.loadAuthState().then((loaded) => {
-			if (loaded) {
-				setAuthState(plexAuthService.getAuthState());
-			}
-		});
+		setAuthState(plexAuthService.getAuthState());
+		return () => pinAbortRef.current?.abort();
 	}, []);
 
 	const handlePinLogin = async () => {
@@ -49,6 +50,9 @@ export default function AccountScreen() {
 		setPinCode(null);
 		setPinStatus('');
 
+		pinAbortRef.current?.abort();
+		const controller = new AbortController();
+		pinAbortRef.current = controller;
 		try {
 			const result = await plexAuthService.loginWithPin(
 				(pin) => {
@@ -58,7 +62,9 @@ export default function AccountScreen() {
 				(status) => {
 					setPinStatus(status);
 				},
+				controller.signal,
 			);
+			if (controller.signal.aborted) return; // screen closed; don't touch state or alert
 
 			if (result.success) {
 				setAuthState(result.authState!);

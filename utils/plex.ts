@@ -3,7 +3,6 @@
 export type { PlexError, PlexResponse } from './plex-client';
 export {
 	addToPlaylist,
-	buildPlexURL,
 	createPlaylist,
 	deletePlaylist,
 	fetchAllAlbums,
@@ -11,8 +10,7 @@ export {
 	fetchAllPlaylists,
 	fetchAllTracks,
 	fetchArtistRadioPlaylist,
-	fetchArtistRadioTracks,
-	fetchPlaylist,
+	fetchMusicSectionStamp,
 	fetchPlaylistTracks,
 	fetchRecentlyPlayed,
 	fetchSectionHubs,

@@ -8,5 +8,4 @@ export { usePlaylists } from './usePlaylists';
 export { useSearch } from './useSearch';
 export { useSearchStore } from './useSearchStore';
 export { useThemeColor } from './useThemeColor';
-export { useTracks } from './useTracks';
 export { useUltraBlurColors } from './useUltraBlurColors';

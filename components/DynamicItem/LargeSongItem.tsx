@@ -54,10 +54,7 @@ const LargeSongItem = React.memo(
 		);
 	},
 	(prev, next) =>
-		prev.item.id === next.item.id &&
-		prev.size === next.size &&
-		prev.queue?.length === next.queue?.length &&
-		prev.editorial === next.editorial,
+		prev.item.id === next.item.id && prev.size === next.size && prev.queue === next.queue && prev.editorial === next.editorial,
 );
 
 LargeSongItem.displayName = 'LargeSongItem';

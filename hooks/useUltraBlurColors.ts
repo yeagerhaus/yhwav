@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { storage } from '@/lib/storage';
 import type { Song } from '@/types';
 import { fetchUltraBlurColors } from '@/utils/plex';
-import { useAudioStore } from './useAudioStore';
+import { applyArtworkFallbackColor, useAudioStore } from './useAudioStore';
 import { getIsOfflineMode } from './useOfflineModeStore';
 
 const STORAGE_KEY = 'ULTRABLUR_CACHE';
@@ -80,6 +80,13 @@ export const useUltraBlurColors = create<UltraBlurState>((set) => ({
 
 	fetchColors: async (song: Song) => {
 		const songId = song.id;
+		// Results for a track the user already skipped past must not overwrite the current colors.
+		const isCurrent = () => useAudioStore.getState().currentSong?.id === songId;
+		const applyFallback = () => {
+			if (!isCurrent()) return;
+			set({ colors: DEFAULT_COLORS, hasColors: false });
+			applyArtworkFallbackColor(song).catch(() => {});
+		};
 
 		// 1. Check in-memory cache
 		const cached = memoryCache.get(songId);
@@ -102,7 +109,7 @@ export const useUltraBlurColors = create<UltraBlurState>((set) => ({
 		// surfacing as an uncaught rejection on every track change in offline mode.
 		const thumbUrl = song.artworkUrl || song.artwork;
 		if (!thumbUrl || getIsOfflineMode()) {
-			set({ colors: DEFAULT_COLORS, hasColors: false });
+			applyFallback();
 			return;
 		}
 
@@ -111,16 +118,23 @@ export const useUltraBlurColors = create<UltraBlurState>((set) => ({
 			if (colors && colors.length > 0) {
 				memoryCache.set(songId, colors);
 				persistCache();
-				set({ colors: arrayToDirectional(colors), hasColors: true });
+				if (isCurrent()) set({ colors: arrayToDirectional(colors), hasColors: true });
 			} else {
-				set({ colors: DEFAULT_COLORS, hasColors: false });
+				applyFallback();
 			}
 		} catch {
-			// Network/offline/transient failure — fall back to defaults rather than rejecting.
-			set({ colors: DEFAULT_COLORS, hasColors: false });
+			// Network/offline/transient failure — fall back to local extraction rather than rejecting.
+			applyFallback();
 		}
 	},
 }));
+
+/** Drop cached UltraBlur colors (memory + disk), e.g. on logout / account change. */
+export function clearUltraBlurCache(): void {
+	memoryCache.clear();
+	storage.remove(STORAGE_KEY);
+	useUltraBlurColors.setState({ colors: DEFAULT_COLORS, hasColors: false });
+}
 
 // Auto-fetch when currentSong changes
 let lastSongId: string | null = null;

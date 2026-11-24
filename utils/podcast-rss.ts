@@ -26,9 +26,46 @@ function textOrUndefined(value: unknown): string | undefined {
 	return undefined;
 }
 
+/** Short, stable FNV-1a hash (hex) for synthetic ids. */
+function stableHash(input: string): string {
+	let h = 2166136261;
+	for (let i = 0; i < input.length; i++) {
+		h ^= input.charCodeAt(i);
+		h = Math.imul(h, 16777619);
+	}
+	return (h >>> 0).toString(16);
+}
+
 function first<T>(value: T | T[] | undefined): T | undefined {
 	if (value == null) return undefined;
 	return Array.isArray(value) ? value[0] : value;
+}
+
+/** Persisted episode cache limits: newest N episodes per feed, show notes truncated. */
+const MAX_CACHED_EPISODES_PER_FEED = 200;
+const MAX_CACHED_DESCRIPTION_CHARS = 4000;
+
+/** Trim a feed's episode list for persistence (feeds list newest first, so keep the head). */
+export function capEpisodesForCache(episodes: PodcastEpisode[]): PodcastEpisode[] {
+	return episodes
+		.slice(0, MAX_CACHED_EPISODES_PER_FEED)
+		.map((ep) =>
+			ep.description && ep.description.length > MAX_CACHED_DESCRIPTION_CHARS
+				? { ...ep, description: `${ep.description.slice(0, MAX_CACHED_DESCRIPTION_CHARS)}…` }
+				: ep,
+		);
+}
+
+/** Run `worker` over `items` with at most `limit` in flight. */
+export async function mapWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+	let next = 0;
+	const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+		while (next < items.length) {
+			const item = items[next++];
+			await worker(item);
+		}
+	});
+	await Promise.all(runners);
 }
 
 export async function fetchAndParseFeed(feedUrl: string, feedId: string): Promise<ParsedFeed> {
@@ -89,12 +126,17 @@ export async function fetchAndParseFeed(feedUrl: string, feedId: string): Promis
 		const rawLink = item?.link;
 		const link = typeof rawLink === 'string' ? rawLink : (rawLink?.['@_href'] ?? textOrUndefined(first(rawLink)));
 
-		const rawGuid = item?.guid ?? item?.id;
-		const guid = typeof rawGuid === 'string' ? rawGuid : (textOrUndefined(first(rawGuid)) ?? link ?? `ep-${index}`);
-		const id = `${feedId}|${guid}`;
-
 		const rawPubDate = item?.pubDate ?? item?.published ?? item?.updated;
 		const pubDate = typeof rawPubDate === 'string' ? rawPubDate : textOrUndefined(first(rawPubDate));
+
+		const rawGuid = item?.guid ?? item?.id;
+		// Fallback must be stable across refreshes: the array index shifts whenever a new episode is
+		// prepended (which caused repeat notifications), so hash the enclosure URL + publish date instead.
+		const guid =
+			typeof rawGuid === 'string'
+				? rawGuid
+				: (textOrUndefined(first(rawGuid)) ?? link ?? `ep-${stableHash(`${enclosureUrl}|${pubDate ?? ''}`)}`);
+		const id = `${feedId}|${guid}`;
 
 		const rawDesc = item?.description ?? item?.summary ?? item?.content ?? item?.['content:encoded'];
 		const description = typeof rawDesc === 'string' ? rawDesc : textOrUndefined(first(rawDesc));

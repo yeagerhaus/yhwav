@@ -310,33 +310,3 @@ class PerformanceMonitor {
 
 // Singleton instance
 export const performanceMonitor = new PerformanceMonitor();
-
-/**
- * Convenience function to track performance
- */
-export function trackPerformance<T>(name: string, fn: () => T | Promise<T>, metadata?: Record<string, any>): T | Promise<T> {
-	return performanceMonitor.track(name, fn as () => void | Promise<void>, metadata) as T | Promise<T>;
-}
-
-/**
- * React hook to track component render performance
- */
-export function usePerformanceTracking(componentName: string) {
-	const React = require('react');
-	const { useEffect, useRef } = React;
-
-	const renderStart = useRef(performance.now());
-	const renderCount = useRef(0);
-
-	useEffect(() => {
-		if (!__DEV__) return;
-
-		const duration = performance.now() - renderStart.current;
-		renderCount.current += 1;
-
-		if (duration > 16) {
-			// Slower than 60fps
-			console.warn(`⚠️ Slow render: ${componentName} (${renderCount.current}) took ${duration.toFixed(2)}ms`);
-		}
-	});
-}

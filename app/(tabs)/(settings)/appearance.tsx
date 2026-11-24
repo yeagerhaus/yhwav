@@ -148,7 +148,7 @@ export default function AppearanceScreen() {
 				)}
 			</Div>
 
-			{/* <Div transparent style={DefaultStyles.section}>
+			<Div transparent style={DefaultStyles.section}>
 				<Text type='h3' style={DefaultStyles.sectionTitle}>
 					Liquid Glass
 				</Text>
@@ -159,7 +159,7 @@ export default function AppearanceScreen() {
 					value={useBlurInsteadOfGlass}
 					onValueChange={setUseBlurInsteadOfGlass}
 				/>
-			</Div> */}
+			</Div>
 
 			<Div transparent style={DefaultStyles.section}>
 				<Text type='h3' style={DefaultStyles.sectionTitle}>

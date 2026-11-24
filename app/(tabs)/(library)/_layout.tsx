@@ -1,41 +1,11 @@
-import { Stack, useFocusEffect, usePathname, useRouter } from 'expo-router';
-import { useCallback, useRef } from 'react';
+import { Stack } from 'expo-router';
 import { InternalHeader } from '@/components/Navigation/InternalHeader';
 import { useColors } from '@/hooks/useColors';
 
 export default function LibraryLayout() {
-	const router = useRouter();
-	const pathname = usePathname();
-	const lastPathnameRef = useRef<string>('');
+	// (Removed: "reset to root on tab re-tap" logic. It compared usePathname() against paths with route
+	// groups, which expo-router strips, so it never ran.)
 	const colors = useColors();
-
-	// Navigate to home screen when library tab is focused and we're on a nested route
-	// This handles the case when user presses the library tab icon while on a nested route
-	useFocusEffect(
-		useCallback(() => {
-			// Check if we're on a nested route (not the home screen)
-			const isHomeScreen = pathname === '/(tabs)/(library)' || pathname === '/(tabs)/(library)/';
-			const isNestedRoute = pathname.startsWith('/(tabs)/(library)/') && !isHomeScreen;
-
-			// Only navigate if:
-			// 1. We're on a nested route
-			// 2. The pathname has changed (to avoid navigating on every focus)
-			// 3. We haven't just navigated to this route
-			if (isNestedRoute && pathname !== lastPathnameRef.current) {
-				lastPathnameRef.current = pathname;
-				// Small delay to allow tab navigation to complete
-				const timeoutId = setTimeout(() => {
-					router.replace('/(tabs)/(library)');
-				}, 200);
-				return () => clearTimeout(timeoutId);
-			}
-
-			// Reset ref when we're on the home screen
-			if (isHomeScreen) {
-				lastPathnameRef.current = '';
-			}
-		}, [pathname, router]),
-	);
 
 	return (
 		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
