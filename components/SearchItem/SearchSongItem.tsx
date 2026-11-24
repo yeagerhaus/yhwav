@@ -1,17 +1,15 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
-import { useAlbums } from '@/hooks/useAlbums';
-import { useArtists } from '@/hooks/useArtists';
 import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
-import { State, usePlaybackState } from '@/lib/playerAdapter';
+import { useLibraryStore } from '@/hooks/useLibraryStore';
+import { useSongPlayingState } from '@/hooks/useSongRowState';
 import type { Song } from '@/types/song';
 import { Div } from '../Div';
 
@@ -23,23 +21,15 @@ interface SearchSongItemProps {
 
 export default function SearchSongItem({ song, query, onPress }: SearchSongItemProps) {
 	const colors = useColors();
-	const playbackState = usePlaybackState();
-	const currentSong = useAudioStore((state) => state.currentSong);
+	const { isCurrent: isCurrentSong, showAsPlaying } = useSongPlayingState(song.id);
 	const playSound = useAudioStore((state) => state.playSound);
 	const playNext = useAudioStore((state) => state.playNext);
 	const addToQueue = useAudioStore((state) => state.addToQueue);
-	const { artists } = useArtists();
-	const { albums } = useAlbums();
+	// O(1) lookups instead of scanning every artist/album on each render.
+	const artistRatingKey = song.artistKey?.split('/').pop() || song.artistKey;
+	const matchedArtist = useLibraryStore((s) => (artistRatingKey ? s.artistsById[artistRatingKey] : undefined));
+	const matchedAlbum = useLibraryStore((s) => (song.albumId ? s.albumsById[song.albumId] : undefined));
 	const openAddToPlaylist = useAddToPlaylist((s) => s.open);
-
-	const isCurrentSong = useMemo(() => {
-		return song.id === String(currentSong?.id);
-	}, [song.id, currentSong?.id]);
-
-	const showAsPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
-
-	const matchedArtist = artists.find((a) => a.name === song.artist);
-	const matchedAlbum = albums.find((a) => a.title === song.album && a.artist === song.artist);
 
 	const menuItems: ContextMenuItem[] = [
 		{

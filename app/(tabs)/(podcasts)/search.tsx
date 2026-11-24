@@ -20,6 +20,7 @@ export default function PodcastSearchScreen() {
 	const [searched, setSearched] = useState(false);
 	const [addingId, setAddingId] = useState<number | null>(null);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const requestIdRef = useRef(0);
 	const inputRef = useRef<TextInputInstance>(null);
 
 	const { addFeed, feeds } = usePodcastStore();
@@ -32,21 +33,26 @@ export default function PodcastSearchScreen() {
 		if (debounceRef.current) clearTimeout(debounceRef.current);
 
 		if (!query.trim()) {
+			requestIdRef.current++; // drop any in-flight response for the old query
 			setResults([]);
 			setSearched(false);
 			return;
 		}
 
 		debounceRef.current = setTimeout(async () => {
+			// Ignore responses for anything but the latest request (an older, slower one could land last).
+			const requestId = ++requestIdRef.current;
 			setLoading(true);
 			try {
 				const data = await searchPodcasts(query);
-				setResults(data);
+				if (requestId === requestIdRef.current) setResults(data);
 			} catch {
-				setResults([]);
+				if (requestId === requestIdRef.current) setResults([]);
 			} finally {
-				setLoading(false);
-				setSearched(true);
+				if (requestId === requestIdRef.current) {
+					setLoading(false);
+					setSearched(true);
+				}
 			}
 		}, DEBOUNCE_MS);
 

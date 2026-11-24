@@ -1,32 +1,11 @@
-import { Stack, useFocusEffect, usePathname, useRouter } from 'expo-router';
-import { useCallback, useRef } from 'react';
+import { Stack } from 'expo-router';
 import { InternalHeader } from '@/components/Navigation/InternalHeader';
 import { useColors } from '@/hooks/useColors';
 
 export default function SettingsLayout() {
-	const router = useRouter();
-	const pathname = usePathname();
-	const lastPathnameRef = useRef<string>('');
+	// (Removed: "reset to root on tab re-tap" logic. It compared usePathname() against paths with route
+	// groups, which expo-router strips, so it never ran.)
 	const colors = useColors();
-
-	useFocusEffect(
-		useCallback(() => {
-			const isHomeScreen = pathname === '/(tabs)/(settings)' || pathname === '/(tabs)/(settings)/';
-			const isNestedRoute = pathname.startsWith('/(tabs)/(settings)/') && !isHomeScreen;
-
-			if (isNestedRoute && pathname !== lastPathnameRef.current) {
-				lastPathnameRef.current = pathname;
-				const timeoutId = setTimeout(() => {
-					router.replace('/(tabs)/(settings)');
-				}, 200);
-				return () => clearTimeout(timeoutId);
-			}
-
-			if (isHomeScreen) {
-				lastPathnameRef.current = '';
-			}
-		}, [pathname, router]),
-	);
 
 	return (
 		<Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>

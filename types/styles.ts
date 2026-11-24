@@ -52,55 +52,9 @@ export type TextContainer = ContainerStyles &
  * Style Types
  */
 
-export type InputStyle = TextContainer & {
-	placeholder?: string;
-	selected?: TextContainer;
-	disabled?: TextContainer;
-};
-
 export type ButtonStyle = TextContainer & {
 	height?: string;
 	width?: string;
 	selected?: TextContainer;
 	disabled?: TextContainer;
 };
-
-export type BrandColorPallet = Partial<{
-	brandColor: string;
-	secondaryColor: string;
-	specialColor: string;
-	linkColor: string;
-	successColor: string;
-	warningColor: string;
-	dangerColor: string;
-	textBrand: string;
-	textPrimary: string;
-	textSecondary: string;
-	surfacePrimary: string;
-	surfaceSecondary: string;
-	borderPrimary: string;
-}>;
-
-export type BrandControlStyles = Partial<{
-	input: InputStyle;
-	buttonPrimary: ButtonStyle;
-	buttonSecondary: ButtonStyle;
-	buttonSpecial: ButtonStyle;
-}>;
-
-export type BrandStyle = BrandColorPallet &
-	TextStyles &
-	BrandControlStyles & {
-		headerBackground?: string;
-		footerBackground?: string;
-	};
-
-export type BrandLogos = Partial<{
-	logo: string;
-	squareLogo: string;
-	logoPlacement: 'onCover' | 'belowCover';
-	fullLogo: string;
-	coverBackground: string;
-	mmsLogo: string;
-	optInLogo: string;
-}>;

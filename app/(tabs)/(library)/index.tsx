@@ -42,7 +42,8 @@ export default function LibraryScreen() {
 	const recentPlaylists = useMemo(
 		() =>
 			[...playlists]
-				.filter((p) => p.playlistType === 'audio' && p.artworkUrl != null)
+				// Don't require artwork: Plex leaves it unset until it generates a thumb for a new playlist.
+				.filter((p) => p.playlistType === 'audio')
 				.sort((a, b) => (b.lastViewedAt ?? 0) - (a.lastViewedAt ?? 0))
 				.slice(0, SECTION_LIMIT),
 		[playlists],

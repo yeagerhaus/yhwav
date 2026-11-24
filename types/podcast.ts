@@ -26,7 +26,10 @@ export type PodcastDownload = {
 	/** Same as episodeId, for list/key compatibility with PodcastEpisode */
 	id: string;
 	feedId: string;
+	/** Absolute file URI, resolved at hydrate time against the current container. Never persisted. */
 	localUri: string;
+	/** Path relative to the documents directory (e.g. `podcasts/<id>.mp3`). This is what gets persisted. */
+	fileName?: string;
 	title: string;
 	showTitle: string;
 	pubDate?: string;

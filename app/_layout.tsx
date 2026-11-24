@@ -1,4 +1,3 @@
-// Crypto polyfills removed - using expo-crypto instead
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useRef } from 'react';
@@ -14,7 +13,7 @@ import { Colors } from '@/constants';
 import { RootScaleProvider, useRootScale } from '@/ctx/RootScaleContext';
 import { useAddToPlaylist } from '@/hooks/useAddToPlaylist';
 import { useAppearanceStore } from '@/hooks/useAppearanceStore';
-import { useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
+import { healPartialRestore, useAudioStore, useTrackPlayerSync } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 import { useDevSettingsStore } from '@/hooks/useDevSettingsStore';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -32,7 +31,7 @@ import { hasSeenNotificationPrompt } from '@/app/notification-prompt';
 import { SplashOverlay } from '@/components/Splash';
 import { registerBackgroundFetch } from '@/utils/background-fetch-task';
 import { refreshLibrary } from '@/utils/library-refresh';
-import { addNotificationResponseListener, setupNotificationHandler } from '@/utils/notifications';
+import { addNotificationResponseListener, handleLaunchNotification, setupNotificationHandler } from '@/utils/notifications';
 import { plexClient, testPlexServer } from '@/utils/plex';
 import { plexAuthService } from '@/utils/plex-auth';
 import { initScrobbleQueue } from '@/utils/scrobble-queue';
@@ -112,7 +111,9 @@ function AnimatedStack() {
 	);
 }
 
-const LIBRARY_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
+// Periodic refresh only re-pulls the full library when the server's section stamp changed
+// (see refreshLibrary); playlists/history/hubs are cheap and always refreshed.
+const LIBRARY_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 export default function RootLayout() {
 	const colorScheme = useColorScheme();
@@ -127,7 +128,8 @@ export default function RootLayout() {
 	const plexAuthReady = useRef(false);
 
 	useEffect(() => {
-		registerBackgroundFetch().catch((err) => console.warn('Background fetch registration failed:', err));
+		registerBackgroundFetch().catch((err) => console.warn('Background task registration failed:', err));
+		handleLaunchNotification(router).catch(() => {});
 		if (!hasSeenNotificationPrompt()) {
 			const handle = requestAnimationFrame(() => router.push('/notification-prompt'));
 			const sub = addNotificationResponseListener(router);
@@ -170,10 +172,12 @@ export default function RootLayout() {
 	useEffect(() => {
 		const init = async () => {
 			try {
-				const authLoaded = await plexAuthService.loadAuthState();
+				// 1. Local state first (no network): stored auth → cached library → player restore.
+				//    The mini player and library appear immediately, even offline.
+				const hasStoredAuth = plexAuthService.loadStoredAuthState();
 
 				let hydrated = false;
-				if (authLoaded && plexAuthService.isAuthenticated()) {
+				if (hasStoredAuth) {
 					const selectedServer = plexAuthService.getSelectedServer();
 					if (selectedServer) {
 						console.log(`📡 Connected to: ${selectedServer.name}`);
@@ -189,29 +193,41 @@ export default function RootLayout() {
 
 				setupCarPlay();
 
-				if (authLoaded && plexAuthService.isAuthenticated()) {
-					plexAuthReady.current = true;
-					initScrobbleQueue().catch(() => {});
-
-					if (!hydrated) {
-						refreshLibrary({ force: true })
-							.then(() => {
-								setHasInitialized(true);
-								if (!useAudioStore.getState().currentSong) {
-									useAudioStore
-										.getState()
-										.restorePlaybackState()
-										.catch(() => {});
-								}
-							})
-							.catch((error) => {
-								console.error('Failed to fetch library:', error);
-								setHasInitialized(true);
-								testPlexServer().catch(() => {});
-							});
-					}
-				} else {
+				if (!hasStoredAuth) {
 					setHasInitialized(true);
+					return;
+				}
+
+				// 2. Validate the token against plex.tv in the background. Only an explicit rejection
+				//    signs the user out (see validateStoredAuth); unreachable keeps the stored state.
+				const stillAuthenticated = await plexAuthService.validateStoredAuth();
+				if (!stillAuthenticated || !plexAuthService.isAuthenticated()) {
+					setHasInitialized(true);
+					return;
+				}
+
+				plexAuthReady.current = true;
+				initScrobbleQueue().catch(() => {});
+
+				if (!hydrated) {
+					refreshLibrary({ force: true })
+						.then(() => {
+							setHasInitialized(true);
+							if (!useAudioStore.getState().currentSong) {
+								useAudioStore
+									.getState()
+									.restorePlaybackState()
+									.catch(() => {});
+							} else {
+								// A single-track restore happened before the library loaded: expand it now.
+								healPartialRestore().catch(() => {});
+							}
+						})
+						.catch((error) => {
+							console.error('Failed to fetch library:', error);
+							setHasInitialized(true);
+							testPlexServer().catch(() => {});
+						});
 				}
 			} catch (error) {
 				console.error('Failed to initialize app:', error);
@@ -250,7 +266,7 @@ export default function RootLayout() {
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			if (!plexAuthReady.current) return;
+			if (!plexAuthReady.current || AppState.currentState !== 'active') return;
 			refreshLibrary().catch((err) => console.warn('Periodic refresh failed:', err));
 		}, LIBRARY_REFRESH_INTERVAL);
 

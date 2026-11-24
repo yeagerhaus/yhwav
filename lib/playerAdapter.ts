@@ -68,6 +68,7 @@ type TrackLike = {
 	artwork?: string;
 	duration?: number;
 	crossfadeDisabled?: boolean;
+	gainDb?: number;
 };
 
 export type CrossfadeConfigNative = {
@@ -97,8 +98,9 @@ const TrackPlayer = {
 		const p = getPlayer();
 		if (!p) return;
 		const list = Array.isArray(tracks) ? tracks : [tracks];
-		// insertAfterIndex = insert after that index (so index 0 → insert after -1 / at start)
-		const insertAfter = index != null && index > 0 ? index - 1 : undefined;
+		// `index` is the position to insert at; native takes "insert after". index 0 → -1 = insert at the
+		// start (native treats an explicit negative as the front; omitted means append).
+		const insertAfter = index != null ? index - 1 : undefined;
 		await p.add(list, insertAfter);
 	},
 
@@ -202,14 +204,14 @@ const TrackPlayer = {
 	async getPlaybackState() {
 		const p = getPlayer();
 		if (!p) return { state: State.Stopped, position: 0, duration: 0, buffered: undefined };
-		const s = p.getPlaybackState();
+		const s = await p.getPlaybackState();
 		return { state: s.state, position: s.position, duration: s.duration, buffered: s.buffered };
 	},
 
 	async getActiveTrackIndex(): Promise<number | undefined> {
 		const p = getPlayer();
 		if (!p) return undefined;
-		const idx = p.getActiveTrackIndex();
+		const idx = await p.getActiveTrackIndex();
 		return idx >= 0 ? idx : undefined;
 	},
 
@@ -232,19 +234,33 @@ const NATIVE_EVENT_TO_EVENT: Record<string, string> = {
 	RemoteSeek: Event.RemoteSeek,
 };
 
+/**
+ * Transport state pushed from native (`PlaybackStateChanged`, plus the state carried on progress
+ * events). No synchronous native calls: mount once at the root (AudioSync) and read `isPlaying` from
+ * useAudioStore everywhere else.
+ */
 export function usePlaybackState(): { state: string } {
 	const [playbackState, setPlaybackState] = React.useState<{ state: string }>({ state: State.None });
 
 	React.useEffect(() => {
 		const mod = YhwavAudioModule;
 		if (!isAvailable() || mod == null) return;
-		const update = () => {
-			const s = mod.getPlaybackState();
-			setPlaybackState((prev) => (prev.state !== s.state ? { state: s.state } : prev));
+		let mounted = true;
+		const apply = (state: unknown) => {
+			if (typeof state !== 'string') return;
+			setPlaybackState((prev) => (prev.state !== state ? { state } : prev));
 		};
-		update();
-		const sub = mod.addListener('PlaybackProgressUpdated', update);
-		return () => sub.remove();
+		mod.getPlaybackState()
+			.then((s) => mounted && apply(s.state))
+			.catch(() => {});
+		const onEvent = (payload: unknown) => apply((payload as { state?: unknown } | undefined)?.state);
+		const subState = mod.addListener('PlaybackStateChanged', onEvent);
+		const subProgress = mod.addListener('PlaybackProgressUpdated', onEvent);
+		return () => {
+			mounted = false;
+			subState.remove();
+			subProgress.remove();
+		};
 	}, []);
 
 	return playbackState;

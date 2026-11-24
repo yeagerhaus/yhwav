@@ -21,20 +21,30 @@ export async function requestNotificationPermissions() {
 	return status === 'granted';
 }
 
-export function addNotificationResponseListener(router: ImperativeRouter) {
-	return Notifications.addNotificationResponseReceivedListener((response) => {
-		const data = response.notification.request.content.data as
-			| {
-					feedId?: string;
-					episodeId?: string;
-			  }
-			| undefined;
+function openNotificationTarget(router: ImperativeRouter, response: Notifications.NotificationResponse) {
+	const data = response.notification.request.content.data as
+		| {
+				feedId?: string;
+				episodeId?: string;
+		  }
+		| undefined;
 
-		if (data?.episodeId && data?.feedId) {
-			router.push({
-				pathname: '/(tabs)/(podcasts)/episode/[episodeId]',
-				params: { episodeId: data.episodeId, feedId: data.feedId },
-			});
-		}
-	});
+	if (data?.episodeId && data?.feedId) {
+		router.push({
+			pathname: '/(tabs)/(podcasts)/episode/[episodeId]',
+			params: { episodeId: data.episodeId, feedId: data.feedId },
+		});
+	}
+}
+
+export function addNotificationResponseListener(router: ImperativeRouter) {
+	return Notifications.addNotificationResponseReceivedListener((response) => openNotificationTarget(router, response));
+}
+
+/** A notification tapped while the app was killed launches it; the listener above misses that one. */
+export async function handleLaunchNotification(router: ImperativeRouter): Promise<void> {
+	const response = await Notifications.getLastNotificationResponseAsync();
+	if (!response) return;
+	openNotificationTarget(router, response);
+	await Notifications.clearLastNotificationResponseAsync().catch(() => {});
 }

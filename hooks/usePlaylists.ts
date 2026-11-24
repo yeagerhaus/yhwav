@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { fetchAllPlaylists, fetchPlaylistTracks } from '@/utils/plex';
 import { useLibraryStore } from './useLibraryStore';
 import { getIsOfflineMode } from './useOfflineModeStore';
@@ -6,7 +6,6 @@ import { getIsOfflineMode } from './useOfflineModeStore';
 export const usePlaylists = () => {
 	const playlists = useLibraryStore((s) => s.playlists);
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
-	const [isLoading] = useState(false);
 
 	const refreshPlaylists = useCallback(async () => {
 		if (getIsOfflineMode()) return;
@@ -30,7 +29,6 @@ export const usePlaylists = () => {
 
 	return {
 		playlists,
-		isLoading,
 		loadPlaylistTracks,
 		refreshPlaylists,
 	};

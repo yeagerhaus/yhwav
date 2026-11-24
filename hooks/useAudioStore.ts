@@ -3,6 +3,7 @@ import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
 import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
 import { computeCrossfadeDuration, computeIncomingLoudnessTrim } from '@/lib/crossfadeAlgorithm';
+import { rebaseDocumentUri } from '@/lib/downloadPaths';
 import { getCachedNetworkPlaybackRoute } from '@/lib/networkPlaybackRoute';
 import TrackPlayer, {
 	Capability,
@@ -18,6 +19,7 @@ import { storage } from '@/lib/storage';
 import type { LoudnessData, Song } from '@/types';
 import { performanceMonitor } from '@/utils/performance';
 import { buildPlexStreamUrl } from '@/utils/plex-stream-url';
+import { mapSongUrls, resolverForCurrentConnection, toStoredPlexUrl } from '@/utils/plex-url';
 import { queueScrobble } from '@/utils/scrobble-queue';
 
 // Storage keys
@@ -45,7 +47,8 @@ function saveQueueState(queue: Song[], originalQueue: Song[], currentSong: Song 
 
 function saveCurrentSong(song: Song) {
 	storage.set(STORAGE_SONG_KEY, song.id);
-	storage.set(STORAGE_SONG_DATA_KEY, JSON.stringify(song));
+	// Token/host-free copy; resolved against the current connection on restore.
+	storage.set(STORAGE_SONG_DATA_KEY, JSON.stringify(mapSongUrls(song, toStoredPlexUrl)));
 }
 
 function resolveIdsToSongs(ids: string[]): Song[] {
@@ -59,12 +62,128 @@ function resolveIdsToSongs(ids: string[]): Song[] {
 	return songs;
 }
 
+/**
+ * Queue edits read the JS queue, then await a native call. Overlapping edits (rapid "Play Next" taps,
+ * remove while reordering) could interleave and desync JS and native. Every edit runs through this
+ * chain, one at a time.
+ */
+let queueOpChain: Promise<unknown> = Promise.resolve();
+function enqueueQueueOp<T>(op: () => Promise<T>): Promise<T> {
+	const run = queueOpChain.then(op, op);
+	queueOpChain = run.catch(() => {});
+	return run;
+}
+
+/**
+ * Very large queues (e.g. "play" from the full Songs list) are loaded in windows: the first
+ * QUEUE_WINDOW tracks from the selected song go to both the JS and native queues, and the rest is kept
+ * in `queueTail` and appended in chunks as playback approaches the end. Indices stay identical between
+ * JS and native because tracks are only ever appended.
+ */
+const QUEUE_WINDOW = 500;
+const QUEUE_EXTEND_THRESHOLD = 50;
+let queueTail: Song[] = [];
+
+function windowQueue(queue: Song[], startIndex: number): { window: Song[]; tail: Song[] } {
+	if (queue.length <= QUEUE_WINDOW) return { window: queue, tail: [] };
+	const start = Math.max(0, startIndex);
+	return { window: queue.slice(start, start + QUEUE_WINDOW), tail: queue.slice(start + QUEUE_WINDOW) };
+}
+
+let extendingQueue = false;
+/** Append the next chunk of a windowed queue when the current track is near the end of what's loaded. */
+async function maybeExtendQueue(): Promise<void> {
+	if (extendingQueue || queueTail.length === 0) return;
+	const state = useAudioStore.getState();
+	if (!state.currentSong) return;
+	const idx = resolveCurrentIndex(state);
+	if (idx === -1 || idx < state.queue.length - QUEUE_EXTEND_THRESHOLD) return;
+
+	extendingQueue = true;
+	const chunk = queueTail.slice(0, QUEUE_WINDOW);
+	try {
+		await enqueueQueueOp(() => TrackPlayer.add(chunk.map(songToTrack)));
+		queueTail = queueTail.slice(chunk.length);
+		const latest = useAudioStore.getState();
+		const queue = [...latest.queue, ...chunk];
+		const originalQueue = [...latest.originalQueue, ...chunk];
+		useAudioStore.setState({ queue, originalQueue });
+		saveQueueState(queue, originalQueue, latest.currentSong);
+	} catch (error) {
+		console.warn('Failed to extend queue window:', error);
+	} finally {
+		extendingQueue = false;
+	}
+}
+
+/**
+ * STORAGE_SONG_KEY holds the raw ratingKey (e.g. "12345"). Older builds sometimes stored JSON (a quoted
+ * string or a song object); never JSON.parse a bare numeric id, which would turn it into a number.
+ */
+function parseSavedSongId(raw: string): string | null {
+	const trimmed = raw.trim();
+	if (trimmed.startsWith('{') || trimmed.startsWith('"')) {
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (typeof parsed === 'string') return parsed;
+			if (parsed?.id != null) return String(parsed.id);
+		} catch {}
+		return null;
+	}
+	return trimmed || null;
+}
+
+/** Set when restore had to fall back to a single-track queue because the library wasn't loaded yet. */
+let partialRestorePending = false;
+
+/**
+ * After the library loads, expand a partial (single-track) restore into the full saved queue without
+ * interrupting the current track: tracks before it are inserted ahead, tracks after it appended.
+ */
+export async function healPartialRestore(): Promise<void> {
+	if (!partialRestorePending) return;
+	const state = useAudioStore.getState();
+	const current = state.currentSong;
+	if (!current || state.queue.length !== 1 || state.queue[0].id !== current.id) {
+		partialRestorePending = false;
+		return;
+	}
+	const readIds = (key: string): string[] => {
+		try {
+			const parsed = JSON.parse(storage.getString(key) ?? '[]');
+			return Array.isArray(parsed) ? parsed.map((x: any) => (typeof x === 'string' ? x : x?.id)).filter(Boolean) : [];
+		} catch {
+			return [];
+		}
+	};
+	const fullQueue = resolveIdsToSongs(readIds(STORAGE_QUEUE_KEY));
+	const idx = fullQueue.findIndex((s) => s.id === current.id);
+	if (fullQueue.length <= 1 || idx === -1) return; // library still missing these tracks; try again later
+	partialRestorePending = false;
+
+	const before = fullQueue.slice(0, idx);
+	const after = fullQueue.slice(idx + 1);
+	try {
+		if (after.length > 0) await TrackPlayer.add(after.map(songToTrack));
+		if (before.length > 0) await TrackPlayer.add(before.map(songToTrack), 0);
+	} catch (error) {
+		console.warn('Failed to heal partial restore:', error);
+		return;
+	}
+	const original = resolveIdsToSongs(readIds(STORAGE_ORIGINAL_QUEUE_KEY));
+	const queue = [...before, current, ...after];
+	useAudioStore.setState({ queue, currentIndex: before.length, originalQueue: original.length > 0 ? original : queue });
+	if (__DEV__) console.log(`✅ Healed partial restore (${queue.length} tracks)`);
+}
+
 // Artwork color cache
 const artworkColorCache = new Map<string, string>();
 
 interface AudioState {
 	// Playback state
 	currentSong: Song | null;
+	/** Index of `currentSong` in `queue` (authoritative over id lookup, so duplicate ids work). -1 = none. */
+	currentIndex: number;
 	queue: Song[];
 	originalQueue: Song[];
 	isPlaying: boolean;
@@ -93,7 +212,6 @@ interface AudioState {
 	removeFromQueue: (index: number) => void;
 	clearQueue: () => void;
 	reorderQueue: (fromIndex: number, toIndex: number) => void;
-	getQueue: () => Song[];
 
 	// Settings
 	toggleRepeat: () => Promise<void>;
@@ -104,7 +222,6 @@ interface AudioState {
 	// Sleep timer (JS-based; works on all platforms)
 	sleepTimerEndsAt: number | null;
 	setSleepTimer: (minutes: number | null) => void;
-	getSleepTimerRemainingSeconds: () => number | null;
 
 	// Internal state management
 	_isRestoringPlayback: boolean;
@@ -145,9 +262,24 @@ function createShuffledQueue(queue: Song[], currentSong: Song | null): Song[] {
 let prewarmedSongId: string | null = null;
 let lastCrossfadeSignature = '';
 
-function getNextQueueSongForCrossfade(queue: Song[], currentSong: Song | null, repeatMode: number): Song | null {
+/**
+ * Current position in the queue. Trusts `currentIndex` when it still points at the current song (so a
+ * track that appears twice resolves to the right occurrence); falls back to an id lookup otherwise.
+ */
+function resolveCurrentIndex(state: { queue: Song[]; currentSong: Song | null; currentIndex: number }): number {
+	const cur = state.currentSong;
+	if (!cur) return -1;
+	if (state.currentIndex >= 0 && state.queue[state.currentIndex]?.id === cur.id) return state.currentIndex;
+	return state.queue.findIndex((s) => s.id === cur.id);
+}
+
+function getNextQueueSongForCrossfade(
+	state: { queue: Song[]; currentSong: Song | null; currentIndex: number },
+	repeatMode: number,
+): Song | null {
+	const { queue, currentSong } = state;
 	if (!currentSong || queue.length < 2) return null;
-	const idx = queue.findIndex((s) => s.id === currentSong.id);
+	const idx = resolveCurrentIndex(state);
 	if (idx === -1) return null;
 	let nextIdx = idx + 1;
 	if (nextIdx >= queue.length) {
@@ -164,12 +296,32 @@ let lastErrorRetryAt = 0;
 let lastProgressTimestamp = 0; // timestamp of the last progress update for gap measurement
 let lastUserSkipAt = 0;
 const SKIP_DEBOUNCE_MS = 2000;
-let restoredPausedAt = 0; // set after a paused restore; suppresses spurious iOS RemotePlay
-const RESTORE_REMOTE_PLAY_SUPPRESS_MS = 3000;
 
 function scrobbleSong(song: Song) {
 	if (song.source === 'podcast') return;
 	queueScrobble(song).catch(() => {});
+}
+
+/**
+ * Manual skips count as a play (scrobble + recently played) once the track has played long enough:
+ * half its length or four minutes, matching common scrobbling rules.
+ */
+function scrobbleIfPlayedEnough(song: Song | null) {
+	if (!song || song.source === 'podcast') return;
+	const { position, duration } = getProgressStore().getState();
+	if (position >= 240 || (duration > 0 && position >= duration * 0.5)) scrobbleSong(song);
+}
+
+/**
+ * Local artwork color extraction (downloads the image). Only used as a fallback when Plex UltraBlur
+ * colors are unavailable (offline, non-Plex artwork, request failure). Applies the result only if the
+ * song is still current, so a slow extraction can't paint the wrong track's color.
+ */
+export async function applyArtworkFallbackColor(song: Song): Promise<void> {
+	const color = await extractArtworkColor(song);
+	if (useAudioStore.getState().currentSong?.id === song.id) {
+		useAudioStore.setState({ artworkBgColor: color });
+	}
 }
 
 // Extract artwork color with caching
@@ -240,11 +392,15 @@ function getProgressStore() {
 
 // Convert Song to TrackPlayer track
 function songToTrack(song: Song) {
-	const localUri = song.localUri || getDownloadsStore().getState().getLocalUri(song.id);
-	if (__DEV__ && !localUri) {
-		// console.log(`[songToTrack] No localUri for ${song.id}, using remote URL`);
-	}
-	const url = localUri || (typeof song.uri === 'string' && song.uri.trim().length > 0 ? song.uri : null);
+	// Prefer the download stores (paths resolved against the current container) over a path saved on the
+	// Song object, which may come from persisted JSON and point into a previous container.
+	const storeUri =
+		song.source === 'podcast'
+			? require('@/hooks/usePodcastDownloadsStore').usePodcastDownloadsStore.getState().getLocalUri(song.id)
+			: getDownloadsStore().getState().getLocalUri(song.id);
+	const localUri: string | undefined = storeUri || (song.localUri ? rebaseDocumentUri(song.localUri) : undefined);
+	const remoteOrSaved = typeof song.uri === 'string' && song.uri.trim().length > 0 ? rebaseDocumentUri(song.uri) : null;
+	const url = localUri || remoteOrSaved;
 	if (song.source === 'podcast' && !url) {
 		throw new Error('Podcast episode has no playable URL');
 	}
@@ -278,18 +434,27 @@ function songToTrack(song: Song) {
 		artwork: song.artworkUrl || song.artwork,
 		duration: song.duration,
 		...(song.source === 'podcast' ? { crossfadeDisabled: true as const } : {}),
+		...(trackGainDb(song) != null ? { gainDb: trackGainDb(song) } : {}),
 	};
 }
 
-/** Resume position for a podcast: for downloaded episodes use the download record (resumeAt); otherwise progress store. */
+/**
+ * ReplayGain-style track gain in dB for loudness normalization: Plex's analyzed `gain` when present,
+ * otherwise derived from integrated loudness against a -18 LUFS reference.
+ */
+function trackGainDb(song: Song): number | undefined {
+	if (song.source === 'podcast') return undefined;
+	const loudness = effectiveLoudnessData(song);
+	if (!loudness) return undefined;
+	if (loudness.gain) return loudness.gain;
+	if (loudness.loudness) return -18 - loudness.loudness;
+	return undefined;
+}
+
+/** Resume position for a podcast, from the progress store (the single source of truth). */
 function getPodcastResumePosition(song: Song): number | undefined {
-	const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
 	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
 	const progress = usePodcastProgressStore.getState().getProgress(song.id);
-	const isDownloaded = usePodcastDownloadsStore.getState().isDownloaded(song.id);
-	const downloadResumeAt = isDownloaded ? usePodcastDownloadsStore.getState().getResumeAt(song.id) : undefined;
-
-	if (isDownloaded && downloadResumeAt != null && downloadResumeAt > 10) return downloadResumeAt;
 	if (progress?.completed) return undefined;
 	if (progress && progress.position > 10) return progress.position;
 	return undefined;
@@ -321,13 +486,6 @@ function schedulePodcastProgressSave(episodeId: string, position: number, durati
 				usePodcastProgressStore
 					.getState()
 					.saveProgress(pendingPodcastProgress.episodeId, pendingPodcastProgress.position, pendingPodcastProgress.duration);
-				const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
-				if (usePodcastDownloadsStore.getState().isDownloaded(pendingPodcastProgress.episodeId)) {
-					usePodcastDownloadsStore
-						.getState()
-						.updateResumeAt(pendingPodcastProgress.episodeId, pendingPodcastProgress.position)
-						.catch(() => {});
-				}
 				pendingPodcastProgress = null;
 			}
 			podcastProgressTimeout = null;
@@ -345,18 +503,12 @@ function savePodcastProgressImmediate(episodeId: string, position: number, durat
 	if (position <= 0 && duration <= 0) return;
 	const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
 	usePodcastProgressStore.getState().saveProgress(episodeId, position, duration);
-	const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
-	if (usePodcastDownloadsStore.getState().isDownloaded(episodeId)) {
-		usePodcastDownloadsStore
-			.getState()
-			.updateResumeAt(episodeId, position)
-			.catch(() => {});
-	}
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
 	// Initial state
 	currentSong: null,
+	currentIndex: -1,
 	queue: [],
 	originalQueue: [],
 	isPlaying: false,
@@ -485,21 +637,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			// Resolve current song: library lookup first, then fall back to stored full JSON
 			let currentSong: Song | null = null;
 			if (savedSongStr) {
-				try {
-					const songParsed = JSON.parse(savedSongStr);
-					const songId = typeof songParsed === 'string' ? songParsed : songParsed?.id;
-					if (songId) {
-						const { useLibraryStore } = require('@/hooks/useLibraryStore');
-						currentSong = useLibraryStore.getState().songsById[songId] || null;
-					}
-				} catch {
+				const songId = parseSavedSongId(savedSongStr);
+				if (songId) {
 					const { useLibraryStore } = require('@/hooks/useLibraryStore');
-					currentSong = useLibraryStore.getState().songsById[savedSongStr] || null;
+					currentSong = useLibraryStore.getState().songsById[songId] || null;
 				}
 			}
 			if (!currentSong && savedSongDataStr) {
 				try {
-					currentSong = JSON.parse(savedSongDataStr) as Song;
+					const resolve = resolverForCurrentConnection();
+					currentSong = mapSongUrls(JSON.parse(savedSongDataStr) as Song, (u) => resolve(toStoredPlexUrl(u)));
 				} catch {}
 			}
 			if (!currentSong) return;
@@ -522,6 +669,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			}
 
 			const isPartialRestore = queue.length === 0;
+			let restoredOriginal: Song[] = [];
 			if (isPartialRestore) {
 				queue = [currentSong]; // library not ready; mini player + single-song playback
 			} else if (savedOriginalQueueStr) {
@@ -533,10 +681,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 							: Array.isArray(origParsed)
 								? origParsed.map((s: any) => s.id)
 								: [];
-					const resolvedOrig = resolveIdsToSongs(origIds);
-					if (resolvedOrig.length > 0) set({ originalQueue: resolvedOrig });
+					restoredOriginal = resolveIdsToSongs(origIds);
 				} catch {}
 			}
+			// Always have an original queue, otherwise toggling shuffle would rebuild the queue from [].
+			set({ originalQueue: restoredOriginal.length > 0 ? restoredOriginal : queue });
+			partialRestorePending = isPartialRestore;
 
 			// Defer native queue load until after transitions/animations so a quick "open album" tap
 			// does not reset() a restore that already started a download (avoids spurious "cancelled").
@@ -561,13 +711,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				// task, avoiding the race where a separate pause() ran before load finished and playback
 				// then auto-started (and reset position to 0).
 				await TrackPlayer.skip(trackIndex, { startPaused: true, startAtSeconds: position > 0 ? position : undefined });
-				restoredPausedAt = Date.now();
 			} finally {
 				set({ _isRestoringPlayback: false });
 			}
 
-			const color = await extractArtworkColor(currentSong);
-			set({ currentSong, queue, artworkBgColor: color, isPlaying: false });
+			set({
+				currentSong,
+				queue,
+				currentIndex: Math.max(
+					0,
+					queue.findIndex((s) => s.id === currentSong!.id),
+				),
+				artworkBgColor: null, // UltraBlur (or the offline fallback) fills colors in
+				isPlaying: false,
+			});
 			const usePlaybackProgressStore = getProgressStore();
 			usePlaybackProgressStore.setState({ position });
 
@@ -609,6 +766,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					// If switching away from a podcast, save its progress NOW (before we update currentSong,
 					// because PlaybackActiveTrackChanged will see the new currentSong and skip the save).
 					const prev = get().currentSong;
+					if (prev && prev.id !== song.id) scrobbleIfPlayedEnough(prev);
 					if (prev?.source === 'podcast' && prev.id !== song.id) {
 						const usePlaybackProgressStore = getProgressStore();
 						const { position: prevPos, duration: prevDur } = usePlaybackProgressStore.getState();
@@ -624,10 +782,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					saveCurrentSong(song);
 					storage.remove(STORAGE_POSITION_KEY);
 
-					// Fire-and-forget artwork color extraction
-					extractArtworkColor(song)
-						.then((color) => set({ artworkBgColor: color }))
-						.catch(() => set({ artworkBgColor: '#000' }));
+					// Colors come from UltraBlur; the local ImageColors fallback runs only if that fails.
+					set({ artworkBgColor: null });
 
 					const state = get();
 
@@ -646,32 +802,45 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 						// Same queue — just skip to the song (fastest path)
 						const trackIndex = state.queue.findIndex((s) => s.id === song.id);
 						if (trackIndex !== -1) {
+							set({ currentIndex: trackIndex });
 							await TrackPlayer.skip(trackIndex);
 						}
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else if (newQueue) {
 						// New queue — reset and load. Podcasts: single-episode queue only (no next/prev, avoids slow 292-track add).
-						const queueToUse =
+						const fullQueue =
 							song.source === 'podcast' ? [song] : state.isShuffled ? createShuffledQueue(newQueue, song) : newQueue;
+						// Huge queues load in windows starting at the selected song (see windowQueue).
+						const { window: queueToUse, tail } = windowQueue(
+							fullQueue,
+							fullQueue.findIndex((t) => t.id === song.id),
+						);
+						queueTail = tail;
+						const originalToUse = song.source === 'podcast' ? [song] : tail.length > 0 ? queueToUse : newQueue;
 
 						await TrackPlayer.reset();
 						await TrackPlayer.add(queueToUse.map(songToTrack));
 
 						// Set queue BEFORE skip so PlaybackActiveTrackChanged sees correct state
-						saveQueueState(queueToUse, song.source === 'podcast' ? [song] : newQueue, song);
-						set({ queue: queueToUse, originalQueue: song.source === 'podcast' ? [song] : newQueue });
+						saveQueueState(queueToUse, originalToUse, song);
+						set({ queue: queueToUse, originalQueue: originalToUse });
 
-						const trackIndex = queueToUse.findIndex((t) => t.id === song.id);
-						await TrackPlayer.skip(Math.max(0, trackIndex));
+						const trackIndex = Math.max(
+							0,
+							queueToUse.findIndex((t) => t.id === song.id),
+						);
+						set({ currentIndex: trackIndex });
+						await TrackPlayer.skip(trackIndex);
 
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
 					} else {
 						// Single song
+						queueTail = [];
 						await TrackPlayer.reset();
 						await TrackPlayer.add(songToTrack(song));
-						set({ queue: [song], originalQueue: [song] });
+						set({ queue: [song], originalQueue: [song], currentIndex: 0 });
 						await TrackPlayer.skip(0);
 						await maybeResumePodcast(song);
 						await TrackPlayer.play();
@@ -720,7 +889,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Toggle play/pause
 	togglePlayPause: async () => {
-		restoredPausedAt = 0; // user explicitly interacting — lift restore suppression
 		try {
 			const playbackState = await TrackPlayer.getPlaybackState();
 			if (playbackState.state === State.Playing) {
@@ -741,21 +909,22 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 				const state = get();
 				if (!state.currentSong || state.queue.length === 0) return;
 
-				const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+				const currentIndex = resolveCurrentIndex(state);
 				if (currentIndex === -1) return;
 
+				scrobbleIfPlayedEnough(state.currentSong);
 				const nextIndex = (currentIndex + 1) % state.queue.length;
 				const nextSong = state.queue[nextIndex];
 
 				await TrackPlayer.skip(nextIndex);
-				set({ currentSong: nextSong });
+				set({ currentSong: nextSong, currentIndex: nextIndex });
 
-				saveQueueState(state.queue, state.originalQueue, nextSong);
+				// The queue itself didn't change; only persist the current song.
+				saveCurrentSong(nextSong);
 				storage.remove(STORAGE_POSITION_KEY);
+				void maybeExtendQueue();
 
-				extractArtworkColor(nextSong)
-					.then((color) => set({ artworkBgColor: color }))
-					.catch(() => set({ artworkBgColor: '#000' }));
+				set({ artworkBgColor: null });
 			} catch (error) {
 				console.error('Error skipping to next:', error);
 			}
@@ -777,21 +946,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 					return;
 				}
 
-				const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+				const currentIndex = resolveCurrentIndex(state);
 				if (currentIndex === -1) return;
 
+				scrobbleIfPlayedEnough(state.currentSong);
 				const prevIndex = currentIndex === 0 ? state.queue.length - 1 : currentIndex - 1;
 				const prevSong = state.queue[prevIndex];
 
 				await TrackPlayer.skip(prevIndex);
-				set({ currentSong: prevSong });
+				set({ currentSong: prevSong, currentIndex: prevIndex });
 
-				saveQueueState(state.queue, state.originalQueue, prevSong);
+				saveCurrentSong(prevSong);
 				storage.remove(STORAGE_POSITION_KEY);
 
-				extractArtworkColor(prevSong)
-					.then((color) => set({ artworkBgColor: color }))
-					.catch(() => set({ artworkBgColor: '#000' }));
+				set({ artworkBgColor: null });
 			} catch (error) {
 				console.error('Error skipping to previous:', error);
 			}
@@ -822,90 +990,104 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	},
 
 	// Add to queue
-	addToQueue: async (songs: Song[]) => {
-		try {
-			const state = get();
-			const newQueue = [...state.queue, ...songs];
-			const newOriginalQueue = [...state.originalQueue, ...songs];
+	addToQueue: (songs: Song[]) =>
+		enqueueQueueOp(async () => {
+			try {
+				const state = get();
+				const newQueue = [...state.queue, ...songs];
+				const newOriginalQueue = [...state.originalQueue, ...songs];
 
-			await TrackPlayer.add(songs.map(songToTrack));
+				await TrackPlayer.add(songs.map(songToTrack));
 
-			set({ queue: newQueue, originalQueue: newOriginalQueue });
-			saveQueueState(newQueue, newOriginalQueue, state.currentSong);
-		} catch (error) {
-			console.error('Error adding to queue:', error);
-		}
-	},
+				set({ queue: newQueue, originalQueue: newOriginalQueue });
+				saveQueueState(newQueue, newOriginalQueue, state.currentSong);
+			} catch (error) {
+				console.error('Error adding to queue:', error);
+			}
+		}),
 
 	// Play next (insert after current song)
-	playNext: async (song: Song) => {
-		try {
-			const state = get();
-			if (!state.currentSong) {
-				await get().playSound(song, [song]);
-				return;
+	playNext: (song: Song) =>
+		enqueueQueueOp(async () => {
+			try {
+				const state = get();
+				if (!state.currentSong) {
+					await get().playSound(song, [song]);
+					return;
+				}
+
+				const currentIndex = resolveCurrentIndex(state);
+				if (currentIndex === -1) return;
+
+				const newQueue = [...state.queue];
+				newQueue.splice(currentIndex + 1, 0, song);
+
+				const newOriginalQueue = [...state.originalQueue];
+				const originalIndex = newOriginalQueue.findIndex((s) => s.id === state.currentSong!.id);
+				if (originalIndex !== -1) {
+					newOriginalQueue.splice(originalIndex + 1, 0, song);
+				}
+
+				// JS and native queues share indices: insert right after the current track.
+				await TrackPlayer.add(songToTrack(song), currentIndex + 1);
+
+				set({ queue: newQueue, originalQueue: newOriginalQueue });
+				saveQueueState(newQueue, newOriginalQueue, state.currentSong);
+			} catch (error) {
+				console.error('Error adding song to play next:', error);
 			}
-
-			const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
-			if (currentIndex === -1) return;
-
-			const newQueue = [...state.queue];
-			newQueue.splice(currentIndex + 1, 0, song);
-
-			const newOriginalQueue = [...state.originalQueue];
-			const originalIndex = newOriginalQueue.findIndex((s) => s.id === state.currentSong!.id);
-			if (originalIndex !== -1) {
-				newOriginalQueue.splice(originalIndex + 1, 0, song);
-			}
-
-			// Get current TrackPlayer queue and insert the song
-			const trackPlayerQueue = await TrackPlayer.getQueue();
-			const trackPlayerIndex = trackPlayerQueue.findIndex((t) => t.id === state.currentSong!.id);
-			if (trackPlayerIndex !== -1) {
-				await TrackPlayer.add(songToTrack(song), trackPlayerIndex + 1);
-			}
-
-			set({ queue: newQueue, originalQueue: newOriginalQueue });
-			saveQueueState(newQueue, newOriginalQueue, state.currentSong);
-		} catch (error) {
-			console.error('Error adding song to play next:', error);
-		}
-	},
+		}),
 
 	// Remove from queue
-	removeFromQueue: (index: number) => {
-		const state = get();
-		if (index < 0 || index >= state.queue.length) return;
+	removeFromQueue: (index: number) =>
+		void enqueueQueueOp(async () => {
+			const state = get();
+			if (index < 0 || index >= state.queue.length) return;
 
-		const newQueue = [...state.queue];
-		const removedSong = newQueue.splice(index, 1)[0];
+			const currentIndex = resolveCurrentIndex(state);
+			if (index === currentIndex) return; // never remove the playing track from under the player
 
-		// Remove from original queue as well
-		const newOriginalQueue = state.originalQueue.filter((s) => s.id !== removedSong.id);
+			const newQueue = [...state.queue];
+			const removedSong = newQueue.splice(index, 1)[0];
 
-		set({ queue: newQueue, originalQueue: newOriginalQueue });
-		saveQueueState(newQueue, newOriginalQueue, state.currentSong);
+			// Remove from original queue as well
+			const newOriginalQueue = state.originalQueue.filter((s) => s.id !== removedSong.id);
 
-		// Remove from TrackPlayer
-		TrackPlayer.remove(index).catch((err) => console.warn('Failed to remove track:', err));
-	},
+			set({
+				queue: newQueue,
+				originalQueue: newOriginalQueue,
+				currentIndex: index < currentIndex ? currentIndex - 1 : currentIndex,
+			});
+			saveQueueState(newQueue, newOriginalQueue, state.currentSong);
+
+			// Remove from TrackPlayer
+			await TrackPlayer.remove(index).catch((err) => console.warn('Failed to remove track:', err));
+		}),
 
 	// Clear queue
-	clearQueue: () => {
-		const state = get();
-		if (!state.currentSong) return;
+	clearQueue: () =>
+		void enqueueQueueOp(async () => {
+			const state = get();
+			if (!state.currentSong) return;
 
-		const newQueue = [state.currentSong];
-		const newOriginalQueue = [state.currentSong];
+			const newQueue = [state.currentSong];
+			const newOriginalQueue = [state.currentSong];
+			queueTail = [];
 
-		set({ queue: newQueue, originalQueue: newOriginalQueue });
-		saveQueueState(newQueue, newOriginalQueue, state.currentSong);
+			set({ queue: newQueue, originalQueue: newOriginalQueue, currentIndex: 0 });
+			saveQueueState(newQueue, newOriginalQueue, state.currentSong);
 
-		// Reset TrackPlayer queue
-		TrackPlayer.reset()
-			.then(() => TrackPlayer.add(songToTrack(state.currentSong!)))
-			.catch((err) => console.warn('Failed to reset queue:', err));
-	},
+			// Trim the native queue around the playing track. (A reset() here used to stop playback.)
+			try {
+				const activeIndex = await TrackPlayer.getActiveTrackIndex();
+				if (activeIndex != null && activeIndex > 0) {
+					await TrackPlayer.remove(Array.from({ length: activeIndex }, (_, i) => i));
+				}
+				await TrackPlayer.removeUpcomingTracks();
+			} catch (err) {
+				console.warn('Failed to clear queue:', err);
+			}
+		}),
 
 	// Fully unload the player: stop playback, clear the queue, current song,
 	// persisted playback state, and reset progress. Leaves user settings
@@ -919,9 +1101,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 		prewarmedSongId = null;
 		lastCrossfadeSignature = '';
+		queueTail = [];
 
 		set({
 			currentSong: null,
+			currentIndex: -1,
 			queue: [],
 			originalQueue: [],
 			isPlaying: false,
@@ -945,25 +1129,33 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 	},
 
 	// Reorder queue
-	reorderQueue: (fromIndex: number, toIndex: number) => {
-		const state = get();
-		if (fromIndex < 0 || fromIndex >= state.queue.length || toIndex < 0 || toIndex >= state.queue.length) {
-			return;
-		}
+	reorderQueue: (fromIndex: number, toIndex: number) =>
+		void enqueueQueueOp(async () => {
+			const state = get();
+			if (fromIndex < 0 || fromIndex >= state.queue.length || toIndex < 0 || toIndex >= state.queue.length) {
+				return;
+			}
 
-		const newQueue = [...state.queue];
-		const [movedSong] = newQueue.splice(fromIndex, 1);
-		newQueue.splice(toIndex, 0, movedSong);
+			const newQueue = [...state.queue];
+			const [movedSong] = newQueue.splice(fromIndex, 1);
+			newQueue.splice(toIndex, 0, movedSong);
 
-		set({ queue: newQueue });
-		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
+			// Keep currentIndex pointing at the same playing track after the move.
+			const cur = resolveCurrentIndex(state);
+			let nextCurrent = cur;
+			if (cur === fromIndex) nextCurrent = toIndex;
+			else if (fromIndex < cur && toIndex >= cur) nextCurrent = cur - 1;
+			else if (fromIndex > cur && toIndex <= cur) nextCurrent = cur + 1;
 
-		// Reorder in TrackPlayer
-		TrackPlayer.move(fromIndex, toIndex).catch((err) => console.warn('Failed to reorder track:', err));
-	},
+			// Unshuffled, the user's manual order *is* the original order; keep them in sync so toggling shuffle
+			// on and off later doesn't throw the reorder away.
+			const newOriginalQueue = state.isShuffled ? state.originalQueue : newQueue;
+			set({ queue: newQueue, originalQueue: newOriginalQueue, currentIndex: nextCurrent });
+			saveQueueState(newQueue, newOriginalQueue, state.currentSong);
 
-	// Get queue
-	getQueue: () => get().queue,
+			// Reorder in TrackPlayer
+			await TrackPlayer.move(fromIndex, toIndex).catch((err) => console.warn('Failed to reorder track:', err));
+		}),
 
 	// Toggle repeat
 	toggleRepeat: async () => {
@@ -982,47 +1174,56 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
 	// Toggle shuffle — swaps upcoming tracks without interrupting current playback
 	// Toggle shuffle — reorders queue around the current track without interrupting playback
-	toggleShuffle: async () => {
-		const state = get();
-		const newShuffleState = !state.isShuffled;
+	toggleShuffle: () =>
+		enqueueQueueOp(async () => {
+			const state = get();
+			const newShuffleState = !state.isShuffled;
 
-		let newQueue: Song[];
+			let newQueue: Song[];
 
-		if (newShuffleState) {
-			newQueue = createShuffledQueue(state.originalQueue, state.currentSong);
-		} else {
-			newQueue = [...state.originalQueue];
-		}
-
-		set({ isShuffled: newShuffleState, queue: newQueue });
-
-		// Rebuild TrackPlayer queue around the current track without interrupting it
-		try {
-			const activeIndex = await TrackPlayer.getActiveTrackIndex();
-			if (activeIndex != null) {
-				// Remove tracks BEFORE the current one (so current becomes index 0)
-				if (activeIndex > 0) {
-					const beforeIndices = Array.from({ length: activeIndex }, (_, i) => i);
-					await TrackPlayer.remove(beforeIndices);
-				}
-				// Now current track is at index 0 — remove everything after it
-				await TrackPlayer.removeUpcomingTracks();
-
-				// Build the rest of the queue: everything except current song
-				const currentId = state.currentSong?.id;
-				const rest = newQueue.filter((s) => s.id !== currentId);
-
-				if (rest.length > 0) {
-					await TrackPlayer.add(rest.map(songToTrack));
-				}
+			// Fall back to the live queue if the original was never captured (e.g. after a partial restore).
+			const baseQueue = state.originalQueue.length > 0 ? state.originalQueue : state.queue;
+			if (baseQueue.length === 0) return;
+			if (newShuffleState) {
+				newQueue = createShuffledQueue(baseQueue, state.currentSong);
+			} else {
+				newQueue = [...baseQueue];
 			}
-		} catch (err) {
-			console.warn('Failed to update TrackPlayer queue for shuffle:', err);
-		}
 
-		storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
-		storage.set(STORAGE_SHUFFLE_KEY, String(newShuffleState));
-	},
+			const currentId = state.currentSong?.id;
+			set({
+				isShuffled: newShuffleState,
+				queue: newQueue,
+				currentIndex: currentId ? newQueue.findIndex((s) => s.id === currentId) : -1,
+			});
+
+			// Rebuild TrackPlayer queue around the current track without interrupting it
+			try {
+				const activeIndex = await TrackPlayer.getActiveTrackIndex();
+				if (activeIndex != null) {
+					// Remove tracks BEFORE the current one (so current becomes index 0)
+					if (activeIndex > 0) {
+						const beforeIndices = Array.from({ length: activeIndex }, (_, i) => i);
+						await TrackPlayer.remove(beforeIndices);
+					}
+					// Now current track is at index 0 — remove everything after it
+					await TrackPlayer.removeUpcomingTracks();
+
+					// Build the rest of the queue: everything except current song
+					const currentId = state.currentSong?.id;
+					const rest = newQueue.filter((s) => s.id !== currentId);
+
+					if (rest.length > 0) {
+						await TrackPlayer.add(rest.map(songToTrack));
+					}
+				}
+			} catch (err) {
+				console.warn('Failed to update TrackPlayer queue for shuffle:', err);
+			}
+
+			storage.set(STORAGE_QUEUE_KEY, JSON.stringify(newQueue.map((s) => s.id)));
+			storage.set(STORAGE_SHUFFLE_KEY, String(newShuffleState));
+		}),
 
 	// Set volume
 	setVolume: async (volume: number) => {
@@ -1058,13 +1259,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 		set({ sleepTimerEndsAt: endsAt });
 		storage.set(STORAGE_SLEEP_TIMER_ENDS_AT_KEY, String(endsAt));
 	},
-
-	getSleepTimerRemainingSeconds: () => {
-		const endsAt = get().sleepTimerEndsAt;
-		if (endsAt == null) return null;
-		const rem = Math.ceil((endsAt - Date.now()) / 1000);
-		return rem <= 0 ? null : rem;
-	},
 }));
 
 // Hook to sync TrackPlayer events with the store
@@ -1080,6 +1274,8 @@ export function useTrackPlayerSync() {
 			state._setIsPlaying(true);
 		} else if (playbackState?.state !== State.Playing && state.isPlaying) {
 			state._setIsPlaying(false);
+			// Persist the exact resume position as soon as playback stops.
+			require('@/hooks/usePlaybackProgressStore').flushPlaybackPosition();
 			if (state.currentSong?.source === 'podcast') {
 				const usePlaybackProgressStore = getProgressStore();
 				const { position, duration } = usePlaybackProgressStore.getState();
@@ -1137,7 +1333,7 @@ export function useTrackPlayerSync() {
 					duration > 0 &&
 					remaining < 90
 				) {
-					const nextSong = getNextQueueSongForCrossfade(state.queue, state.currentSong, state.repeatMode);
+					const nextSong = getNextQueueSongForCrossfade(state, state.repeatMode);
 					if (nextSong && state.currentSong) {
 						const baseConfig = {
 							defaultDuration: pbs.crossfadeDurationSec,
@@ -1163,7 +1359,7 @@ export function useTrackPlayerSync() {
 
 				// Pre-fetch first 256KB of next track to warm OS HTTP cache
 				if (remaining > 0 && remaining < 45 && state.queue.length > 1 && state.currentSong) {
-					const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const currentIndex = resolveCurrentIndex(state);
 					if (currentIndex !== -1) {
 						const nextIndex = (currentIndex + 1) % state.queue.length;
 						const nextSong = state.queue[nextIndex];
@@ -1227,18 +1423,17 @@ export function useTrackPlayerSync() {
 				prewarmedSongId = null;
 				lastCrossfadeSignature = '';
 
-				state._setCurrentSong(newCurrentSong);
+				useAudioStore.setState({ currentSong: newCurrentSong, currentIndex: trackIndex });
+				void maybeExtendQueue();
 
 				// Reset progress bar immediately so it doesn't flash the old track's position
 				const progressStore = getProgressStore().getState();
 				progressStore.setPosition(0);
 				progressStore.setDuration(newCurrentSong.duration ?? 0);
 
-				// Persist & extract color asynchronously
+				// Persist; colors are handled by the UltraBlur store (with an offline fallback).
 				saveCurrentSong(newCurrentSong);
-				extractArtworkColor(newCurrentSong)
-					.then((color) => useAudioStore.getState()._setArtworkBgColor(color))
-					.catch(() => {});
+				useAudioStore.setState({ artworkBgColor: null });
 			}
 
 			if (event.type === Event.PlaybackError) {
@@ -1250,7 +1445,7 @@ export function useTrackPlayerSync() {
 
 				if (canRetry && state.currentSong && state.queue.length > 0) {
 					lastErrorRetryAt = now;
-					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const trackIndex = resolveCurrentIndex(state);
 					if (trackIndex !== -1) {
 						try {
 							await TrackPlayer.skip(trackIndex);
@@ -1263,13 +1458,13 @@ export function useTrackPlayerSync() {
 					}
 				} else if (!canRetry) {
 					console.warn('Playback error after recent retry, skipping to next');
-					const trackIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+					const trackIndex = resolveCurrentIndex(state);
 					const nextIndex = trackIndex + 1;
 					if (nextIndex < state.queue.length) {
 						try {
 							lastErrorRetryAt = now;
 							const nextSong = state.queue[nextIndex];
-							state._setCurrentSong(nextSong);
+							useAudioStore.setState({ currentSong: nextSong, currentIndex: nextIndex });
 							await TrackPlayer.skip(nextIndex);
 							await TrackPlayer.play();
 							// console.log(`✅ Skipped failed track → ${nextSong.id}`);
@@ -1282,13 +1477,14 @@ export function useTrackPlayerSync() {
 				}
 			}
 
+			// Remote play/pause/seek are already performed natively (NowPlayingManager) before these events
+			// reach JS; repeating them here would double-apply. Only mirror the result into the store.
 			if (event.type === Event.RemotePlay) {
-				if (Date.now() - restoredPausedAt < RESTORE_REMOTE_PLAY_SUPPRESS_MS) return;
-				await TrackPlayer.play();
+				useAudioStore.setState({ isPlaying: true });
 			}
 
 			if (event.type === Event.RemotePause) {
-				await TrackPlayer.pause();
+				useAudioStore.setState({ isPlaying: false });
 			}
 
 			if (event.type === Event.RemoteNext) {
@@ -1302,7 +1498,9 @@ export function useTrackPlayerSync() {
 			}
 
 			if (event.type === Event.RemoteSeek) {
-				await state.seekTo(event.position ?? 0);
+				getProgressStore()
+					.getState()
+					.setPosition(event.position ?? 0);
 			}
 		},
 	);

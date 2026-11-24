@@ -2,7 +2,7 @@ import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable } from 'react-native';
+import { Alert, Platform, Pressable } from 'react-native';
 import { Div, DynamicItem, Main, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
@@ -12,7 +12,7 @@ import { createPlaylist } from '@/utils/plex';
 
 export default function PlaylistsScreen() {
 	const colors = useColors();
-	const { playlists: rawPlaylists, isLoading } = usePlaylists();
+	const { playlists: rawPlaylists } = usePlaylists();
 	const { playlists } = useOfflineFilteredLibrary();
 	const setPlaylists = useLibraryStore((s) => s.setPlaylists);
 	const hasNoPlaylists = useMemo(() => !playlists.length, [playlists]);
@@ -69,16 +69,6 @@ export default function PlaylistsScreen() {
 		),
 		[handleCreatePlaylist, colors.brand],
 	);
-
-	if (isLoading) {
-		return (
-			<Main>
-				<Div transparent style={{ paddingHorizontal: 16, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-					<ActivityIndicator />
-				</Div>
-			</Main>
-		);
-	}
 
 	if (hasNoPlaylists) {
 		return (

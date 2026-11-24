@@ -8,6 +8,7 @@ import type { LoudnessData, Song } from '@/types/song';
 import { plexAuthService } from './plex-auth';
 import { plexDiscoveryService } from './plex-discovery';
 import { appendPlexIdentityQueryToUrl, buildPlexIdentityHeaders, encodePlexIdentityQueryString, getPlexAppVersion } from './plex-identity';
+import { buildAuthedPlexUrl, rebaseInMemoryUrls } from './plex-url';
 
 const OFFLINE_MODE_MESSAGE = 'Offline mode is on. Disable in Settings to fetch library data.';
 
@@ -25,6 +26,11 @@ const TIMEOUT_CONFIG = {
 	requestTimeout: 30000, // 30 seconds
 	libraryTimeout: 120000, // 2 minutes — full-section dumps (tracks/albums/artists) on large libraries
 };
+
+/** Mask the Plex token in a URL before it goes into an error message or log. */
+export function redactUrl(url: string): string {
+	return url.replace(/(X-Plex-Token=)[^&#]+/gi, '$1REDACTED');
+}
 
 export interface PlexError extends Error {
 	code?: string;
@@ -48,6 +54,16 @@ export class PlexClient {
 	private musicSectionPromise: Promise<void> | null = null;
 	private initialized: boolean = false;
 	private initPromise: Promise<void> | null = null;
+
+	/**
+	 * Single place the connection base changes. When it switches (local ↔ remote, server failover), rewrite
+	 * in-memory library URLs so artwork/streams built against the old host keep working.
+	 */
+	private setBaseURL(next: string): void {
+		const normalized = next.replace(/\/$/, '');
+		this.baseURL = normalized;
+		if (normalized) rebaseInMemoryUrls(normalized);
+	}
 
 	constructor(baseURL?: string) {
 		if (baseURL) {
@@ -126,14 +142,14 @@ export class PlexClient {
 			}
 		}
 
-		this.baseURL = serverUri;
 		this.token = plexAuthService.getAccessToken() || '';
+		this.setBaseURL(serverUri);
 
 		// Verify the stored URI is reachable; if not, try alternative connections
 		const reachable = await plexDiscoveryService.testServerConnection(selectedServer, this.token);
 		if (reachable) {
 			// testServerConnection may have updated the server URI to a working one
-			this.baseURL = selectedServer.uri.replace(/\/$/, '');
+			this.setBaseURL(selectedServer.uri);
 		} else {
 			console.warn('⚠️ No reachable connection found — using stored URI as fallback');
 		}
@@ -179,7 +195,7 @@ export class PlexClient {
 			if (newBase !== currentBase) {
 				console.log(`🔄 Switching connection: ${currentBase} → ${newBase}`);
 			}
-			this.baseURL = newBase;
+			this.setBaseURL(newBase);
 		}
 	}
 
@@ -224,13 +240,10 @@ export class PlexClient {
 	 * constructions when formatting a 43k-track library.
 	 */
 	private buildTrackURL(path: string): string {
-		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 		const id = plexAuthService.getClientIdentifier();
 		const identityQs = encodePlexIdentityQueryString(buildPlexIdentityHeaders(id));
-		if (this.token) {
-			return `${this.baseURL}${normalizedPath}?X-Plex-Token=${encodeURIComponent(this.token)}&${identityQs}`;
-		}
-		return `${this.baseURL}${normalizedPath}?${identityQs}`;
+		// buildAuthedPlexUrl appends with '&' when the Plex path already carries a query string.
+		return buildAuthedPlexUrl(path, { baseURL: this.baseURL, token: this.token ?? '', identityQs });
 	}
 
 	/**
@@ -304,21 +317,9 @@ export class PlexClient {
 		if (error.status >= 500) {
 			return true;
 		}
-		// SSL certificate errors are retryable
-		if (error.message?.includes('certificate') || error.message?.includes('SSL') || error.message?.includes('TLS')) {
-			return true;
-		}
+		// TLS/certificate errors are not retried: the same URL will fail the same way, and there is no
+		// longer an HTTP downgrade to fall back to.
 		return false;
-	}
-
-	/**
-	 * Try HTTP fallback if HTTPS fails with SSL error
-	 */
-	private getFallbackUrl(originalUrl: string): string | null {
-		if (originalUrl.startsWith('https://') && originalUrl.includes('.plex.direct')) {
-			return originalUrl.replace('https://', 'http://');
-		}
-		return null;
 	}
 
 	/**
@@ -337,7 +338,16 @@ export class PlexClient {
 		if (getIsOfflineMode()) {
 			throw new Error(OFFLINE_MODE_MESSAGE);
 		}
-		const { method = 'GET', headers = {}, timeout = TIMEOUT_CONFIG.requestTimeout, retries = RETRY_CONFIG.maxRetries } = options;
+		const {
+			method = 'GET',
+			headers = {},
+			timeout = TIMEOUT_CONFIG.requestTimeout,
+			retries: requestedRetries = RETRY_CONFIG.maxRetries,
+		} = options;
+		// Only idempotent GETs are retried: re-sending a POST/PUT/DELETE after a timeout can create
+		// duplicate playlists or items. Huge library dumps get at most one retry (each attempt can take
+		// minutes).
+		const retries = method !== 'GET' ? 0 : timeout >= TIMEOUT_CONFIG.libraryTimeout ? Math.min(requestedRetries, 1) : requestedRetries;
 
 		const url = this.buildURL(path, params);
 
@@ -350,31 +360,15 @@ export class PlexClient {
 		};
 
 		let lastError: any;
-		let triedHttpFallback = false;
 
 		for (let attempt = 0; attempt <= retries; attempt++) {
 			const { controller, clear: clearRequestTimeout } = this.createTimeoutController(timeout);
 			try {
-				// For React Native, we need to handle SSL certificate issues differently
-				// The issue is that Plex's dynamic DNS certificates don't match the hostname
-				// Since CURL works with -k flag, we'll try the original URL first
-				// and handle SSL errors gracefully with retry logic
-				let requestUrl = url;
-				const additionalHeaders = {};
-
-				// Try HTTP fallback if this is a retry after SSL error
-				if (attempt > 0 && lastError?.message?.includes('TLS') && !triedHttpFallback) {
-					const fallbackUrl = this.getFallbackUrl(url);
-					if (fallbackUrl) {
-						requestUrl = fallbackUrl;
-						triedHttpFallback = true;
-					}
-				}
-
-				// Add SSL handling for React Native
+				// Never downgrade HTTPS to HTTP on a TLS error: the token travels in the query string.
+				const requestUrl = url;
 				const fetchOptions: any = {
 					method,
-					headers: { ...defaultHeaders, ...additionalHeaders },
+					headers: defaultHeaders,
 					signal: controller.signal,
 				};
 
@@ -383,21 +377,23 @@ export class PlexClient {
 				// Handle HTTP errors
 				if (!response.ok) {
 					const errorText = await response.text().catch(() => 'Unknown error');
-					const error: PlexError = new Error(`[${requestUrl}] - ${response.status}: ${errorText}`);
+					const error: PlexError = new Error(`[${redactUrl(requestUrl)}] - ${response.status}: ${errorText}`);
 					error.status = response.status;
 					error.code = `HTTP_${response.status}`;
-					error.retryable = response.status >= 500;
-
-					// Don't retry on 4xx errors (except 408, 429)
-					if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
-						throw error;
-					}
+					error.retryable = response.status >= 500 || response.status === 408 || response.status === 429;
 
 					lastError = error;
 					if (attempt < retries && error.retryable) {
-						await this.sleep(this.calculateRetryDelay(attempt));
+						// Honor Retry-After (seconds) for 429/503 when present, within the max delay.
+						const retryAfter = Number.parseFloat(response.headers.get('retry-after') ?? '');
+						const delay = Number.isFinite(retryAfter)
+							? Math.min(retryAfter * 1000, RETRY_CONFIG.maxDelay)
+							: this.calculateRetryDelay(attempt);
+						await this.sleep(delay);
 						continue;
 					}
+					// Mark as already handled so the catch below doesn't retry it again.
+					(error as any).noRetry = true;
 					throw error;
 				}
 
@@ -431,18 +427,9 @@ export class PlexClient {
 					break;
 				}
 
-				// Check if error is retryable
-				if (!this.isRetryableError(error)) {
+				// HTTP errors were already handled above; only transport errors reach the retry path here.
+				if (error.noRetry || error.status != null || !this.isRetryableError(error)) {
 					break;
-				}
-
-				// For SSL/TLS errors, provide helpful guidance
-				if (error.message?.includes('TLS') || error.message?.includes('certificate') || error.message?.includes('SSL')) {
-					console.log('🔧 SSL Certificate Issue Detected!');
-					console.log('💡 Try these Plex server settings:');
-					console.log('   1. Set "Custom certificate domain" to your hostname');
-					console.log('   2. Uncheck "Strict TLS configuration"');
-					console.log('   3. Or use "Custom certificate location" with a matching cert');
 				}
 
 				// Wait before retrying
@@ -896,19 +883,18 @@ export class PlexClient {
 	}
 
 	/**
-	 * Search the library
+	 * Change stamp for the music section (contentChangedAt, falling back to updatedAt/scannedAt).
+	 * Used to skip full library pulls when nothing changed on the server. Returns null if unknown.
 	 */
-	async search(query: string, type?: string): Promise<any[]> {
-		await this.initialize();
-
-		const params: Record<string, string> = { query };
-		if (type) {
-			params.type = type;
-		}
-
-		const response = await this.request('/search', params);
-		const data = response.data as any;
-		return data?.MediaContainer?.Metadata || [];
+	async fetchMusicSectionStamp(): Promise<string | null> {
+		const sections = await this.getLibrarySections();
+		const musicSection =
+			(this.musicSectionId && sections.find((section: any) => String(section.key) === this.musicSectionId)) ||
+			sections.find((section: any) => section.type === 'artist' || section.type === 'music');
+		if (!musicSection) return null;
+		if (!this.musicSectionId) this.musicSectionId = String(musicSection.key);
+		const stamp = musicSection.contentChangedAt ?? musicSection.updatedAt ?? musicSection.scannedAt;
+		return stamp != null ? `${musicSection.key}:${stamp}` : null;
 	}
 
 	/**
@@ -923,28 +909,6 @@ export class PlexClient {
 
 		const playlistsArray = Array.isArray(rawPlaylists) ? rawPlaylists : [rawPlaylists];
 		return playlistsArray.map((playlist) => this.formatPlaylist(playlist));
-	}
-
-	/**
-	 * Fetch a specific playlist by ID
-	 */
-	async fetchPlaylist(playlistId: string): Promise<Playlist | null> {
-		await this.initialize();
-
-		try {
-			const response = await this.request(`/playlists/${playlistId}`);
-			const data = response.data as any;
-			const playlist = data?.MediaContainer?.Metadata?.[0];
-
-			if (!playlist) {
-				return null;
-			}
-
-			return this.formatPlaylist(playlist);
-		} catch (error) {
-			console.error('Failed to fetch playlist:', error);
-			return null;
-		}
 	}
 
 	/**
@@ -963,15 +927,6 @@ export class PlexClient {
 			console.error('Failed to fetch artist radio playlist:', error);
 			return null;
 		}
-	}
-
-	/**
-	 * Artist radio tracks: station playlist items, or empty if none.
-	 */
-	async fetchArtistRadioTracks(artistRatingKey: string): Promise<Song[]> {
-		const playlist = await this.fetchArtistRadioPlaylist(artistRatingKey);
-		if (!playlist?.key) return [];
-		return this.fetchPlaylistTracks(playlist.key);
 	}
 
 	/**
@@ -1208,20 +1163,15 @@ plexAuthService.onServerChange(() => plexClient.clearInitialization());
 // Export convenience functions for backward compatibility
 export const testPlexServer = () => plexClient.testConnectivity();
 export const fetchAllTracks = () => plexClient.fetchAllTracks();
+export const fetchMusicSectionStamp = () => plexClient.fetchMusicSectionStamp();
 export const fetchRecentlyPlayed = (limit?: number) => plexClient.fetchRecentlyPlayed(limit);
 export const fetchSectionHubs = (count?: number) => plexClient.fetchSectionHubs(count);
 export const fetchAllArtists = () => plexClient.fetchAllArtists();
 export const fetchAllAlbums = () => plexClient.fetchAllAlbums();
 export const fetchAllPlaylists = () => plexClient.fetchAllPlaylists();
-export const fetchPlaylist = (playlistId: string) => plexClient.fetchPlaylist(playlistId);
 export const fetchPlaylistTracks = (playlistId: string) => plexClient.fetchPlaylistTracks(playlistId);
 export const fetchArtistRadioPlaylist = (artistRatingKey: string) => plexClient.fetchArtistRadioPlaylist(artistRatingKey);
-export const fetchArtistRadioTracks = (artistRatingKey: string) => plexClient.fetchArtistRadioTracks(artistRatingKey);
 export const fetchUltraBlurColors = (thumbUrl: string) => plexClient.fetchUltraBlurColors(thumbUrl);
-export const buildPlexURL = async (path: string, params: Record<string, string> = {}) => {
-	await plexClient.initialize();
-	return (plexClient as any).buildURL(path, params);
-};
 export const createPlaylist = (title: string, ratingKeys?: string[]) => plexClient.createPlaylist(title, ratingKeys);
 export const updatePlaylistMetadata = (playlistId: string, fields: { title?: string; summary?: string }) =>
 	plexClient.updatePlaylistMetadata(playlistId, fields);

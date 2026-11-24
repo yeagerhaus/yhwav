@@ -52,7 +52,13 @@ export const QueueList = React.memo(({ headerComponent, onToggleQueue }: QueueLi
 	const reorderQueue = useAudioStore((s) => s.reorderQueue);
 	const playSound = useAudioStore((s) => s.playSound);
 
-	const currentIndex = useMemo(() => (currentSong ? queue.findIndex((s) => s.id === currentSong.id) : -1), [queue, currentSong]);
+	const storeIndex = useAudioStore((s) => s.currentIndex);
+	// Prefer the store's index (correct even when a track appears twice); fall back to id lookup.
+	const currentIndex = useMemo(() => {
+		if (!currentSong) return -1;
+		if (storeIndex >= 0 && queue[storeIndex]?.id === currentSong.id) return storeIndex;
+		return queue.findIndex((s) => s.id === currentSong.id);
+	}, [queue, currentSong, storeIndex]);
 
 	const nextUpSongs = useMemo(() => (currentIndex >= 0 ? queue.slice(currentIndex + 1) : []), [queue, currentIndex]);
 

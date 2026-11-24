@@ -11,6 +11,10 @@ interface PendingScrobble {
 	playlistRatingKey?: string;
 }
 
+/** Bounds for offline listening: keep at most this many, and nothing older than the max age. */
+const MAX_PENDING = 500;
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 let pending: PendingScrobble[] = [];
 let flushing = false;
 
@@ -18,12 +22,29 @@ function persist() {
 	storage.set(STORAGE_KEY, JSON.stringify(pending));
 }
 
+/** De-duplicate (same song + timestamp), drop expired entries, and cap the queue (oldest dropped). */
+function normalize(entries: PendingScrobble[]): PendingScrobble[] {
+	const cutoff = Date.now() - MAX_AGE_MS;
+	const seen = new Set<string>();
+	const result: PendingScrobble[] = [];
+	for (const e of entries) {
+		if (!e?.songId || e.timestamp < cutoff) continue;
+		const key = `${e.songId}|${e.timestamp}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		result.push(e);
+	}
+	return result.length > MAX_PENDING ? result.slice(result.length - MAX_PENDING) : result;
+}
+
 function hydrate() {
 	try {
 		const raw = storage.getString(STORAGE_KEY);
-		if (raw) pending = JSON.parse(raw);
+		const stored: PendingScrobble[] = raw ? JSON.parse(raw) : [];
+		// Merge with anything queued before hydration instead of overwriting it.
+		pending = normalize([...stored, ...pending]);
 	} catch {
-		pending = [];
+		pending = normalize(pending);
 	}
 }
 
@@ -49,7 +70,10 @@ export async function flushPendingScrobbles(): Promise<void> {
 			if (entry.playlistRatingKey) {
 				await scrobble(entry.playlistRatingKey).catch(() => {});
 			}
-			pending.shift();
+			// Remove this exact entry (the array may have been replaced by a concurrent queueScrobble).
+			pending = pending.filter((e) => e !== entry);
+			// Persist per item: if the app dies mid-flush, already-sent scrobbles aren't replayed.
+			persist();
 		}
 	} catch {
 		// Network/offline — stop here, remaining entries stay queued
@@ -67,12 +91,15 @@ export async function queueScrobble(song: Song): Promise<void> {
 	const { useAudioStore } = require('@/hooks/useAudioStore');
 	const playlistRatingKey: string | null = useAudioStore.getState().currentPlaylistRatingKey;
 
-	pending.push({
-		songId: song.id,
-		title: song.title,
-		timestamp: Date.now(),
-		playlistRatingKey: playlistRatingKey ?? undefined,
-	});
+	pending = normalize([
+		...pending,
+		{
+			songId: song.id,
+			title: song.title,
+			timestamp: Date.now(),
+			playlistRatingKey: playlistRatingKey ?? undefined,
+		},
+	]);
 	persist();
 
 	const { useLibraryStore } = require('@/hooks/useLibraryStore');
@@ -83,6 +110,12 @@ export async function queueScrobble(song: Song): Promise<void> {
 	if (playlistRatingKey) optimisticPlaylistUpdate(playlistRatingKey);
 
 	await flushPendingScrobbles();
+}
+
+/** Drop all pending scrobbles (e.g. on logout / account change). */
+export function clearPendingScrobbles(): void {
+	pending = [];
+	storage.remove(STORAGE_KEY);
 }
 
 /**

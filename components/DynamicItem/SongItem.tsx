@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { MusicVisualizer } from '@/components/MusicVisualizer';
 import { Text } from '@/components/Text';
@@ -10,7 +10,7 @@ import { useAudioStore } from '@/hooks/useAudioStore';
 import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
-import { State, usePlaybackState } from '@/lib/playerAdapter';
+import { useSongDownloadStatus, useSongPlayingState } from '@/hooks/useSongRowState';
 import type { Song } from '@/types/song';
 import { ContextMenu, type ContextMenuItem } from '../ContextMenu';
 import { Div } from '../Div';
@@ -19,27 +19,21 @@ import { Div } from '../Div';
 const SongItem = React.memo(
 	({ item, queue, listItem, playlistRatingKey }: { item: Song; queue?: Song[]; listItem?: boolean; playlistRatingKey?: string }) => {
 		const colors = useColors();
-		const playbackState = usePlaybackState();
 		const openAddToPlaylist = useAddToPlaylist((s) => s.open);
 		const artistRatingKey = item.artistKey?.split('/').pop() || item.artistKey;
 		const matchedArtist = useLibraryStore((s) => (artistRatingKey ? s.artistsById[artistRatingKey] : undefined));
 		const matchedAlbum = useLibraryStore((s) => (item.albumId ? s.albumsById[item.albumId] : undefined));
-		const currentSong = useAudioStore((state) => state.currentSong);
 		const playSound = useAudioStore((state) => state.playSound);
 		const playNext = useAudioStore((state) => state.playNext);
 		const addToQueue = useAudioStore((state) => state.addToQueue);
 
-		const downloaded = useMusicDownloadsStore((s) => s.isDownloaded(item.id));
-		const downloading = useMusicDownloadsStore((s) => s.isDownloading(item.id));
-		const queued = useMusicDownloadsStore((s) => s.isQueued(item.id));
+		const { isCurrent: isCurrentSong, showAsPlaying } = useSongPlayingState(item.id);
+		const downloadStatus = useSongDownloadStatus(item.id);
+		const downloaded = downloadStatus === 'downloaded';
+		const downloading = downloadStatus === 'downloading';
+		const queued = downloadStatus === 'queued';
 		const downloadTrack = useMusicDownloadsStore((s) => s.downloadTrack);
 		const removeDownload = useMusicDownloadsStore((s) => s.removeDownload);
-
-		const isCurrentSong = useMemo(() => {
-			return item.id === String(currentSong?.id);
-		}, [item.id, currentSong?.id]);
-
-		const showAsPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
 		const playSong = useCallback(
 			async (song: Song) => {
@@ -68,24 +62,15 @@ const SongItem = React.memo(
 				label: 'Go to Album',
 				systemImage: 'square.stack',
 				onPress: () => {
-					if (matchedAlbum) {
-						router.back();
-						setTimeout(() => {
-							router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
-						}, 100);
-					}
+					// Push directly: a back() + delayed push corrupted the back stack on non-modal screens.
+					if (matchedAlbum) router.push(`/(tabs)/(library)/(albums)/${matchedAlbum.id}`);
 				},
 			},
 			{
 				label: 'Go to Artist',
 				systemImage: 'person.circle',
 				onPress: () => {
-					if (matchedArtist) {
-						router.back();
-						setTimeout(() => {
-							router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
-						}, 100);
-					}
+					if (matchedArtist) router.push(`/(tabs)/(library)/(artists)/${matchedArtist.key}`);
 				},
 			},
 			downloaded
@@ -101,11 +86,6 @@ const SongItem = React.memo(
 						disabled: downloading || queued,
 						onPress: () => downloadTrack(item),
 					},
-			{
-				label: 'Share',
-				systemImage: 'square.and.arrow.up',
-				onPress: () => console.log('Share'),
-			},
 		];
 
 		const downloadIndicator =
@@ -133,7 +113,7 @@ const SongItem = React.memo(
 								{item.title}
 							</Text>
 							<Div style={styles.artistRow} transparent>
-								{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
+								{isCurrentSong && <SymbolView name='music.note' size={12} tintColor={colors.brand} />}
 								{downloadIndicator}
 								<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 									{item.artist}
@@ -182,7 +162,7 @@ const SongItem = React.memo(
 							{item.title}
 						</Text>
 						<Div transparent style={styles.artistRow}>
-							{item.id === String(currentSong?.id) && <SymbolView name='music.note' size={10} tintColor={colors.brand} />}
+							{isCurrentSong && <SymbolView name='music.note' size={10} tintColor={colors.brand} />}
 							{downloadIndicator}
 							<Text type='bodySM' numberOfLines={1} style={styles.songArtist}>
 								{item.artist}
@@ -224,7 +204,9 @@ const SongItem = React.memo(
 			prevProps.item.title === nextProps.item.title &&
 			prevProps.item.artist === nextProps.item.artist &&
 			prevProps.listItem === nextProps.listItem &&
-			prevProps.queue?.length === nextProps.queue?.length &&
+			// Compare the queue reference, not just its length: a same-length reordered/filtered queue must
+			// re-render so playSong doesn't close over a stale queue.
+			prevProps.queue === nextProps.queue &&
 			prevProps.playlistRatingKey === nextProps.playlistRatingKey
 		);
 	},

@@ -338,7 +338,7 @@ export default function PlaybackScreen() {
 
 					<SwitchRow
 						label='Normalization'
-						description='Prevents clipping and distortion when EQ or gain boosts the signal above 0 dBFS.'
+						description='Plays tracks at a consistent volume using their loudness data, with a limiter that prevents clipping.'
 						value={normalizationEnabled}
 						onValueChange={setNormalizationEnabled}
 					/>

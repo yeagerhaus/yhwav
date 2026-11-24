@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getIsOfflineMode } from '@/hooks/useOfflineModeStore';
 import { storage } from '@/lib/storage';
 import type { PodcastEpisode, PodcastFeed } from '@/types';
-import { fetchAndParseFeed } from '@/utils/podcast-rss';
+import { capEpisodesForCache, fetchAndParseFeed, mapWithConcurrency } from '@/utils/podcast-rss';
 
 const STORAGE_KEY = 'PODCAST_RSS_FEEDS';
 const EPISODES_CACHE_KEY = 'PODCAST_EPISODES_CACHE';
@@ -49,7 +49,9 @@ function persistFeeds(feeds: PodcastFeed[]) {
 
 function persistEpisodes(episodesByFeedId: Record<string, PodcastEpisode[]>) {
 	try {
-		storage.set(EPISODES_CACHE_KEY, JSON.stringify(episodesByFeedId));
+		const capped: Record<string, PodcastEpisode[]> = {};
+		for (const [feedId, episodes] of Object.entries(episodesByFeedId)) capped[feedId] = capEpisodesForCache(episodes);
+		storage.set(EPISODES_CACHE_KEY, JSON.stringify(capped));
 	} catch {}
 }
 
@@ -106,8 +108,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 			return;
 		}
 
-		const { feeds } = get();
-		if (feeds.some((f) => f.url === trimmed)) {
+		if (get().feeds.some((f) => f.url === trimmed)) {
 			set({ error: 'Feed already added' });
 			return;
 		}
@@ -123,16 +124,15 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 				imageUrl: parsed.imageUrl,
 				addedAt: Date.now(),
 			};
-			const newFeeds = [...feeds, newFeed];
-			const newEpisodes = { ...get().episodesByFeedId, [id]: parsed.episodes };
-			set({
-				feeds: newFeeds,
-				episodesByFeedId: newEpisodes,
+			// Merge into the latest state: a refresh may have finished while this feed was being fetched.
+			set((s) => ({
+				feeds: s.feeds.some((f) => f.url === trimmed) ? s.feeds : [...s.feeds, newFeed],
+				episodesByFeedId: { ...s.episodesByFeedId, [id]: parsed.episodes },
 				addingUrl: null,
 				error: null,
-			});
-			persistFeeds(newFeeds);
-			persistEpisodes(newEpisodes);
+			}));
+			persistFeeds(get().feeds);
+			persistEpisodes(get().episodesByFeedId);
 		} catch (err: any) {
 			set({
 				addingUrl: null,
@@ -150,6 +150,19 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 		set({ feeds: newFeeds, episodesByFeedId: newEpisodes });
 		persistFeeds(newFeeds);
 		persistEpisodes(newEpisodes);
+
+		// Don't orphan the feed's downloaded files or progress entries.
+		const { usePodcastDownloadsStore } = require('@/hooks/usePodcastDownloadsStore');
+		const { usePodcastProgressStore } = require('@/hooks/usePodcastProgressStore');
+		const downloadsStore = usePodcastDownloadsStore.getState();
+		const feedDownloads = downloadsStore.getDownloadedEpisodesForFeed(id);
+		void (async () => {
+			// Sequential: removeDownload reads state before awaiting the file delete.
+			for (const dl of feedDownloads) {
+				await downloadsStore.removeDownload(dl.episodeId).catch(() => {});
+			}
+		})();
+		usePodcastProgressStore.getState().removeProgressForFeed(id);
 	},
 
 	fetchFeed: async (urlOrId: string) => {
@@ -203,26 +216,29 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 		if (feeds.length === 0) return;
 
 		set({ isLoading: true, error: null });
-		const episodesByFeedId = { ...get().episodesByFeedId };
-		let updatedFeeds = [...feeds];
 		let hadError = false;
-		for (const feed of feeds) {
+		// Fetch feeds in parallel (bounded) and merge each result into the *latest* state, so a feed added
+		// or removed while the refresh runs isn't overwritten or resurrected.
+		await mapWithConcurrency(feeds, 4, async (feed) => {
 			try {
 				const parsed = await fetchAndParseFeed(feed.url, feed.id);
-				episodesByFeedId[feed.id] = parsed.episodes;
-				updatedFeeds = updatedFeeds.map((f) => (f.id === feed.id ? { ...f, title: parsed.title, imageUrl: parsed.imageUrl } : f));
+				set((s) => {
+					if (!s.feeds.some((f) => f.id === feed.id)) return {};
+					return {
+						feeds: s.feeds.map((f) => (f.id === feed.id ? { ...f, title: parsed.title, imageUrl: parsed.imageUrl } : f)),
+						episodesByFeedId: { ...s.episodesByFeedId, [feed.id]: parsed.episodes },
+					};
+				});
 			} catch {
 				hadError = true;
 			}
-		}
+		});
 		set({
-			feeds: updatedFeeds,
-			episodesByFeedId,
 			isLoading: false,
 			error: hadError ? 'Some feeds failed to refresh' : null,
 			lastFetchedAt: Date.now(),
 		});
-		persistFeeds(updatedFeeds);
-		persistEpisodes(episodesByFeedId);
+		persistFeeds(get().feeds);
+		persistEpisodes(get().episodesByFeedId);
 	},
 }));

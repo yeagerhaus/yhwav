@@ -93,7 +93,7 @@ function MusicScreen() {
 				router.back();
 			});
 		} else {
-			router.replace('/(tabs)/home');
+			router.replace('/(tabs)/(library)');
 		}
 	}, [router, handleHapticFeedback]);
 

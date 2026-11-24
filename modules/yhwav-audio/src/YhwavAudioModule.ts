@@ -11,6 +11,8 @@ export interface Track {
 	duration?: number;
 	/** Gapless handoff into this track even when Sweet Fades is enabled (e.g. podcasts). */
 	crossfadeDisabled?: boolean;
+	/** Per-track loudness gain in dB (ReplayGain), applied natively when normalization is enabled. */
+	gainDb?: number;
 }
 
 /** 0 equal-power, 1 linear, 2 logarithmic, 3 S-curve. */
@@ -57,13 +59,18 @@ type YhwavAudioModuleType = {
 	setCrossfadeConfig: (config: CrossfadeConfig) => Promise<void>;
 	setNextCrossfadeDuration: (seconds: number) => Promise<void>;
 	setNextCrossfadeTrim: (trim: number) => Promise<void>;
-	getPlaybackState: () => PlaybackState;
-	getActiveTrackIndex: () => number;
-	getQueue: () => Track[];
+	getPlaybackState: () => Promise<PlaybackState>;
+	getActiveTrackIndex: () => Promise<number>;
+	getQueue: () => Promise<Track[]>;
 	prewarmURL: (url: string, trackId: string) => Promise<void>;
 	/** Decodes the audio at `url` and returns `buckets` normalized peak amplitudes (0..1). */
 	computeWaveform: (url: string, buckets: number) => Promise<number[]>;
-	buildSearchIndex: (tracks: Array<{ id: string; title: string; artist: string; album: string }>) => Promise<void>;
+	/** Marks a file or directory (path or file:// URI) as excluded from iCloud/iTunes backup. */
+	excludeFromBackup: (pathOrUri: string) => Promise<void>;
+	/** Drops every cached/streamed audio file (e.g. on logout). */
+	clearAudioCache: () => Promise<void>;
+	/** `epoch` increases per build; native ignores a build older than the newest it has applied. */
+	buildSearchIndex: (tracks: Array<{ id: string; title: string; artist: string; album: string }>, epoch: number) => Promise<void>;
 	searchTracks: (query: string, limit: number) => Promise<Array<{ id: string; score: number }>>;
 	addListener: (event: string, callback: (payload: unknown) => void) => { remove: () => void };
 	removeListeners: (count: number) => void;

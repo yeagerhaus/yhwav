@@ -7,11 +7,11 @@ import { useAppearanceStore } from '@/hooks/useAppearanceStore';
 export function useColors(): ThemeColors {
 	const colorScheme = useColorScheme() === 'light' ? 'light' : 'dark';
 	const brandColor = useAppearanceStore((s) => s.brandColor);
-	const base = Colors[colorScheme];
-	if (brandColor) {
-		return { ...base, brand: brandColor, borderSelected: brandColor };
-	}
-	return base;
+	// Stable object per (scheme, brand) so consumers' memos (e.g. useThemedStyles) don't rebuild every render.
+	return useMemo(() => {
+		const base = Colors[colorScheme];
+		return brandColor ? { ...base, brand: brandColor, borderSelected: brandColor } : base;
+	}, [colorScheme, brandColor]);
 }
 
 export function useThemedStyles() {

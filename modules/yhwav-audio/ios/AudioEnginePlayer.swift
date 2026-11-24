@@ -131,7 +131,9 @@ final class AudioEnginePlayer {
 	private var crossfadeIdleTrackId: String?
 	private var crossfadeIdleReady: Bool = false
 	private var crossfadeInProgress: Bool = false
-	private var crossfadeRampLink: CADisplayLink?
+	/// Drives the crossfade volume ramp. A DispatchSourceTimer (not CADisplayLink) so it keeps firing while
+	/// the app is backgrounded / the screen is locked.
+	private var crossfadeRampTimer: DispatchSourceTimer?
 	private var crossfadeRampStartTime: CFTimeInterval = 0
 	private var crossfadeRampDurationActive: TimeInterval = 0
 	private var crossfadeOutgoingIsA: Bool = true
@@ -144,12 +146,18 @@ final class AudioEnginePlayer {
 	private var lowpassB: AVAudioUnitEQ?
 
 	// Manual-skip fade-in ramp state (separate from the crossfade ramp).
-	private var fadeInLink: CADisplayLink?
+	private var fadeInTimer: DispatchSourceTimer?
 	private var fadeInStartTime: CFTimeInterval = 0
 	private var fadeInDuration: TimeInterval = 0
 	private var fadeInDeckIsA: Bool = true
 
-	private var _isPlaying = false
+	private var _isPlaying = false {
+		didSet { tapPlayingFlag.set(_isPlaying) }
+	}
+	/// Thread-safe mirror of `_isPlaying` for the level-meter tap (runs off the main thread).
+	private let tapPlayingFlag = LockedFlag()
+	/// Crossfade progress (0…1) captured when paused mid-crossfade, so resume can continue the ramp.
+	private var crossfadePausedProgress: Double = 0
 	private var _volume: Float = 1.0
 	private var _rate: Float = 1.0
 
@@ -168,14 +176,29 @@ final class AudioEnginePlayer {
 	private var streamingDuration: Double = 0
 	private let streamPumpQueue = DispatchQueue(label: "com.yhwav.stream-pump")
 	private var streamPumpTimer: DispatchSourceTimer?
+	/// Snapshot of the stream being pumped. The pump runs on `streamPumpQueue` and must not read main-thread
+	/// state (playGeneration, activeNode, …) directly; main publishes this under a lock instead.
+	private struct StreamPumpContext {
+		let gen: UInt64
+		let source: StreamingAudioSource
+		let node: AVAudioPlayerNode
+		let trackId: String?
+	}
+	private let pumpContextLock = NSLock()
+	private var _pumpContext: StreamPumpContext?
+	private var pumpContext: StreamPumpContext? {
+		get { pumpContextLock.lock(); defer { pumpContextLock.unlock() }; return _pumpContext }
+		set { pumpContextLock.lock(); _pumpContext = newValue; pumpContextLock.unlock() }
+	}
 	/// Pump-queue-only state (never touch off `streamPumpQueue`).
+	/// After a forward seek past the downloaded data, the node stays stopped (position holds at the
+	/// target) until the first buffer at the new position is scheduled; then it's started for this gen.
+	private var streamStartPendingGen: UInt64?
 	private var streamInFlight = 0
 	private var streamSchedulingComplete = false
 	private let streamReadBufferSize: AVAudioFrameCount = 8192
 	private let maxInFlightStreamBuffers = 16
 
-	private var interruptionObserver: NSObjectProtocol?
-	private var routeChangeObserver: NSObjectProtocol?
 
 	init(fileCache: AudioFileCache) {
 		self.fileCache = fileCache
@@ -216,7 +239,7 @@ final class AudioEnginePlayer {
 
 		AVAudioUnit.instantiate(with: yhwavDSPDesc, options: []) { unit, error in
 			if let error = error {
-				print("YhwavAudio: DSP unit instantiation failed: \(error)")
+				yhLog("YhwavAudio: DSP unit instantiation failed: \(error)")
 			}
 			createdUnit = unit
 			sem.signal()
@@ -233,7 +256,7 @@ final class AudioEnginePlayer {
 			engine.connect(mixerNode, to: timePitchNode, format: format)
 			engine.connect(timePitchNode, to: unit, format: format)
 			engine.connect(unit, to: engine.mainMixerNode, format: format)
-			print("YhwavAudio: engine setup dual-deck+lowpass+mixer+DSP format=\(format.sampleRate)Hz/\(format.channelCount)ch")
+			yhLog("YhwavAudio: engine setup dual-deck+lowpass+mixer+DSP format=\(format.sampleRate)Hz/\(format.channelCount)ch")
 		} else {
 			engine.connect(deckA, to: lpA, format: format)
 			engine.connect(deckB, to: lpB, format: format)
@@ -241,30 +264,30 @@ final class AudioEnginePlayer {
 			engine.connect(lpB, to: mixerNode, format: format)
 			engine.connect(mixerNode, to: timePitchNode, format: format)
 			engine.connect(timePitchNode, to: engine.mainMixerNode, format: format)
-			print("YhwavAudio: engine setup dual-deck+lowpass+mixer (no DSP) format=\(format.sampleRate)Hz/\(format.channelCount)ch")
+			yhLog("YhwavAudio: engine setup dual-deck+lowpass+mixer (no DSP) format=\(format.sampleRate)Hz/\(format.channelCount)ch")
 		}
 
 		deckB.volume = 0
 		deckA.volume = _volume
 
-		installLevelTap()
-		observeInterruptions()
+		// The level-meter tap is installed on demand (setLevelMeteringEnabled) — only while JS is listening.
+		// Audio-session interruptions / route changes / media-services resets are handled by the module,
+		// which knows which backend (engine or podcast player) is active.
 
 		do {
 			try engine.start()
 		} catch {
-			print("YhwavAudio: engine start failed: \(error)")
+			yhLog("YhwavAudio: engine start failed: \(error)")
 		}
 	}
 
 	func teardown() {
-		print("YhwavAudio: engine teardown")
+		yhLog("YhwavAudio: engine teardown")
 		cancelActiveDeckFadeIn()
 		cancelCrossfadeRamp()
 		stopStreaming()
 		playGeneration &+= 1
 		stopLevelTap()
-		removeInterruptionObservers()
 
 		deckA?.stop()
 		deckB?.stop()
@@ -326,7 +349,7 @@ final class AudioEnginePlayer {
 			if let fb = fallbackURL,
 			   ns.domain == AudioFileCache.errorDomain,
 			   ns.code == AudioFileCache.durationMismatchCode {
-				print("YhwavAudio: transcode too short vs metadata — trying direct file URL trackId=\(trackId)")
+				yhLog("YhwavAudio: transcode too short vs metadata — trying direct file URL trackId=\(trackId)")
 				fileCache.evict(trackIds: Set([trackId]))
 				return try await fileCache.getAudioFile(url: fb, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds)
 			}
@@ -334,6 +357,8 @@ final class AudioEnginePlayer {
 		}
 	}
 
+	/// Main-actor isolated: all deck/file/track state is mutated on the main thread only.
+	@MainActor
 	func play(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil, startPaused: Bool = false, startAtSeconds: Double? = nil, fadeInSeconds: Double = 0) async throws {
 		guard let deckA = deckA, let engine = engine else { return }
 
@@ -356,7 +381,7 @@ final class AudioEnginePlayer {
 		deckA.volume = _volume
 		deckB.volume = 0
 
-		print("YhwavAudio: play trackId=\(trackId)")
+		yhLog("YhwavAudio: play trackId=\(trackId)")
 
 		// Prefer progressive streaming for remote tracks that aren't already on disk, so playback starts
 		// after a short prebuffer. Any failure falls through to the full-download path below.
@@ -371,8 +396,9 @@ final class AudioEnginePlayer {
 				try await playStreaming(url: streamURL, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds, gen: gen, startPaused: startPaused, startAtSeconds: startAtSeconds, fadeInSeconds: fadeInSeconds)
 				return
 			} catch {
-				guard gen == playGeneration else { return }
-				print("YhwavAudio: stream failed trackId=\(trackId), falling back to download: \(error.localizedDescription)")
+				// Superseded by a newer play()/skip: surface as cancellation so callers don't emit events.
+				guard gen == playGeneration else { throw CancellationError() }
+				yhLog("YhwavAudio: stream failed trackId=\(trackId), falling back to download: \(error.localizedDescription)")
 			}
 		}
 
@@ -380,13 +406,13 @@ final class AudioEnginePlayer {
 		do {
 			file = try await loadAudioFile(url: url, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds, fallbackURL: fallbackURL)
 		} catch {
-			print("YhwavAudio: error trackId=\(trackId): \(error.localizedDescription)")
+			yhLog("YhwavAudio: error trackId=\(trackId): \(error.localizedDescription)")
 			throw error
 		}
 
 		guard gen == playGeneration else {
-			print("YhwavAudio: play trackId=\(trackId) stale (gen \(gen) != \(playGeneration))")
-			return
+			yhLog("YhwavAudio: play trackId=\(trackId) stale (gen \(gen) != \(playGeneration))")
+			throw CancellationError()
 		}
 
 		reconnectIfNeeded(for: file)
@@ -408,7 +434,7 @@ final class AudioEnginePlayer {
 		cachedPlaybackSeconds = Double(startFrame) / sampleRate
 
 		let duration = Double(file.length) / sampleRate
-		print("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s startFrame=\(startFrame) startPaused=\(startPaused) (current)")
+		yhLog("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s startFrame=\(startFrame) startPaused=\(startPaused) (current)")
 
 		if startFrame > 0 {
 			let remainingFrames = AVAudioFrameCount(file.length - startFrame)
@@ -456,6 +482,7 @@ final class AudioEnginePlayer {
 		return nil
 	}
 
+	@MainActor
 	private func playStreaming(url: URL, trackId: String, expectedDurationSeconds: Double?, gen: UInt64, startPaused: Bool = false, startAtSeconds: Double? = nil, fadeInSeconds: Double = 0) async throws {
 		guard let deckA = deckA, let engine = engine else {
 			throw NSError(domain: "AudioEnginePlayer", code: -10, userInfo: [NSLocalizedDescriptionKey: "Engine unavailable"])
@@ -483,7 +510,7 @@ final class AudioEnginePlayer {
 
 		guard gen == playGeneration else {
 			source.cancel()
-			return
+			throw CancellationError()
 		}
 
 		reconnectIfNeeded(toFormat: readFormat)
@@ -512,6 +539,7 @@ final class AudioEnginePlayer {
 			cachedPlaybackSeconds = clamped
 		}
 
+		pumpContext = StreamPumpContext(gen: gen, source: source, node: deckA, trackId: trackId)
 		streamPumpQueue.sync {
 			streamInFlight = 0
 			streamSchedulingComplete = false
@@ -529,7 +557,7 @@ final class AudioEnginePlayer {
 		timePitchNode.rate = _rate
 		startStreamPump(gen: gen)
 
-		print("YhwavAudio: stream start trackId=\(trackId) dur~=\(Int(streamingDuration))s @\(Int(sr))Hz startPaused=\(startPaused)")
+		yhLog("YhwavAudio: stream start trackId=\(trackId) dur~=\(Int(streamingDuration))s @\(Int(sr))Hz startPaused=\(startPaused)")
 	}
 
 	private func startStreamPump(gen: UInt64) {
@@ -548,22 +576,30 @@ final class AudioEnginePlayer {
 
 	/// Runs on `streamPumpQueue`. Tops up the active deck with LPCM buffers up to the in-flight budget.
 	private func pumpStream(gen: UInt64) {
-		guard gen == playGeneration, isStreaming, let source = streamingSource else { return }
+		guard let ctx = pumpContext, ctx.gen == gen else { return }
+		let source = ctx.source
 		while streamInFlight < maxInFlightStreamBuffers {
 			switch source.read(frames: streamReadBufferSize) {
 			case .data(let buffer):
-				let node = activeNode
+				let node = ctx.node
 				streamInFlight += 1
 				node.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 					guard let self = self else { return }
 					self.streamPumpQueue.async { self.onStreamBufferPlayed(gen: gen) }
+				}
+				if streamStartPendingGen == gen {
+					streamStartPendingGen = nil
+					DispatchQueue.main.async { [weak self] in
+						guard let self = self, gen == self.playGeneration, self._isPlaying else { return }
+						node.play()
+					}
 				}
 			case .waiting:
 				return
 			case .end:
 				streamSchedulingComplete = true
 				if streamInFlight == 0 {
-					let tid = currentTrackId
+					let tid = ctx.trackId
 					DispatchQueue.main.async { [weak self] in self?.handleStreamCompletion(trackId: tid, gen: gen) }
 				}
 				return
@@ -573,11 +609,11 @@ final class AudioEnginePlayer {
 
 	/// Runs on `streamPumpQueue`. A scheduled buffer finished playing.
 	private func onStreamBufferPlayed(gen: UInt64) {
-		guard gen == playGeneration, isStreaming else { return }
+		guard let ctx = pumpContext, ctx.gen == gen else { return }
 		if streamInFlight > 0 { streamInFlight -= 1 }
 		if streamSchedulingComplete {
 			if streamInFlight == 0 {
-				let tid = currentTrackId
+				let tid = ctx.trackId
 				DispatchQueue.main.async { [weak self] in self?.handleStreamCompletion(trackId: tid, gen: gen) }
 			}
 		} else {
@@ -597,7 +633,7 @@ final class AudioEnginePlayer {
 		// auto-skipping through truncated downloads.
 		if let err = streamingSource?.error {
 			let msg = err.localizedDescription
-			print("YhwavAudio: stream error trackId=\(trackId): \(msg)")
+			yhLog("YhwavAudio: stream error trackId=\(trackId): \(msg)")
 			delegate?.enginePlayer(self, didEncounterError: msg, trackId: trackId)
 			return
 		}
@@ -605,7 +641,7 @@ final class AudioEnginePlayer {
 			fileCache.registerCachedFile(trackId: trackId, fileURL: done)
 		}
 		trackEndWallTime = Date().timeIntervalSince1970 * 1000
-		print("YhwavAudio: stream ended trackId=\(trackId)")
+		yhLog("YhwavAudio: stream ended trackId=\(trackId)")
 		delegate?.enginePlayer(self, didFinishTrack: trackId)
 	}
 
@@ -623,9 +659,13 @@ final class AudioEnginePlayer {
 		let node = activeNode
 		node.stop()
 
+		// Seeking past the downloaded data: hold the node until audio at the target arrives, so the
+		// displayed position matches what's heard.
+		let targetBuffered = source.isParsingComplete || source.bufferedSeconds >= clamped + 0.5
 		streamPumpQueue.sync {
 			streamInFlight = 0
 			streamSchedulingComplete = false
+			streamStartPendingGen = (wasPlaying && !targetBuffered) ? gen : nil
 		}
 		source.seek(toTime: clamped)
 
@@ -635,10 +675,11 @@ final class AudioEnginePlayer {
 		deckA.volume = _volume
 		deckB?.volume = 0
 
+		pumpContext = StreamPumpContext(gen: gen, source: source, node: node, trackId: currentTrackId)
 		streamPumpQueue.sync { self.pumpStream(gen: gen) }
-		if wasPlaying { node.play() }
+		if wasPlaying && targetBuffered { node.play() }
 		startStreamPump(gen: gen)
-		print("YhwavAudio: stream seek to=\(String(format: "%.1f", clamped))s")
+		yhLog("YhwavAudio: stream seek to=\(String(format: "%.1f", clamped))s")
 	}
 
 	private func stopStreaming() {
@@ -650,6 +691,7 @@ final class AudioEnginePlayer {
 			}
 			src.cancel()
 		}
+		pumpContext = nil
 		streamingSource = nil
 		isStreaming = false
 		streamReadFormat = nil
@@ -657,9 +699,11 @@ final class AudioEnginePlayer {
 		streamPumpQueue.sync {
 			streamInFlight = 0
 			streamSchedulingComplete = false
+			streamStartPendingGen = nil
 		}
 	}
 
+	@MainActor
 	func scheduleNext(url: URL, trackId: String, expectedDurationSeconds: Double? = nil, fallbackURL: URL? = nil, forceGapless: Bool = false) async throws {
 		guard deckA != nil else { return }
 		let gen = playGeneration
@@ -675,12 +719,12 @@ final class AudioEnginePlayer {
 		do {
 			file = try await loadAudioFile(url: url, trackId: trackId, expectedDurationSeconds: expectedDurationSeconds, fallbackURL: fallbackURL)
 		} catch {
-			print("YhwavAudio: error loading next trackId=\(trackId): \(error.localizedDescription)")
+			yhLog("YhwavAudio: error loading next trackId=\(trackId): \(error.localizedDescription)")
 			return
 		}
 
 		guard gen == playGeneration else {
-			print("YhwavAudio: scheduleNext trackId=\(trackId) stale (gen \(gen) != \(playGeneration))")
+			yhLog("YhwavAudio: scheduleNext trackId=\(trackId) stale (gen \(gen) != \(playGeneration))")
 			return
 		}
 
@@ -690,7 +734,7 @@ final class AudioEnginePlayer {
 			crossfadeIdleFile = file
 			crossfadeIdleTrackId = trackId
 			let dur = Double(file.length) / file.processingFormat.sampleRate
-			print("YhwavAudio: crossfade preload trackId=\(trackId) duration=\(String(format: "%.1f", dur))s on idle deck")
+			yhLog("YhwavAudio: crossfade preload trackId=\(trackId) duration=\(String(format: "%.1f", dur))s on idle deck")
 
 			idle.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
 				DispatchQueue.main.async {
@@ -713,7 +757,7 @@ final class AudioEnginePlayer {
 
 		let frameCount = AVAudioFrameCount(file.length)
 		let duration = Double(file.length) / file.processingFormat.sampleRate
-		print("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s frames=\(frameCount) (next gapless)")
+		yhLog("YhwavAudio: schedule trackId=\(trackId) duration=\(String(format: "%.1f", duration))s frames=\(frameCount) (next gapless)")
 
 		let node = activeNode
 		node.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
@@ -722,6 +766,20 @@ final class AudioEnginePlayer {
 			}
 		}
 		isNextScheduled = true
+	}
+
+	/// Drop a prepared next track that no longer matches the queue (after remove/move/clear). Crossfade:
+	/// clear the idle deck. Gapless: AVAudioPlayerNode can't unschedule one segment, so re-anchor the
+	/// current track at its current position (which drops the chained next) and let the module reschedule.
+	func invalidatePreparedNext(unless expectedNextId: String?) {
+		guard let prepared = preparedNextTrackId, prepared != expectedNextId else { return }
+		if crossfadeInProgress { return } // never disturb an audible crossfade
+		yhLog("YhwavAudio: invalidating stale prepared next \(prepared) (expected \(expectedNextId ?? "none"))")
+		if crossfadeIdleReady {
+			clearCrossfadeIdle()
+		} else if isNextScheduled, !isStreaming {
+			seek(to: currentPosition)
+		}
 	}
 
 	func clearCrossfadeIdle() {
@@ -757,20 +815,24 @@ final class AudioEnginePlayer {
 	}
 
 	func pause() {
-		print("YhwavAudio: pause")
+		yhLog("YhwavAudio: pause")
 		deckA.pause()
 		deckB.pause()
 		_isPlaying = false
+		if crossfadeInProgress, crossfadeRampTimer != nil, crossfadeRampDurationActive > 0 {
+			// Remember how far the ramp got so resume() continues it instead of leaving both decks stuck.
+			crossfadePausedProgress = min(1, max(0, (CACurrentMediaTime() - crossfadeRampStartTime) / crossfadeRampDurationActive))
+		}
 		cancelCrossfadeRamp()
 	}
 
 	func resume() {
 		guard let deckA = deckA else { return }
-		print("YhwavAudio: resume")
+		yhLog("YhwavAudio: resume")
 
 		if let engine = engine, !engine.isRunning {
 			do { try engine.start() } catch {
-				print("YhwavAudio: engine restart failed: \(error)")
+				yhLog("YhwavAudio: engine restart failed: \(error)")
 				return
 			}
 		}
@@ -778,6 +840,10 @@ final class AudioEnginePlayer {
 		if crossfadeInProgress {
 			deckA.play()
 			deckB.play()
+			// Continue the ramp from where pause() left it.
+			crossfadeRampStartTime = CACurrentMediaTime() - crossfadePausedProgress * crossfadeRampDurationActive
+			crossfadePausedProgress = 0
+			crossfadeRampTimer = Self.makeRampTimer { [weak self] in self?.crossfadeRampStep() }
 		} else {
 			activeNode.play()
 		}
@@ -805,7 +871,7 @@ final class AudioEnginePlayer {
 		let clampedFrame = max(0, min(targetFrame, file.length - 1))
 		let remainingFrames = AVAudioFrameCount(file.length - clampedFrame)
 
-		print("YhwavAudio: seek trackId=\(trackId) to=\(String(format: "%.1f", seconds))s frame=\(clampedFrame)")
+		yhLog("YhwavAudio: seek trackId=\(trackId) to=\(String(format: "%.1f", seconds))s frame=\(clampedFrame)")
 
 		cachedPlaybackSeconds = Double(clampedFrame) / sampleRate
 
@@ -900,7 +966,7 @@ final class AudioEnginePlayer {
 			}
 			activeNode.volume = _volume
 			idleNode.volume = 0
-			print("YhwavAudio: volume=\(_volume)")
+			yhLog("YhwavAudio: volume=\(_volume)")
 		}
 	}
 
@@ -909,7 +975,7 @@ final class AudioEnginePlayer {
 		set {
 			_rate = max(0.5, min(2.0, newValue))
 			timePitchNode?.rate = _rate
-			print("YhwavAudio: rate=\(_rate)")
+			yhLog("YhwavAudio: rate=\(_rate)")
 		}
 	}
 
@@ -922,7 +988,12 @@ final class AudioEnginePlayer {
 		crossfadeInProgress = true
 		crossfadeOutgoingIsA = activeDeckIsA
 		finishedTrackIdForRamp = outgoing
-		crossfadeRampDurationActive = max(0.1, nextCrossfadeDuration)
+		// Never ramp longer than the outgoing track has left, otherwise the incoming deck would sit under
+		// full volume after the outgoing audio has already stopped.
+		let outgoingRemaining = currentDuration - currentPosition
+		let requested = nextCrossfadeDuration
+		let clamped = outgoingRemaining.isFinite && outgoingRemaining > 0 ? min(requested, outgoingRemaining) : requested
+		crossfadeRampDurationActive = max(0.1, clamped)
 		crossfadeRampIncomingTrim = max(0.1, min(4.0, nextIncomingTrim))
 		resetLowpassFilters()
 
@@ -934,13 +1005,11 @@ final class AudioEnginePlayer {
 		inc.play()
 
 		crossfadeRampStartTime = CACurrentMediaTime()
+		crossfadePausedProgress = 0
 		cancelCrossfadeRamp()
 
-		let link = CADisplayLink(target: CrossfadeRampProxy.shared, selector: #selector(CrossfadeRampProxy.tick))
-		CrossfadeRampProxy.shared.player = self
-		link.add(to: .main, forMode: .common)
-		crossfadeRampLink = link
-		print("YhwavAudio: crossfade ramp start \(outgoing) → \(idleId) over \(crossfadeRampDurationActive)s curve=\(crossfadeCurve.rawValue) trim=\(crossfadeRampIncomingTrim)")
+		crossfadeRampTimer = Self.makeRampTimer { [weak self] in self?.crossfadeRampStep() }
+		yhLog("YhwavAudio: crossfade ramp start \(outgoing) → \(idleId) over \(crossfadeRampDurationActive)s curve=\(crossfadeCurve.rawValue) trim=\(crossfadeRampIncomingTrim)")
 	}
 
 	/// Volume multipliers for the outgoing/incoming decks at normalized progress `s` (0…1).
@@ -959,7 +1028,7 @@ final class AudioEnginePlayer {
 	}
 
 	fileprivate func crossfadeRampStep() {
-		guard crossfadeInProgress, crossfadeRampLink != nil else { return }
+		guard crossfadeInProgress, crossfadeRampTimer != nil else { return }
 		let t = (CACurrentMediaTime() - crossfadeRampStartTime) / crossfadeRampDurationActive
 		if t >= 1.0 {
 			finishCrossfadeRamp()
@@ -1000,6 +1069,16 @@ final class AudioEnginePlayer {
 		}
 	}
 
+	/// ~100 Hz main-queue timer for volume ramps. Unlike CADisplayLink, a dispatch timer keeps firing while
+	/// the app is in the background with an active audio session (locked screen), so ramps always complete.
+	private static func makeRampTimer(_ step: @escaping () -> Void) -> DispatchSourceTimer {
+		let timer = DispatchSource.makeTimerSource(queue: .main)
+		timer.schedule(deadline: .now(), repeating: .milliseconds(10), leeway: .milliseconds(2))
+		timer.setEventHandler(handler: step)
+		timer.resume()
+		return timer
+	}
+
 	private static func makeLowpass() -> AVAudioUnitEQ {
 		let eq = AVAudioUnitEQ(numberOfBands: 1)
 		if let band = eq.bands.first {
@@ -1021,14 +1100,11 @@ final class AudioEnginePlayer {
 		fadeInDuration = duration
 		fadeInStartTime = CACurrentMediaTime()
 		activeNode.volume = 0
-		let link = CADisplayLink(target: DeckFadeProxy.shared, selector: #selector(DeckFadeProxy.tick))
-		DeckFadeProxy.shared.player = self
-		link.add(to: .main, forMode: .common)
-		fadeInLink = link
+		fadeInTimer = Self.makeRampTimer { [weak self] in self?.fadeInStep() }
 	}
 
 	fileprivate func fadeInStep() {
-		guard fadeInLink != nil, fadeInDuration > 0 else { return }
+		guard fadeInTimer != nil, fadeInDuration > 0 else { return }
 		let node = fadeInDeckIsA ? deckA : deckB
 		let t = (CACurrentMediaTime() - fadeInStartTime) / fadeInDuration
 		if t >= 1.0 {
@@ -1040,9 +1116,8 @@ final class AudioEnginePlayer {
 	}
 
 	private func cancelActiveDeckFadeIn() {
-		fadeInLink?.invalidate()
-		fadeInLink = nil
-		DeckFadeProxy.shared.player = nil
+		fadeInTimer?.cancel()
+		fadeInTimer = nil
 	}
 
 	private func finishCrossfadeRamp() {
@@ -1092,9 +1167,8 @@ final class AudioEnginePlayer {
 	}
 
 	private func cancelCrossfadeRamp() {
-		crossfadeRampLink?.invalidate()
-		crossfadeRampLink = nil
-		CrossfadeRampProxy.shared.player = nil
+		crossfadeRampTimer?.cancel()
+		crossfadeRampTimer = nil
 	}
 
 	// MARK: - Track completion (gapless + crossfade fallback)
@@ -1110,7 +1184,7 @@ final class AudioEnginePlayer {
 		let now = Date().timeIntervalSince1970 * 1000
 
 		if crossfadeEnabled, crossfadeIdleReady, let nf = crossfadeIdleFile, let nid = crossfadeIdleTrackId {
-			print("YhwavAudio: active ended with crossfade idle preloaded → \(nid)")
+			yhLog("YhwavAudio: active ended with crossfade idle preloaded → \(nid)")
 			activeNode.stop()
 			activeDeckIsA.toggle()
 			currentFile = nf
@@ -1133,7 +1207,7 @@ final class AudioEnginePlayer {
 
 		if !crossfadeEnabled, isNextScheduled, let nid = nextTrackId, let nf = nextFile {
 			let gap = trackEndWallTime > 0 ? Int(now - trackEndWallTime) : 0
-			print("YhwavAudio: transition trackId=\(trackId) → \(nid) gap=\(gap)ms")
+			yhLog("YhwavAudio: transition trackId=\(trackId) → \(nid) gap=\(gap)ms")
 
 			let previousFileLength = currentFile?.length ?? 0
 			let node = activeNode
@@ -1152,7 +1226,7 @@ final class AudioEnginePlayer {
 			isNextScheduled = false
 			cachedPlaybackSeconds = 0
 		} else {
-			print("YhwavAudio: transition trackId=\(trackId) → end (no next scheduled)")
+			yhLog("YhwavAudio: transition trackId=\(trackId) → end (no next scheduled)")
 			_isPlaying = false
 		}
 
@@ -1197,34 +1271,46 @@ final class AudioEnginePlayer {
 			engine.connect(timePitchNode, to: engine.mainMixerNode, format: fileFormat)
 		}
 
-		print("YhwavAudio: engine reconnect format=\(fileFormat.sampleRate)Hz/\(fileFormat.channelCount)ch")
+		yhLog("YhwavAudio: engine reconnect format=\(fileFormat.sampleRate)Hz/\(fileFormat.channelCount)ch")
 
 		if wasRunning {
 			do { try engine.start() } catch {
-				print("YhwavAudio: engine restart after reconnect failed: \(error)")
+				yhLog("YhwavAudio: engine restart after reconnect failed: \(error)")
 			}
 		}
 	}
 
 	// MARK: - Level metering
 
+	private var levelTapInstalled = false
+
+	/// Install/remove the main-mixer tap that feeds `didUpdateLevels`. Off unless a visualizer is listening
+	/// and the app is in the foreground, so playback doesn't pay ~43 main-thread dispatches/sec for nothing.
+	func setLevelMeteringEnabled(_ enabled: Bool) {
+		guard enabled != levelTapInstalled else { return }
+		if enabled { installLevelTap() } else { stopLevelTap() }
+	}
+
 	private func installLevelTap() {
-		guard let engine = engine else { return }
+		guard let engine = engine, !levelTapInstalled else { return }
 		let mixer = engine.mainMixerNode
 		let format = mixer.outputFormat(forBus: 0)
 		guard format.sampleRate > 0 else { return }
 
 		mixer.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-			guard let self = self, self._isPlaying else { return }
+			guard let self = self, self.tapPlayingFlag.get() else { return }
 			let levels = Self.computeLevels(buffer: buffer, bandCount: 5)
 			DispatchQueue.main.async {
 				self.delegate?.enginePlayer(self, didUpdateLevels: levels)
 			}
 		}
+		levelTapInstalled = true
 	}
 
 	private func stopLevelTap() {
+		guard levelTapInstalled else { return }
 		engine?.mainMixerNode.removeTap(onBus: 0)
+		levelTapInstalled = false
 	}
 
 	static func computeLevels(buffer: AVAudioPCMBuffer, bandCount: Int) -> [Float] {
@@ -1249,82 +1335,22 @@ final class AudioEnginePlayer {
 		return bands
 	}
 
-	// MARK: - Audio interruptions
-
-	private func observeInterruptions() {
-		interruptionObserver = NotificationCenter.default.addObserver(
-			forName: AVAudioSession.interruptionNotification,
-			object: nil,
-			queue: .main
-		) { [weak self] notification in
-			guard let info = notification.userInfo,
-				  let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-				  let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
-
-			switch type {
-			case .began:
-				print("YhwavAudio: engine interrupted type=began")
-				self?.pause()
-			case .ended:
-				print("YhwavAudio: engine interrupted type=ended")
-				if let opts = info[AVAudioSessionInterruptionOptionKey] as? UInt,
-				   AVAudioSession.InterruptionOptions(rawValue: opts).contains(.shouldResume) {
-					self?.resume()
-				}
-			@unknown default:
-				break
-			}
-		}
-
-		routeChangeObserver = NotificationCenter.default.addObserver(
-			forName: AVAudioSession.routeChangeNotification,
-			object: nil,
-			queue: .main
-		) { [weak self] notification in
-			guard let info = notification.userInfo,
-				  let reasonValue = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
-				  let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else { return }
-
-			print("YhwavAudio: engine route changed reason=\(reason.rawValue)")
-
-			if reason == .oldDeviceUnavailable {
-				self?.pause()
-			}
-		}
-	}
-
-	private func removeInterruptionObservers() {
-		if let obs = interruptionObserver {
-			NotificationCenter.default.removeObserver(obs)
-			interruptionObserver = nil
-		}
-		if let obs = routeChangeObserver {
-			NotificationCenter.default.removeObserver(obs)
-			routeChangeObserver = nil
-		}
-	}
-
 	deinit {
 		teardown()
 	}
 }
 
-// CADisplayLink needs a NSObject target
-private final class CrossfadeRampProxy: NSObject {
-	static let shared = CrossfadeRampProxy()
-	weak var player: AudioEnginePlayer?
+/// Minimal lock-protected Bool for values read off the main thread (e.g. the level-meter tap).
+final class LockedFlag {
+	private let lock = NSLock()
+	private var value = false
 
-	@objc func tick() {
-		player?.crossfadeRampStep()
+	func get() -> Bool {
+		lock.lock(); defer { lock.unlock() }
+		return value
 	}
-}
 
-// Separate proxy so a manual-skip fade-in can run without clobbering the crossfade ramp's target.
-private final class DeckFadeProxy: NSObject {
-	static let shared = DeckFadeProxy()
-	weak var player: AudioEnginePlayer?
-
-	@objc func tick() {
-		player?.fadeInStep()
+	func set(_ newValue: Bool) {
+		lock.lock(); value = newValue; lock.unlock()
 	}
 }

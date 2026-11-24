@@ -128,8 +128,9 @@ PODS:
     - ExpoModulesCore
   - ExpoAsset (58.0.21):
     - ExpoModulesCore
-  - ExpoBackgroundFetch (58.0.13):
+  - ExpoBackgroundTask (58.0.13):
     - ExpoModulesCore
+    - ExpoTaskManager
   - ExpoBlur (58.0.6):
     - ExpoModulesCore
   - ExpoCrypto (58.0.8):
@@ -204,6 +205,8 @@ PODS:
   - ExpoRouter (58.0.32):
     - ExpoModulesCore
     - RNScreens
+  - ExpoSecureStore (58.0.3):
+    - ExpoModulesCore
   - ExpoSplashScreen (58.0.14):
     - ExpoModulesCore
   - ExpoStatusBar (58.0.5):
@@ -1638,8 +1641,6 @@ PODS:
     - Yoga
   - react-native-carplay (2.4.1-beta.0):
     - React
-  - react-native-get-random-values (1.11.0):
-    - React-Core
   - react-native-safe-area-context (5.11.1):
     - hermes-engine
     - RCTRequired
@@ -2506,7 +2507,7 @@ DEPENDENCIES:
   - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
   - ExpoApplication (from `../node_modules/expo-application/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
-  - ExpoBackgroundFetch (from `../node_modules/expo-background-fetch/ios`)
+  - ExpoBackgroundTask (from `../node_modules/expo-background-task/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
@@ -2527,6 +2528,7 @@ DEPENDENCIES:
   - ExpoNetwork (from `../node_modules/expo-network/ios`)
   - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
+  - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoStatusBar (from `../node_modules/expo-status-bar/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
@@ -2584,7 +2586,6 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
   - react-native-carplay (from `../node_modules/react-native-carplay`)
-  - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2673,8 +2674,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-application/ios"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
-  ExpoBackgroundFetch:
-    :path: "../node_modules/expo-background-fetch/ios"
+  ExpoBackgroundTask:
+    :path: "../node_modules/expo-background-task/ios"
   ExpoBlur:
     :path: "../node_modules/expo-blur/ios"
   ExpoCrypto:
@@ -2715,6 +2716,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-notifications/ios"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
+  ExpoSecureStore:
+    :path: "../node_modules/expo-secure-store/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   ExpoStatusBar:
@@ -2828,8 +2831,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
   react-native-carplay:
     :path: "../node_modules/react-native-carplay"
-  react-native-get-random-values:
-    :path: "../node_modules/react-native-get-random-values"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -2942,7 +2943,7 @@ SPEC CHECKSUMS:
   expo-dev-menu-interface: a0ae020737b9f6de39689628181ffd572881cca9
   ExpoApplication: c83355b2f69f996b5d26b64fef39228e7f1e1208
   ExpoAsset: eda9e4844b55b78d4e71a0e2de767a038f3a0806
-  ExpoBackgroundFetch: 29c3eab5a31082b52a610844ead9e154022b55e4
+  ExpoBackgroundTask: 8ab6b111235fa6df99f07ea644ac4d19780005cb
   ExpoBlur: 66054b2033e8520e11c59e528bef3f2c9d78baf7
   ExpoCrypto: f9eb48ae9cda6a90357a693b44cc0bda89f6af4a
   ExpoDevice: 77a9816436a09a0bfc00f5ace649c6ccb219b96d
@@ -2963,6 +2964,7 @@ SPEC CHECKSUMS:
   ExpoNetwork: d6af33a2d31d3d48652b28ac3d67ac85b1cb04f4
   ExpoNotifications: fa890b1d743fd72ca15c52ac9f9f23c76860e228
   ExpoRouter: 01c92a99308a0ebb09fe41fddb2ecb180e78b52b
+  ExpoSecureStore: 76bccb307911bd866852e6161dda9b1e8e281b99
   ExpoSplashScreen: 5df81b55f086d8acc7a24008537514f5379aa6f9
   ExpoStatusBar: 38eff05a54229c9a388cb56cef29117b8dc77eb1
   ExpoSymbols: 43a42871f937948a752814aaf3b0f9f0957a71c6
@@ -2974,7 +2976,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 07cb4c5b92110c132f2bb73b908e87f35cbe0a19
   fmt: ba0886e864ebb21d14c98b2e12e164b8002f5b93
   glog: 3cf7cb46f743c4bc758ae3e6d9c15bd1b4cfd6d4
-  hermes-engine: 79484fc4e58f328d01b9339ef899ca633d3702ee
+  hermes-engine: 729327d75595e2d136cd5909db13080edec377f0
   ImageColors: 8cab7efc79a3abfe6d95f321ac686fcbfd152a9e
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
@@ -2992,7 +2994,7 @@ SPEC CHECKSUMS:
   React-bridging: 48b96b1b423710103381dd90478513fff84456c4
   React-callinvoker: 8eb02682e7fc3ddc0e25a8d96eb5733c367436e8
   React-Core: 4cce9d3d50bd1544f33379cde3ae22175f6a1bcb
-  React-Core-prebuilt: dbd0bf94bbe1a1714bd4e27bc4f1bf33c02bb7b3
+  React-Core-prebuilt: c11bddc3dfccfad06239f38b3126467a83a62c2c
   React-CoreModules: c96f14c068269b233fcabc8add64963132a371a2
   React-cxxreact: 2956b35d64e2e5594607d359df31454a999acbed
   React-cxxstableapi: 7019410c5d74d0a60cae97b5a636cd42017370a3
@@ -3023,7 +3025,6 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 0207d6133274a7cbfc3d0dae326e3055c8cfcf9e
   React-mutationobservernativemodule: b97a67c29f724d18a92379e7390f24350acb433a
   react-native-carplay: 8f388f6f73e5e0f73ed154ad8794371343ee20c0
-  react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
   react-native-safe-area-context: 56700b839169ce88ffcec68c40447916fe512462
   react-native-slider: 92596cf8c74eb17d7c7879a277a7a5488a3e06f2
   React-NativeModulesApple: 8cfb2f308f48c48068c96b932e7f0e4297c23342
@@ -3062,7 +3063,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 2dbb2d65f3a487b8a69449f5b1b12b44656d2204
   ReactCodegen: 3840312f5071bb6b953b35a029c5c6dcf06b435e
   ReactCommon: b63ce798b898ed77c6cfdeb80b18080161f52ed5
-  ReactNativeDependencies: a5164c3ebbe90d992022b5d9cbabbf770a6d7d05
+  ReactNativeDependencies: 6e91b29e6e351a9a657b1f5025f4eeb0bc9fe936
   RNCMaskedView: 89bb912716973f9715102cfe932f3ca6793b21f9
   RNGestureHandler: e19fcf39b0212e0eb8bc7ca1e645500eb492f6be
   RNReanimated: 3018727dbf272754d0f31ef73f619e49ade7baf0

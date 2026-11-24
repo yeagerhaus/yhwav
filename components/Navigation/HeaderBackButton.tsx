@@ -12,8 +12,8 @@ export function HeaderBackButton() {
 		if (router.canGoBack()) {
 			router.back();
 		} else {
-			// Fallback to home screen if there's no route behind
-			router.replace('/(tabs)/home');
+			// Nothing behind this screen: fall back to the library home.
+			router.replace('/(tabs)/(library)');
 		}
 	};
 

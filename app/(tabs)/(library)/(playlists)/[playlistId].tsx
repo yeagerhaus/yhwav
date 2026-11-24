@@ -12,7 +12,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useMusicDownloadsStore } from '@/hooks/useMusicDownloadsStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
-import { usePlaylistEditor } from '@/hooks/usePlaylistEditor';
+import { PlaylistSaveError, usePlaylistEditor } from '@/hooks/usePlaylistEditor';
 import { usePlaylists } from '@/hooks/usePlaylists';
 import type { Playlist } from '@/types/playlist';
 import type { Song } from '@/types/song';
@@ -130,8 +130,13 @@ export default function DetailScreen() {
 			await updatePlaylistMetadata(playlist.ratingKey, { title: editTitle });
 		}
 
-		const freshTracks = await editor.save();
-		setSongs(freshTracks);
+		try {
+			const freshTracks = await editor.save();
+			setSongs(freshTracks);
+		} catch (error) {
+			if (error instanceof PlaylistSaveError && error.freshTracks) setSongs(error.freshTracks);
+			Alert.alert('Couldn’t save all changes', 'The playlist now shows what was saved on the server.');
+		}
 		await refreshPlaylists();
 	}, [editor, editTitle, playlist, refreshPlaylists]);
 

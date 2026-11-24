@@ -92,7 +92,20 @@ final class StreamingAudioSource: NSObject {
 	private var streamID: AudioFileStreamID?
 	private var converter: AudioConverterRef?
 	private var dataFormat: AVAudioFormat?
-	private var packets: [(Data, AudioStreamPacketDescription?)] = []
+	/// Parsed packets are spilled to a temp file as they arrive; only this small index stays in memory
+	/// (previously every compressed packet was retained as `Data` for the whole track, which for long
+	/// hi-res files meant hundreds of MB of RAM).
+	private struct PacketEntry {
+		let offset: UInt64
+		let size: UInt32
+		let desc: AudioStreamPacketDescription?
+	}
+	private var packets: [PacketEntry] = []
+	private let spillURL: URL
+	private var spillWriter: FileHandle?
+	private var spillReader: FileHandle?
+	private var spillLength: UInt64 = 0
+	private var scratchCapacity = 0
 	private var currentPacket: Int = 0
 	private var totalPacketCount: UInt64 = 0
 	private var parsingComplete = false
@@ -114,6 +127,8 @@ final class StreamingAudioSource: NSObject {
 	private var resumeAttempts = 0
 	private let maxResumeAttempts = 8
 	private var cancelled = false
+	/// The server answered with an unusable HTTP status; don't try to range-resume.
+	private var httpRejected = false
 
 	// Cache persistence
 	private let persistURL: URL
@@ -130,7 +145,16 @@ final class StreamingAudioSource: NSObject {
 		// fail with kAudioFileInvalidFileError (1685348671) when the cached file is reopened on replay.
 		let sourceExt = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
 		self.persistURL = cacheDir.appendingPathComponent("stream-\(trackId).\(sourceExt)")
+		self.spillURL = cacheDir.appendingPathComponent("spill-\(trackId)-\(UUID().uuidString).pkt")
 		super.init()
+
+		FileManager.default.createFile(atPath: spillURL.path, contents: nil)
+		guard let writer = try? FileHandle(forWritingTo: spillURL), let reader = try? FileHandle(forReadingFrom: spillURL) else {
+			try? FileManager.default.removeItem(at: spillURL)
+			return nil
+		}
+		spillWriter = writer
+		spillReader = reader
 
 		let context = Unmanaged.passUnretained(self).toOpaque()
 		// Hint 0 = auto-detect. Originals may be MP3/FLAC/ALAC/AAC, not just MP3.
@@ -202,6 +226,11 @@ final class StreamingAudioSource: NSObject {
 		}
 		try? persistHandle?.close()
 		persistHandle = nil
+		try? spillWriter?.close()
+		try? spillReader?.close()
+		spillWriter = nil
+		spillReader = nil
+		try? FileManager.default.removeItem(at: spillURL)
 		stateLock.unlock()
 	}
 
@@ -240,24 +269,42 @@ final class StreamingAudioSource: NSObject {
 	fileprivate func appendPackets(count: Int, data: UnsafeRawPointer, descriptions: UnsafeMutablePointer<AudioStreamPacketDescription>?) {
 		guard count > 0 else { return }
 		stateLock.lock()
+		defer { stateLock.unlock() }
+		guard let writer = spillWriter else { return }
 		let format = dataFormat?.streamDescription.pointee
+
+		// One write per parser callback: concatenate this batch of packets and index each one.
+		var chunk = Data()
+		var entries: [PacketEntry] = []
+		entries.reserveCapacity(count)
+		let base = spillLength
+		let bytes = data.assumingMemoryBound(to: UInt8.self)
 		if let descriptions = descriptions {
 			for i in 0..<count {
 				let desc = descriptions[i]
 				let start = Int(desc.mStartOffset)
 				let size = Int(desc.mDataByteSize)
-				let packet = Data(bytes: data.advanced(by: start), count: size)
-				packets.append((packet, desc))
+				entries.append(PacketEntry(offset: base + UInt64(chunk.count), size: UInt32(size), desc: desc))
+				chunk.append(bytes.advanced(by: start), count: size)
 			}
 		} else if let format = format, format.mBytesPerPacket > 0 {
 			let bytesPerPacket = Int(format.mBytesPerPacket)
 			for i in 0..<count {
-				let start = i * bytesPerPacket
-				let packet = Data(bytes: data.advanced(by: start), count: bytesPerPacket)
-				packets.append((packet, nil))
+				entries.append(PacketEntry(offset: base + UInt64(chunk.count), size: UInt32(bytesPerPacket), desc: nil))
+				chunk.append(bytes.advanced(by: i * bytesPerPacket), count: bytesPerPacket)
 			}
 		}
-		stateLock.unlock()
+		guard !chunk.isEmpty else { return }
+
+		do {
+			try writer.write(contentsOf: chunk)
+			spillLength += UInt64(chunk.count)
+			packets.append(contentsOf: entries)
+		} catch {
+			if _error == nil {
+				_error = NSError(domain: "StreamingAudioSource", code: -3, userInfo: [NSLocalizedDescriptionKey: "Failed to buffer stream to disk: \(error.localizedDescription)"])
+			}
+		}
 	}
 
 	// MARK: - Converter input callback
@@ -280,13 +327,27 @@ final class StreamingAudioSource: NSObject {
 			return parsingComplete ? kYhwavReaderReachedEndOfData : kYhwavReaderNotEnoughData
 		}
 
-		let (packetData, desc) = packets[currentPacket]
-		let byteCount = packetData.count
+		let entry = packets[currentPacket]
+		let desc = entry.desc
+		let byteCount = Int(entry.size)
 
-		if let sc = scratch { sc.deallocate() }
-		let raw = UnsafeMutableRawPointer.allocate(byteCount: max(1, byteCount), alignment: 1)
+		guard let reader = spillReader,
+			  (try? reader.seek(toOffset: entry.offset)) != nil,
+			  let packetData = try? reader.read(upToCount: byteCount),
+			  packetData.count == byteCount
+		else {
+			ioNumberDataPackets.pointee = 0
+			return kYhwavReaderNotEnoughData
+		}
+
+		// Reuse one scratch buffer (grown as needed); the converter only reads it during this fill.
+		if scratch == nil || scratchCapacity < byteCount {
+			scratch?.deallocate()
+			scratchCapacity = max(byteCount, 16 * 1024)
+			scratch = UnsafeMutableRawPointer.allocate(byteCount: scratchCapacity, alignment: 16)
+		}
+		let raw = scratch!
 		packetData.copyBytes(to: raw.assumingMemoryBound(to: UInt8.self), count: byteCount)
-		scratch = raw
 
 		ioData.pointee.mNumberBuffers = 1
 		ioData.pointee.mBuffers.mData = raw
@@ -322,10 +383,6 @@ final class StreamingAudioSource: NSObject {
 		let context = Unmanaged.passUnretained(self).toOpaque()
 		let status = AudioConverterFillComplexBuffer(converter, yhwavReaderConverterCallback, context, &packetCount, buffer.mutableAudioBufferList, nil)
 
-		stateLock.lock()
-		if let sc = scratch { sc.deallocate(); scratch = nil }
-		stateLock.unlock()
-
 		switch status {
 		case noErr:
 			if packetCount == 0 { return .waiting }
@@ -349,7 +406,9 @@ final class StreamingAudioSource: NSObject {
 		let frame = max(0, time * sr)
 		let packet = Int(frame / Double(framesPerPacket))
 		stateLock.lock()
-		currentPacket = min(max(0, packet), max(0, packets.count))
+		// May point past what's downloaded so far: `read` then reports `.waiting` until the download
+		// reaches the target, instead of silently resuming from the download edge.
+		currentPacket = max(0, packet)
 		stateLock.unlock()
 	}
 
@@ -413,6 +472,24 @@ final class StreamingAudioSource: NSObject {
 extension StreamingAudioSource: URLSessionDataDelegate {
 	func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
 		if let http = response as? HTTPURLResponse {
+			let isResume = bytesReceived > 0
+			// A resume must come back as 206 Partial Content; a 200 means the server ignored the Range
+			// header and is resending from byte 0, which would duplicate audio in the parser.
+			let acceptable = isResume ? http.statusCode == 206 : (200..<300).contains(http.statusCode)
+			if !acceptable {
+				httpRejected = true
+				stateLock.lock()
+				if _error == nil {
+					_error = NSError(domain: "StreamingAudioSource", code: http.statusCode, userInfo: [
+						NSLocalizedDescriptionKey: isResume
+							? "Server did not honor range resume (HTTP \(http.statusCode))"
+							: "Stream request failed with HTTP \(http.statusCode)",
+					])
+				}
+				stateLock.unlock()
+				completionHandler(.cancel)
+				return
+			}
 			// Only the initial 200 carries the full length. A 206 (range resume) reports the remaining
 			// bytes, so never overwrite the total once known.
 			if contentLength == 0, http.statusCode == 200, response.expectedContentLength > 0 {
@@ -449,7 +526,7 @@ extension StreamingAudioSource: URLSessionDataDelegate {
 		// HTTP Range request from the last byte we got. Keep the stream "alive" (no _error, no
 		// parsingComplete) so the reader waits on buffered audio instead of ending the track.
 		let incomplete = contentLength > 0 && bytesReceived < contentLength
-		if !cancelled, error != nil, incomplete, resumeAttempts < maxResumeAttempts {
+		if !cancelled, !httpRejected, error != nil, incomplete, resumeAttempts < maxResumeAttempts {
 			resumeAttempts += 1
 			startTask(rangeFrom: bytesReceived)
 			return
