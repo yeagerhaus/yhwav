@@ -113,9 +113,12 @@ export function useScrubber(): Scrubber {
 		(event: LayoutChangeEvent) => {
 			const layout = event.nativeEvent.layout;
 			containerWidth.value = layout.width;
-			event.target.measure((_x, _y, _width, _height, pageX) => {
-				containerX.value = pageX;
-			});
+			const target = event.target;
+			if (target && typeof target !== 'number') {
+				target.measure((_x, _y, _width, _height, pageX) => {
+					containerX.value = pageX;
+				});
+			}
 		},
 		[containerWidth, containerX],
 	);

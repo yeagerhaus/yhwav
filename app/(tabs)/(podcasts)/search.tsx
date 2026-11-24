@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, StyleSheet, TextInput, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Div, Text } from '@/components';
 import { useColors } from '@/hooks/useColors';
@@ -20,7 +20,7 @@ export default function PodcastSearchScreen() {
 	const [searched, setSearched] = useState(false);
 	const [addingId, setAddingId] = useState<number | null>(null);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const inputRef = useRef<TextInput>(null);
+	const inputRef = useRef<TextInputInstance>(null);
 
 	const { addFeed, feeds } = usePodcastStore();
 

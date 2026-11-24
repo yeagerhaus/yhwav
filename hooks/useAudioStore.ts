@@ -1,5 +1,4 @@
 import React from 'react';
-import { InteractionManager } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { create } from 'zustand';
 import { getStreamingPlaybackBitrateKbps } from '@/hooks/usePlaybackSettingsStore';
@@ -542,7 +541,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 			// Defer native queue load until after transitions/animations so a quick "open album" tap
 			// does not reset() a restore that already started a download (avoids spurious "cancelled").
 			await new Promise<void>((resolve) => {
-				InteractionManager.runAfterInteractions(() => resolve());
+				requestIdleCallback(() => resolve(), { timeout: 1000 });
 			});
 
 			// Reset native player before loading — prevents stale queue from a previous

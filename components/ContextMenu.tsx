@@ -1,6 +1,6 @@
 import { type SFSymbol, SymbolView } from 'expo-symbols';
 import React, { type ReactNode } from 'react';
-import { Modal, Pressable, type StyleProp, TouchableOpacity, type View, type ViewStyle } from 'react-native';
+import { type HostInstance, Modal, Pressable, type StyleProp, TouchableOpacity, type ViewStyle } from 'react-native';
 import { Text } from '@/components/Text';
 import { DefaultStyles } from '@/constants/styles';
 import { useColors, useThemedStyles } from '@/hooks/useColors';
@@ -25,7 +25,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, children, style
 	const themed = useThemedStyles();
 	const [visible, setVisible] = React.useState(false);
 	const [position, setPosition] = React.useState({ x: 0, y: 0 });
-	const triggerRef = React.useRef<View>(null);
+	const triggerRef = React.useRef<HostInstance>(null);
 
 	const handlePress = () => {
 		if (triggerRef.current) {
