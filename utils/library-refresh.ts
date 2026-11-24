@@ -1,4 +1,3 @@
-import { InteractionManager } from 'react-native';
 import { useLibraryStore } from '@/hooks/useLibraryStore';
 import { useOfflineModeStore } from '@/hooks/useOfflineModeStore';
 import { saveLibraryToCache } from '@/utils/cache';
@@ -46,7 +45,7 @@ async function doRefresh() {
 
 	lastRefreshedAt = Date.now();
 
-	InteractionManager.runAfterInteractions(() => {
+	requestIdleCallback(() => {
 		saveLibraryToCache();
 	});
 }
